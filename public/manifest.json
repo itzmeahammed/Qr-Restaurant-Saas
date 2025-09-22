@@ -1,0 +1,23 @@
+{
+  "name": "QR Restaurant SaaS",
+  "short_name": "QR Restaurant",
+  "description": "Complete QR ordering solution for modern restaurants",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f97316",
+  "theme_color": "#f97316",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["food", "business", "productivity"]
+}
