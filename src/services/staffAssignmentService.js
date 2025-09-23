@@ -306,7 +306,7 @@ class StaffAssignmentService {
         .from('orders')
         .select(`
           *,
-          restaurant_tables(table_number)
+          tables(table_number)
         `)
         .eq('id', orderId)
         .single()
@@ -318,8 +318,8 @@ class StaffAssignmentService {
           recipient_id: staffId,
           type: 'order_assigned',
           title: 'New Order Assigned',
-          message: `You have been assigned order #${order.order_number} for Table ${order.restaurant_tables?.table_number}`,
-          data: { orderId, tableNumber: order.restaurant_tables?.table_number }
+          message: `You have been assigned order #${order.order_number} for Table ${order.tables?.table_number}`,
+          data: { orderId, tableNumber: order.tables?.table_number }
         })
 
       // Send real-time notification via WebSocket

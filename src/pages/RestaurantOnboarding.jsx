@@ -20,6 +20,7 @@ import {
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
+import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
 
 const RestaurantOnboarding = () => {
   const navigate = useNavigate()
@@ -211,6 +212,7 @@ const RestaurantOnboarding = () => {
   })
   
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ logo: 0, banner: 0 })
 
   const cuisineTypes = [
     'Indian', 'Chinese', 'Italian', 'Mexican', 'Thai', 'Japanese',
@@ -288,16 +290,80 @@ const RestaurantOnboarding = () => {
     const uploadedUrls = { logo_url: '', banner_url: '' }
     
     try {
-      // For now, skip image upload since storage permissions are not configured
-      // Images can be added later through restaurant settings
-      console.log('Skipping image upload - storage will be configured later')
-      toast.info('Images will be added later through restaurant settings')
+      // Note: Bucket should be created manually in Supabase dashboard
+      // Regular users cannot create buckets due to RLS policies
+      
+      const uploadPromises = []
+      
+      // Upload logo if exists
+      if (imageFiles.logo) {
+        const logoPromise = (async () => {
+          try {
+            // Compress image before upload
+            const compressedLogo = await compressImage(imageFiles.logo, 400, 400, 0.8)
+            
+            // Upload to storage
+            const result = await uploadImageToStorage(
+              compressedLogo,
+              'restaurant-images',
+              `restaurants/${user.id}/logos`,
+              `logo_${Date.now()}.${imageFiles.logo.name.split('.').pop()}`
+            )
+            
+            uploadedUrls.logo_url = result.url
+            toast.success('Logo uploaded successfully!')
+          } catch (error) {
+            console.error('Logo upload failed:', error)
+            toast.error(`Logo upload failed: ${error.message}`)
+            throw error
+          }
+        })()
+        
+        uploadPromises.push(logoPromise)
+      }
+      
+      // Upload banner if exists
+      if (imageFiles.banner) {
+        const bannerPromise = (async () => {
+          try {
+            // Compress image before upload
+            const compressedBanner = await compressImage(imageFiles.banner, 1200, 400, 0.8)
+            
+            // Upload to storage
+            const result = await uploadImageToStorage(
+              compressedBanner,
+              'restaurant-images',
+              `restaurants/${user.id}/banners`,
+              `banner_${Date.now()}.${imageFiles.banner.name.split('.').pop()}`
+            )
+            
+            uploadedUrls.banner_url = result.url
+            toast.success('Banner uploaded successfully!')
+          } catch (error) {
+            console.error('Banner upload failed:', error)
+            toast.error(`Banner upload failed: ${error.message}`)
+            throw error
+          }
+        })()
+        
+        uploadPromises.push(bannerPromise)
+      }
+      
+      // Wait for all uploads to complete
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises)
+        toast.success('All images uploaded successfully!')
+      } else {
+        toast.info('No images to upload')
+      }
       
       return uploadedUrls
     } catch (error) {
       console.error('Error uploading images:', error)
-      toast.error('Failed to upload images. Continuing without images.')
-      return { logo_url: '', banner_url: '' }
+      toast.error(`Failed to upload images: ${error.message}`)
+      
+      // Return partial results if some uploads succeeded
+      return uploadedUrls
     } finally {
       setUploadingImages(false)
     }
@@ -338,16 +404,19 @@ const RestaurantOnboarding = () => {
 
     setLoading(true)
     try {
-      // Try to upload images, but continue even if it fails
+      // Upload images if any are selected
       let uploadedUrls = { logo_url: '', banner_url: '' }
       
-      try {
-        uploadedUrls = await uploadImages()
-        toast.success('Images uploaded successfully!')
-      } catch (uploadError) {
-        console.warn('Image upload failed, proceeding without images:', uploadError)
-        toast.error('Image upload failed, but continuing with restaurant setup...')
-        // Continue without images - they can be added later
+      if (imageFiles.logo || imageFiles.banner) {
+        try {
+          uploadedUrls = await uploadImages()
+        } catch (uploadError) {
+          console.warn('Image upload failed, proceeding without images:', uploadError)
+          toast.error('Some images failed to upload, but continuing with restaurant setup...')
+          // Continue with whatever images were successfully uploaded
+        }
+      } else {
+        toast.info('No images selected - you can add them later in restaurant settings')
       }
       
       // Create restaurant with or without image URLs
@@ -395,7 +464,12 @@ const RestaurantOnboarding = () => {
       await fetchProfile(user.id)
 
       toast.success('Restaurant setup completed successfully!')
-      navigate('/dashboard')
+      
+      // Small delay to ensure data is properly saved, then force refresh
+      setTimeout(() => {
+        console.log('🔄 Navigating to dashboard...')
+        window.location.href = '/dashboard' // Force full page refresh
+      }, 1500)
     } catch (error) {
       console.error('Error creating restaurant:', error)
       toast.error(error.message || 'Failed to create restaurant')
@@ -536,14 +610,17 @@ const RestaurantOnboarding = () => {
             <div className="text-center mb-6">
               <PhotoIcon className="w-12 h-12 text-orange-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600">
-                Upload your restaurant logo and banner image for verification
+                Upload your restaurant logo and banner image (optional)
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Images will be stored securely in Supabase Storage
               </p>
             </div>
             
             {/* Logo Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Restaurant Logo *
+                Restaurant Logo (Optional)
               </label>
               <div
                 className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-all duration-300 ${
@@ -601,7 +678,7 @@ const RestaurantOnboarding = () => {
             {/* Banner Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Restaurant Banner *
+                Restaurant Banner (Optional)
               </label>
               <div
                 className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-all duration-300 ${
@@ -656,13 +733,32 @@ const RestaurantOnboarding = () => {
               </div>
             </div>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            {/* Upload Progress Indicator */}
+            {uploadingImages && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <motion.div
+                    className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-blue-800">Uploading Images...</h4>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Please wait while we securely upload your images to Supabase Storage.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-start space-x-2">
-                <ExclamationTriangleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
+                <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-medium text-blue-800">Verification Required</h4>
-                  <p className="text-xs text-blue-700 mt-1">
-                    These images will be used to verify your restaurant identity. Please ensure they clearly show your restaurant name and branding.
+                  <h4 className="text-sm font-medium text-green-800">Secure Storage</h4>
+                  <p className="text-xs text-green-700 mt-1">
+                    Images are uploaded to Supabase Storage with proper compression and security. You can add or update images later in restaurant settings.
                   </p>
                 </div>
               </div>
@@ -759,8 +855,8 @@ const RestaurantOnboarding = () => {
                 <p><strong>Cuisine:</strong> {formData.cuisine_type}</p>
                 <p><strong>Address:</strong> {formData.address}</p>
                 <p><strong>Phone:</strong> {formData.phone}</p>
-                <p><strong>Logo:</strong> {imageFiles.logo ? '✅ Uploaded' : '❌ Missing'}</p>
-                <p><strong>Banner:</strong> {imageFiles.banner ? '✅ Uploaded' : '❌ Missing'}</p>
+                <p><strong>Logo:</strong> {imageFiles.logo ? '✅ Ready to upload' : '⚪ Not selected'}</p>
+                <p><strong>Banner:</strong> {imageFiles.banner ? '✅ Ready to upload' : '⚪ Not selected'}</p>
               </div>
             </div>
           </motion.div>

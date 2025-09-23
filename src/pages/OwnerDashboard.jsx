@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -35,6 +35,7 @@ import {
   Cell
 } from 'recharts'
 import { supabase } from '../config/supabase'
+import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
 import OverviewTab from '../components/dashboard/OverviewTab'
@@ -70,8 +71,13 @@ const OwnerDashboard = () => {
     address: '',
     phone: '',
     email: '',
-    cuisine_type: ''
+    cuisine_type: '',
+    logo_url: '',
+    banner_url: ''
   })
+  const [imageFiles, setImageFiles] = useState({ logo: null, banner: null })
+  const [imagePreview, setImagePreview] = useState({ logo: null, banner: null })
+  const [uploadingImages, setUploadingImages] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [restaurant, setRestaurant] = useState(null)
   const [stats, setStats] = useState({
@@ -113,12 +119,18 @@ const OwnerDashboard = () => {
       return
     }
     
+    // Prevent multiple calls if restaurant is already loaded
+    if (restaurant) {
+      console.log('Restaurant already loaded, skipping setup check')
+      return
+    }
+    
     // Database is now set up - using real API calls
     
     // User is available, proceed with restaurant setup check
     console.log('User available, checking restaurant setup')
     checkRestaurantSetup()
-  }, [authLoading, user, profile, navigate])
+  }, [authLoading, user, navigate]) // Removed profile and restaurant from dependencies to prevent multiple calls
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -362,10 +374,13 @@ const OwnerDashboard = () => {
         }
       })
       
-      if (successCount > 0) {
-        toast.success(`Dashboard loaded! (${successCount}/${promises.length} data sources)`)
-      } else {
-        toast.error('Failed to load any dashboard data. Please check your connection.')
+      // Only show success toast once, not for every data fetch
+      if (successCount > 0 && !restaurant?.dataLoaded) {
+        toast.success(`Dashboard loaded successfully!`)
+        // Mark as loaded to prevent multiple toasts
+        setRestaurant(prev => ({ ...prev, dataLoaded: true }))
+      } else if (successCount === 0) {
+        toast.error('Failed to load dashboard data. Please check your connection.')
       }
       
     } catch (error) {
@@ -581,13 +596,34 @@ const OwnerDashboard = () => {
       
       const { data, error } = await supabase
         .from('staff')
-        .select('*, users(*)')
+        .select(`
+          *,
+          users:user_id (
+            full_name,
+            email,
+            phone
+          )
+        `)
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Staff query error:', error)
-        setStaff([])
+        // If the users join fails, try without it
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('staff')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+          .order('created_at', { ascending: false })
+        
+        if (fallbackError) {
+          console.error('Fallback staff query error:', fallbackError)
+          setStaff([])
+          return
+        }
+        
+        console.log('Staff fetched (fallback):', fallbackData?.length || 0)
+        setStaff(fallbackData || [])
         return
       }
 
@@ -911,13 +947,89 @@ const OwnerDashboard = () => {
     }
   }
 
+  // Handle image upload for restaurant settings
+  const handleImageUpload = useCallback((type, file) => {
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB')
+      return
+    }
+
+    setImageFiles(prev => ({ ...prev, [type]: file }))
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(prev => ({ ...prev, [type]: e.target.result }))
+    }
+    reader.readAsDataURL(file)
+  }, [])
+
   const handleUpdateRestaurant = async () => {
     try {
+      setUploadingImages(true)
       console.log('Updating restaurant:', restaurantData)
+      
+      let updatedData = { ...restaurantData }
+      
+      // Upload new images if any
+      if (imageFiles.logo || imageFiles.banner) {
+        const uploadPromises = []
+        
+        if (imageFiles.logo) {
+          const logoPromise = (async () => {
+            try {
+              const compressedLogo = await compressImage(imageFiles.logo, 400, 400, 0.8)
+              const result = await uploadImageToStorage(
+                compressedLogo,
+                'restaurant-images',
+                `restaurants/${user.id}/logos`,
+                `logo_${Date.now()}.${imageFiles.logo.name.split('.').pop()}`
+              )
+              updatedData.logo_url = result.url
+              toast.success('Logo updated successfully!')
+            } catch (error) {
+              console.error('Logo upload failed:', error)
+              toast.error(`Logo upload failed: ${error.message}`)
+            }
+          })()
+          uploadPromises.push(logoPromise)
+        }
+        
+        if (imageFiles.banner) {
+          const bannerPromise = (async () => {
+            try {
+              const compressedBanner = await compressImage(imageFiles.banner, 1200, 400, 0.8)
+              const result = await uploadImageToStorage(
+                compressedBanner,
+                'restaurant-images',
+                `restaurants/${user.id}/banners`,
+                `banner_${Date.now()}.${imageFiles.banner.name.split('.').pop()}`
+              )
+              updatedData.banner_url = result.url
+              toast.success('Banner updated successfully!')
+            } catch (error) {
+              console.error('Banner upload failed:', error)
+              toast.error(`Banner upload failed: ${error.message}`)
+            }
+          })()
+          uploadPromises.push(bannerPromise)
+        }
+        
+        await Promise.all(uploadPromises)
+      }
       
       const { data, error } = await supabase
         .from('restaurants')
-        .update(restaurantData)
+        .update(updatedData)
         .eq('id', restaurant.id)
         .select('*')
         .single()
@@ -926,10 +1038,14 @@ const OwnerDashboard = () => {
       
       setRestaurant(data)
       setShowRestaurantSettings(false)
+      setImageFiles({ logo: null, banner: null })
+      setImagePreview({ logo: null, banner: null })
       toast.success('Restaurant settings updated successfully!')
     } catch (error) {
       console.error('Error updating restaurant:', error)
       toast.error('Failed to update restaurant: ' + error.message)
+    } finally {
+      setUploadingImages(false)
     }
   }
 
@@ -999,49 +1115,89 @@ const OwnerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 md:h-20">
-            {/* Left side - Logo and Restaurant Info */}
-            <div className="flex items-center space-x-4">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-xl backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
+            {/* Left side - Restaurant Logo and Info */}
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                  <QrCodeIcon className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
+                {restaurant?.logo_url ? (
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-xl shadow-lg overflow-hidden ring-2 ring-white/20">
+                    <img 
+                      src={restaurant.logo_url} 
+                      alt={`${restaurant.name} logo`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                        e.target.nextSibling.style.display = 'flex'
+                      }}
+                    />
+                    <div className="w-full h-full bg-white rounded-xl flex items-center justify-center" style={{display: 'none'}}>
+                      <QrCodeIcon className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                    <QrCodeIcon className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="hidden sm:block">
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate">
+                    {restaurant?.name || 'Restaurant Dashboard'}
+                  </h1>
+                  <p className="text-orange-100 text-xs sm:text-sm md:text-base font-medium">
+                    {restaurant?.cuisine_type || 'Manage your restaurant operations'}
+                  </p>
                 </div>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl md:text-2xl font-bold text-white">
-                  {restaurant?.name || 'Restaurant Dashboard'}
-                </h1>
-                <p className="text-orange-100 text-sm md:text-base">
-                  {restaurant?.address || 'Manage your restaurant operations'}
-                </p>
-              </div>
-              <div className="sm:hidden">
-                <h1 className="text-lg font-bold text-white">
-                  {restaurant?.name?.split(' ')[0] || 'Dashboard'}
-                </h1>
+                <div className="sm:hidden">
+                  <h1 className="text-base font-bold text-white truncate">
+                    {restaurant?.name?.length > 15 ? restaurant?.name?.substring(0, 15) + '...' : restaurant?.name || 'Dashboard'}
+                  </h1>
+                  <p className="text-orange-100 text-xs font-medium">
+                    {restaurant?.cuisine_type || 'Dashboard'}
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Right side - Actions and Profile */}
-            <div className="flex items-center space-x-2 md:space-x-4">
-              {/* Quick Actions - Hidden on mobile */}
-              <div className="hidden lg:flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
+              {/* Quick Actions - Responsive */}
+              <div className="hidden md:flex items-center space-x-2">
                 <button 
                   onClick={() => setActiveTab('tables')}
-                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors backdrop-blur-sm"
+                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
                 >
                   <QrCodeIcon className="h-4 w-4 mr-2" />
-                  QR Codes
+                  <span className="hidden lg:inline">QR Codes</span>
+                  <span className="lg:hidden">QR</span>
                 </button>
                 <button 
                   onClick={() => setActiveTab('menu')}
-                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors backdrop-blur-sm"
+                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Item
+                  <span className="hidden lg:inline">Add Item</span>
+                  <span className="lg:hidden">Add</span>
+                </button>
+              </div>
+              
+              {/* Mobile Quick Actions */}
+              <div className="md:hidden flex items-center space-x-1">
+                <button 
+                  onClick={() => setActiveTab('tables')}
+                  className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
+                >
+                  <QrCodeIcon className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => setActiveTab('menu')}
+                  className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
+                >
+                  <PlusIcon className="h-4 w-4" />
                 </button>
               </div>
 
@@ -1049,12 +1205,12 @@ const OwnerDashboard = () => {
               <div className="relative notifications-dropdown">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   <BellIcon className="h-5 w-5 md:h-6 md:w-6" />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-yellow-400 text-xs font-bold text-orange-900 rounded-full flex items-center justify-center">
-                      {notifications.length}
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-yellow-400 text-xs font-bold text-orange-900 rounded-full flex items-center justify-center animate-pulse">
+                      {notifications.length > 9 ? '9+' : notifications.length}
                     </span>
                   )}
                 </button>
@@ -1106,33 +1262,34 @@ const OwnerDashboard = () => {
                 )}
               </div>
 
-              {/* Profile Dropdown */}
+              {/* Enhanced Profile Dropdown */}
               <div className="relative profile-dropdown">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center space-x-2 md:space-x-3 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 sm:space-x-3 p-1.5 sm:p-2 text-white hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
                 >
-                  <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center ring-2 ring-white/20 shadow-lg">
                     <UserCircleIcon className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />
                   </div>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium text-white">
+                  <div className="hidden sm:block text-left min-w-0">
+                    <p className="text-sm font-medium text-white truncate max-w-24 md:max-w-none">
                       {profile?.full_name || user?.email?.split('@')[0] || 'Owner'}
                     </p>
-                    <p className="text-xs text-orange-100">
-                      {user?.user_metadata?.role === 'super_admin' ? 'Super Admin' : 'Restaurant Owner'}
+                    <p className="text-xs text-orange-100 truncate">
+                      {user?.user_metadata?.role === 'super_admin' ? 'Super Admin' : 'Owner'}
                     </p>
                   </div>
-                  <ChevronDownIcon className="h-4 w-4 text-white" />
+                  <ChevronDownIcon className={`h-4 w-4 text-white transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Profile Dropdown Menu */}
+                {/* Enhanced Profile Dropdown Menu */}
                 {showProfileMenu && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-neutral-200 py-2 z-50"
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-neutral-200 py-2 z-50 backdrop-blur-sm"
                   >
                     <div className="px-4 py-2 border-b border-neutral-200">
                       <p className="text-sm font-medium text-neutral-900">
@@ -1168,10 +1325,12 @@ const OwnerDashboard = () => {
                           address: restaurant?.address || '',
                           phone: restaurant?.phone || '',
                           email: restaurant?.email || '',
-                          cuisine_type: restaurant?.cuisine_type || ''
+                          cuisine_type: restaurant?.cuisine_type || '',
+                          logo_url: restaurant?.logo_url || '',
+                          banner_url: restaurant?.banner_url || ''
                         })
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 flex items-center"
+                      className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 flex items-center transition-colors duration-150"
                     >
                       <Cog6ToothIcon className="h-4 w-4 mr-3" />
                       Restaurant Settings
@@ -1202,57 +1361,41 @@ const OwnerDashboard = () => {
         </div>
       </div>
 
-      {/* Mobile Quick Actions Bar */}
-      <div className="lg:hidden bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="flex space-x-2 overflow-x-auto">
-          <button 
-            onClick={() => setActiveTab('tables')}
-            className="flex items-center px-3 py-2 bg-orange-100 text-orange-600 rounded-lg whitespace-nowrap text-sm font-medium"
-          >
-            <QrCodeIcon className="h-4 w-4 mr-2" />
-            QR Codes
-          </button>
-          <button 
-            onClick={() => setActiveTab('menu')}
-            className="flex items-center px-3 py-2 bg-orange-100 text-orange-600 rounded-lg whitespace-nowrap text-sm font-medium"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Item
-          </button>
-          <button 
-            onClick={() => setActiveTab('staff')}
-            className="flex items-center px-3 py-2 bg-orange-100 text-orange-600 rounded-lg whitespace-nowrap text-sm font-medium"
-          >
-            <UsersIcon className="h-4 w-4 mr-2" />
-            Staff
-          </button>
-          <button 
-            onClick={() => setActiveTab('analytics')}
-            className="flex items-center px-3 py-2 bg-orange-100 text-orange-600 rounded-lg whitespace-nowrap text-sm font-medium"
-          >
-            <ChartBarIcon className="h-4 w-4 mr-2" />
-            Analytics
-          </button>
-        </div>
-      </div>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        {/* Navigation Tabs */}
-        <div className="flex space-x-1 bg-white p-1 rounded-xl mb-6 md:mb-8 shadow-sm border border-neutral-200 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md transform scale-105'
-                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-              }`}
-            >
-              <tab.icon className="h-4 w-4 md:h-5 md:w-5" />
-              <span className="text-sm md:text-base">{tab.name}</span>
-            </button>
-          ))}
+        <style jsx>{`
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+          .hover\\:scale-102:hover {
+            transform: scale(1.02);
+          }
+        `}</style>
+        {/* Desktop Tab Navigation */}
+        <div className="hidden md:block mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-1">
+            <div className="flex gap-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                      : 'text-neutral-600 hover:text-orange-600 hover:bg-orange-50'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span className="text-sm">{tab.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Tab Content */}
@@ -1284,6 +1427,7 @@ const OwnerDashboard = () => {
 
         {activeTab === 'tables' && (
           <TablesTab 
+            restaurant={restaurant}
             tables={tables}
             onAddTable={handleAddTable}
             onUpdateTable={handleUpdateTable}
@@ -1316,16 +1460,16 @@ const OwnerDashboard = () => {
       
       {/* Profile Settings Modal */}
       {showProfileSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl max-w-md w-full my-4 sm:my-0 max-h-[80vh]"
           >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Profile Settings</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Profile Settings</h2>
                 <button
                   onClick={() => setShowProfileSettings(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1333,38 +1477,26 @@ const OwnerDashboard = () => {
                   <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={profileData.full_name}
+                  onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Enter your full name"
+                />
+              </div>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.full_name}
-                    onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={profileData.email}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                    placeholder="Email cannot be changed"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone
-                  </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone
+                </label>
                   <input
                     type="tel"
                     value={profileData.phone}
@@ -1374,29 +1506,19 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.role === 'super_admin' ? 'Super Admin' : 'Restaurant Owner'}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex space-x-3 mt-6">
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex space-x-3">
                 <button
                   onClick={() => setShowProfileSettings(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateProfile}
-                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors font-medium"
                 >
                   Save Changes
                 </button>
@@ -1408,16 +1530,16 @@ const OwnerDashboard = () => {
       
       {/* Restaurant Settings Modal */}
       {showRestaurantSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl max-w-lg w-full my-4 sm:my-0 max-h-[80vh]"
           >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Restaurant Settings</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Restaurant Settings</h2>
                 <button
                   onClick={() => setShowRestaurantSettings(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1425,109 +1547,70 @@ const OwnerDashboard = () => {
                   <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Restaurant Name
-                  </label>
-                  <input
-                    type="text"
-                    value={restaurantData.name}
-                    onChange={(e) => setRestaurantData({ ...restaurantData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Enter restaurant name"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={restaurantData.description}
-                    onChange={(e) => setRestaurantData({ ...restaurantData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Describe your restaurant"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address
-                  </label>
-                  <textarea
-                    value={restaurantData.address}
-                    onChange={(e) => setRestaurantData({ ...restaurantData, address: e.target.value })}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Restaurant address"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={restaurantData.phone}
-                      onChange={(e) => setRestaurantData({ ...restaurantData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={restaurantData.email}
-                      onChange={(e) => setRestaurantData({ ...restaurantData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Restaurant email"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cuisine Type
-                  </label>
-                  <select
-                    value={restaurantData.cuisine_type}
-                    onChange={(e) => setRestaurantData({ ...restaurantData, cuisine_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select cuisine type</option>
-                    <option value="Indian">Indian</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Mexican">Mexican</option>
-                    <option value="Thai">Thai</option>
-                    <option value="American">American</option>
-                    <option value="Continental">Continental</option>
-                    <option value="Multi-Cuisine">Multi-Cuisine</option>
-                    <option value="Fast Food">Fast Food</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Restaurant Name
+                </label>
+                <input
+                  type="text"
+                  value={restaurantData.name}
+                  onChange={(e) => setRestaurantData({ ...restaurantData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Enter restaurant name"
+                />
               </div>
               
-              <div className="flex space-x-3 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={restaurantData.phone}
+                  onChange={(e) => setRestaurantData({ ...restaurantData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Phone number"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cuisine Type
+                </label>
+                <select
+                  value={restaurantData.cuisine_type}
+                  onChange={(e) => setRestaurantData({ ...restaurantData, cuisine_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="">Select cuisine type</option>
+                  <option value="Indian">Indian</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Italian">Italian</option>
+                  <option value="Mexican">Mexican</option>
+                  <option value="Thai">Thai</option>
+                  <option value="American">American</option>
+                  <option value="Continental">Continental</option>
+                  <option value="Multi-Cuisine">Multi-Cuisine</option>
+                  <option value="Fast Food">Fast Food</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex space-x-3">
                 <button
                   onClick={() => setShowRestaurantSettings(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateRestaurant}
-                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors font-medium"
                 >
                   Save Changes
                 </button>
@@ -1536,6 +1619,34 @@ const OwnerDashboard = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-2 py-2 z-50">
+        <div className="flex justify-around">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${
+                activeTab === tab.id
+                  ? 'text-orange-600 bg-orange-50'
+                  : 'text-neutral-500 hover:text-orange-600'
+              }`}
+            >
+              <tab.icon className={`h-5 w-5 transition-all duration-200 ${
+                activeTab === tab.id ? 'scale-110' : ''
+              }`} />
+              <span className="text-xs font-medium">{tab.name}</span>
+              {activeTab === tab.id && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-orange-500 rounded-b-full"></div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile content padding to avoid bottom nav overlap */}
+      <div className="md:hidden h-20"></div>
     </div>
   )
 }

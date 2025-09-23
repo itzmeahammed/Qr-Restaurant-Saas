@@ -177,10 +177,10 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
       {/* Order Detail Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-neutral-200">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-neutral-900">Order Details</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-neutral-900">Order Details</h3>
                 <button
                   onClick={() => setSelectedOrder(null)}
                   className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
@@ -190,7 +190,7 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
               </div>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 flex-1 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-neutral-500">Order Number</label>

@@ -1,27 +1,31 @@
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { 
-  ShoppingCartIcon, 
-  PlusIcon,
-  MapPinIcon,
-  ClockIcon,
-  CheckBadgeIcon as LeafIcon,
-  FireIcon,
-  ArrowPathIcon
-} from '@heroicons/react/24/outline'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
-import CartSidebar from '../components/customer/CartSidebar'
-import CheckoutModal from '../components/customer/CheckoutModal'
-import OrderTracking from '../components/customer/OrderTracking'
 import OrderService from '../services/orderService'
 import realtimeService from '../services/realtimeService'
 import toast from 'react-hot-toast'
 
+// Import new components
+import RestaurantHeader from '../components/customer/RestaurantHeader'
+import CategoryTabs from '../components/customer/CategoryTabs'
+import MenuGrid from '../components/customer/MenuGrid'
+import LoadingScreen from '../components/customer/LoadingScreen'
+import ErrorScreen from '../components/customer/ErrorScreen'
+import CartSidebar from '../components/customer/CartSidebar'
+import CheckoutModal from '../components/customer/CheckoutModal'
+import OrderTracking from '../components/customer/OrderTracking'
+
 const CustomerMenu = () => {
   const { restaurantId, tableId } = useParams()
+  const [searchParams] = useSearchParams()
   const { cart, addToCart, initializeSession, getCartCount } = useCartStore()
+  
+  // Get table info from URL params or search params
+  const tableNumber = searchParams.get('table')
+  const tableIdFromQuery = searchParams.get('tableId')
+  const finalTableId = tableId || tableIdFromQuery
   
   const [restaurant, setRestaurant] = useState(null)
   const [table, setTable] = useState(null)
@@ -42,15 +46,18 @@ const CustomerMenu = () => {
     return () => {
       realtimeService.unsubscribeAll()
     }
-  }, [restaurantId, tableId])
+  }, [restaurantId, finalTableId])
 
   const initializeCustomerSession = async () => {
     try {
-      const sessionToken = initializeSession(restaurantId, tableId)
-      setSessionId(sessionToken)
-      
-      // Subscribe to real-time updates
-      subscribeToOrderUpdates(sessionToken)
+      if (restaurantId) {
+        const sessionToken = initializeSession(restaurantId, finalTableId)
+        setSessionId(sessionToken)
+        console.log('✅ Customer session initialized:', sessionToken)
+        
+        // Subscribe to real-time updates
+        subscribeToOrderUpdates(sessionToken)
+      }
     } catch (error) {
       console.error('Session initialization error:', error)
     }
@@ -92,43 +99,90 @@ const CustomerMenu = () => {
       setRestaurant(restaurantData)
 
       // Fetch table info if tableId exists
-      if (tableId) {
-        const { data: tableData, error: tableError } = await supabase
-          .from('restaurant_tables')
-          .select('*')
-          .eq('id', tableId)
-          .single()
+      if (finalTableId) {
+        try {
+          const { data: tableData, error: tableError } = await supabase
+            .from('tables')
+            .select('*')
+            .eq('id', finalTableId)
+            .single()
 
-        if (!tableError) {
-          setTable(tableData)
+          if (tableError) {
+            console.warn('Table not found by ID:', tableError)
+          } else {
+            setTable(tableData)
+          }
+        } catch (err) {
+          console.warn('Error fetching table by ID:', err)
+        }
+      } else if (tableNumber) {
+        try {
+          // If we only have table number, try to find the table by number
+          const { data: tableData, error: tableError } = await supabase
+            .from('tables')
+            .select('*')
+            .eq('restaurant_id', restaurantData.id)
+            .eq('table_number', tableNumber)
+            .single()
+
+          if (tableError) {
+            console.warn('Table not found by number:', tableError)
+          } else {
+            setTable(tableData)
+          }
+        } catch (err) {
+          console.warn('Error fetching table by number:', err)
         }
       }
 
       // Fetch categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('menu_categories')
-        .select('*')
-        .eq('restaurant_id', restaurantData.id)
-        .eq('is_active', true)
-        .order('sort_order')
+      try {
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('restaurant_id', restaurantData.id)
+          .eq('is_active', true)
+          .order('name')
 
-      if (categoriesError) throw categoriesError
-      setCategories(categoriesData)
-      setActiveCategory(categoriesData[0]?.id)
+        if (categoriesError) {
+          console.warn('Categories fetch error:', categoriesError)
+          setCategories([])
+        } else {
+          setCategories(categoriesData || [])
+          setActiveCategory(categoriesData?.[0]?.id)
+        }
+      } catch (err) {
+        console.warn('Error fetching categories:', err)
+        setCategories([])
+      }
 
       // Fetch menu items
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', restaurantData.id)
-        .eq('is_available', true)
-        .order('sort_order')
+      try {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('menu_items')
+          .select('*')
+          .eq('restaurant_id', restaurantData.id)
+          .eq('is_available', true)
+          .order('name')
 
-      if (itemsError) throw itemsError
-      setMenuItems(itemsData)
+        if (itemsError) {
+          console.warn('Menu items fetch error:', itemsError)
+          setMenuItems([])
+        } else {
+          setMenuItems(itemsData || [])
+        }
+      } catch (err) {
+        console.warn('Error fetching menu items:', err)
+        setMenuItems([])
+      }
     } catch (error) {
-      toast.error('Failed to load menu')
-      console.error(error)
+      console.error('Error fetching restaurant data:', error)
+      toast.error(`Failed to load menu: ${error.message}`)
+      
+      // If restaurant not found, show error state
+      if (error.code === 'PGRST116' || error.message.includes('No rows found')) {
+        setRestaurant(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -143,23 +197,48 @@ const CustomerMenu = () => {
     try {
       setLoading(true)
       
+      // Validate required data
+      if (!restaurantId) {
+        throw new Error('Restaurant information is missing')
+      }
+      
+      if (!sessionId) {
+        throw new Error('Session not initialized')
+      }
+      
+      if (!cart || cart.length === 0) {
+        throw new Error('Cart is empty')
+      }
+
+      console.log('🛒 Creating order with data:', {
+        restaurantId,
+        tableId: finalTableId,
+        sessionId,
+        itemCount: cart.length
+      })
+      
       const orderData = {
         restaurantId,
-        tableId,
+        tableId: finalTableId,
         sessionId,
-        customerId: null,
+        customerId: null, // Anonymous customer
         items: cart.map(item => ({
           id: item.id,
           name: item.name,
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions || ''
         })),
-        specialInstructions: checkoutData.customerInfo.specialInstructions,
-        paymentMethod: checkoutData.customerInfo.paymentMethod,
-        tipAmount: checkoutData.selectedTip || 0
+        specialInstructions: checkoutData?.customerInfo?.specialInstructions || '',
+        paymentMethod: checkoutData?.customerInfo?.paymentMethod || 'cash',
+        tipAmount: checkoutData?.selectedTip || 0
       }
 
+      console.log('📝 Order data prepared:', orderData)
+      
       const order = await OrderService.createOrder(orderData)
+      
+      console.log('✅ Order created successfully:', order)
       
       // Clear cart and close modals
       useCartStore.getState().clearCart()
@@ -170,10 +249,18 @@ const CustomerMenu = () => {
       setCurrentOrder(order)
       setShowOrderTracking(true)
       
-      toast.success('Order placed successfully!')
+      toast.success(`Order #${order.order_number} placed successfully!`)
     } catch (error) {
-      console.error('Checkout error:', error)
-      toast.error('Failed to place order. Please try again.')
+      console.error('❌ Checkout error:', error)
+      
+      // Show specific error messages
+      if (error.message.includes('customer_id')) {
+        toast.error('Database configuration issue. Please contact support.')
+      } else if (error.message.includes('PGRST')) {
+        toast.error('Database connection issue. Please try again.')
+      } else {
+        toast.error(`Failed to place order: ${error.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -181,166 +268,70 @@ const CustomerMenu = () => {
 
   const filteredItems = menuItems.filter(item => item.category_id === activeCategory)
 
+  // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading menu...</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen />
+  }
+
+  // Error state
+  if (!restaurant) {
+    return <ErrorScreen onRetry={() => window.location.reload()} />
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-orange-500 to-purple-600 text-white sticky top-0 z-40 shadow-lg">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">{restaurant?.name}</h1>
-              <p className="text-sm opacity-90 flex items-center gap-1">
-                <MapPinIcon className="h-4 w-4" />
-                {table ? `Table ${table.table_number}` : restaurant?.address}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {currentOrder && (
-                <button
-                  onClick={() => setShowOrderTracking(true)}
-                  className="p-3 bg-white/20 backdrop-blur rounded-full hover:bg-white/30 transition-colors"
-                >
-                  <ArrowPathIcon className="h-6 w-6" />
-                </button>
-              )}
-              <button
-                onClick={() => setShowCart(true)}
-                className="relative p-3 bg-white text-orange-500 rounded-full shadow-lg hover:shadow-xl transition-all"
-              >
-                <ShoppingCartIcon className="h-6 w-6" />
-                {cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-                    {getCartCount()}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Categories */}
-      {categories.length > 0 && (
-        <div className="bg-white border-b sticky top-16 z-30">
-          <div className="px-4 py-3">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${
-                    activeCategory === category.id
-                      ? 'bg-gradient-to-r from-orange-500 to-purple-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Menu Items */}
-      <div className="px-4 py-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((item) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden"
-            >
-              {item.image_url && (
-                <div className="h-48 overflow-hidden">
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      {item.is_vegetarian && (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                          <LeafIcon className="h-3 w-3" />
-                          Veg
-                        </span>
-                      )}
-                      {item.is_vegan && (
-                        <span className="text-xs text-green-600">Vegan</span>
-                      )}
-                      {item.is_gluten_free && (
-                        <span className="text-xs text-blue-600">Gluten-Free</span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-lg font-bold text-orange-500">₹{item.price}</span>
-                </div>
-                
-                {item.description && (
-                  <p className="text-sm text-gray-600 mb-3">{item.description}</p>
-                )}
-                
-                {item.preparation_time && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
-                    <ClockIcon className="h-3 w-3" />
-                    <span>{item.preparation_time} mins</span>
-                  </div>
-                )}
-                
-                <button
-                  onClick={() => handleAddToCart(item)}
-                  className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white py-2 rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  Add to Cart
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Cart Sidebar */}
-      <CartSidebar 
-        isOpen={showCart}
-        onClose={() => setShowCart(false)}
-        onCheckout={() => {
-          setShowCart(false)
-          setShowCheckout(true)
-        }}
+      {/* Restaurant Header */}
+      <RestaurantHeader 
+        restaurant={restaurant}
+        table={table}
+        cartCount={getCartCount()}
+        onCartClick={() => setShowCart(true)}
+        onOrderTrackingClick={() => setShowOrderTracking(true)}
+        hasCurrentOrder={!!currentOrder}
       />
 
-      {/* Checkout Modal */}
-      <CheckoutModal
-        isOpen={showCheckout}
-        onClose={() => setShowCheckout(false)}
-        onConfirm={handleCheckout}
+      {/* Category Tabs */}
+      <CategoryTabs 
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
       />
 
-      {/* Order Tracking */}
-      <OrderTracking
-        order={currentOrder}
-        isOpen={showOrderTracking}
-        onClose={() => setShowOrderTracking(false)}
+      {/* Menu Grid */}
+      <MenuGrid 
+        items={filteredItems}
+        onAddToCart={handleAddToCart}
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
       />
+
+      {/* Modals and Sidebars */}
+      <AnimatePresence>
+        {/* Cart Sidebar */}
+        <CartSidebar 
+          isOpen={showCart}
+          onClose={() => setShowCart(false)}
+          onCheckout={() => {
+            setShowCart(false)
+            setShowCheckout(true)
+          }}
+        />
+
+        {/* Checkout Modal */}
+        <CheckoutModal
+          isOpen={showCheckout}
+          onClose={() => setShowCheckout(false)}
+          onConfirm={handleCheckout}
+        />
+
+        {/* Order Tracking */}
+        <OrderTracking
+          order={currentOrder}
+          isOpen={showOrderTracking}
+          onClose={() => setShowOrderTracking(false)}
+        />
+      </AnimatePresence>
     </div>
   )
 }
