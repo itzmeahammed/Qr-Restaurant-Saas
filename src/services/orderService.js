@@ -75,16 +75,18 @@ class OrderService {
 
       if (itemsError) throw itemsError
 
-      // Assign order to staff
+      // Assign order to staff (optional - order can be created without staff)
       try {
         const assignment = await StaffAssignmentService.assignOrderToStaff(
           restaurantId,
           order.id
         )
         order.assigned_staff = assignment
+        console.log('✅ Order assigned to staff:', assignment)
       } catch (assignmentError) {
-        console.error('Staff assignment error:', assignmentError)
-        // Order still created, but in queue
+        console.warn('Staff assignment failed (order still created):', assignmentError)
+        // Order still created successfully, just not assigned to staff yet
+        order.assigned_staff = null
       }
 
       // Process payment if online
@@ -227,7 +229,7 @@ class OrderService {
             menu_item:menu_items(*)
           ),
           restaurant:restaurants(*),
-          table:restaurant_tables(*),
+          table:tables(*),
           staff:staff(*),
           customer:auth.users(*)
         `)
@@ -256,7 +258,7 @@ class OrderService {
         .select(`
           *,
           order_items(count),
-          table:restaurant_tables(table_number),
+          table:tables(table_number),
           staff:staff(name)
         `)
         .eq('restaurant_id', restaurantId)

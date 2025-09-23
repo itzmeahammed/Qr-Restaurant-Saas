@@ -166,7 +166,7 @@ class RealtimeService {
    */
   subscribeToTableStatus(tableId, callback) {
     return this.subscribeToTable(
-      'restaurant_tables',
+      'tables',
       { filter: `id=eq.${tableId}` },
       callback
     )

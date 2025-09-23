@@ -171,6 +171,7 @@ function App() {
           
           {/* Customer Menu - Public but table-specific */}
           <Route path="/menu/:restaurantId/:tableId" element={<CustomerMenu />} />
+          <Route path="/menu/:restaurantId" element={<CustomerMenu />} />
           
           {/* Protected Routes */}
           <Route path="/staff" element={

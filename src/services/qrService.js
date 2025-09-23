@@ -99,7 +99,7 @@ class QRService {
     try {
       // Fetch all tables for the restaurant
       const { data: tables, error } = await supabase
-        .from('restaurant_tables')
+        .from('tables')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true)
@@ -118,7 +118,7 @@ class QRService {
 
           // Update table with QR code data
           await supabase
-            .from('restaurant_tables')
+            .from('tables')
             .update({ qr_code: qrData.qrCodeUrl })
             .eq('id', table.id)
 

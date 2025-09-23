@@ -94,7 +94,9 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
                   <UsersIcon className={`h-6 w-6 ${member.is_available ? 'text-green-600' : 'text-neutral-400'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-neutral-900 truncate">{member.users?.full_name}</h3>
+                  <h3 className="font-semibold text-neutral-900 truncate">
+                    {member.users?.full_name || member.full_name || member.name || 'Staff Member'}
+                  </h3>
                   <p className="text-sm text-neutral-600">{member.position}</p>
                 </div>
               </div>
@@ -117,14 +119,18 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
 
             {/* Contact Info */}
             <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm text-neutral-600">
-                <EnvelopeIcon className="h-4 w-4" />
-                <span className="truncate">{member.users?.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-neutral-600">
-                <PhoneIcon className="h-4 w-4" />
-                <span>{member.users?.phone}</span>
-              </div>
+              {(member.users?.email || member.email) && (
+                <div className="flex items-center gap-2 text-sm text-neutral-600">
+                  <EnvelopeIcon className="h-4 w-4" />
+                  <span className="truncate">{member.users?.email || member.email}</span>
+                </div>
+              )}
+              {(member.users?.phone || member.phone) && (
+                <div className="flex items-center gap-2 text-sm text-neutral-600">
+                  <PhoneIcon className="h-4 w-4" />
+                  <span>{member.users?.phone || member.phone}</span>
+                </div>
+              )}
             </div>
 
             {/* Performance Stats */}
@@ -183,10 +189,10 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
       {/* Add Staff Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-neutral-200">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-neutral-900">Add Staff Member</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-neutral-900">Add Staff Member</h3>
                 <button
                   onClick={() => setShowAddModal(false)}
                   className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
@@ -196,7 +202,7 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
               </div>
             </div>
             
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">Full Name</label>
                 <input
@@ -260,16 +266,19 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
                 />
               </div>
               
-              <div className="flex gap-3 pt-4">
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddStaff}
-                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                 >
                   Add Staff
                 </button>
@@ -282,10 +291,10 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
       {/* Edit Staff Modal */}
       {editingStaff && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-neutral-200">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-neutral-900">Edit Staff Member</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-neutral-900">Edit Staff Member</h3>
                 <button
                   onClick={() => setEditingStaff(null)}
                   className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
@@ -295,7 +304,7 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
               </div>
             </div>
             
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">Full Name</label>
                 <input
@@ -363,10 +372,13 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
                 />
               </div>
               
-              <div className="flex gap-3 pt-4">
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setEditingStaff(null)}
-                  className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
                 >
                   Cancel
                 </button>
@@ -375,7 +387,7 @@ const StaffTab = ({ staff, onAddStaff, onUpdateStaff, onDeleteStaff }) => {
                     handleUpdateStaff(editingStaff.id, editingStaff)
                     setEditingStaff(null)
                   }}
-                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                 >
                   Save Changes
                 </button>
