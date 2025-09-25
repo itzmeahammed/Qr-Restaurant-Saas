@@ -1,23 +1,66 @@
 {
-  "name": "QR Restaurant SaaS",
+  "name": "QR Restaurant - Scan & Order",
   "short_name": "QR Restaurant",
-  "description": "Complete QR ordering solution for modern restaurants",
+  "description": "Scan QR codes to order food instantly. No app downloads required!",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f97316",
-  "theme_color": "#f97316",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
   "icons": [
     {
       "src": "/favicon.ico",
-      "sizes": "16x16",
+      "sizes": "16x16 32x32 48x48",
       "type": "image/x-icon"
     },
     {
       "src": "/vite.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["food", "business", "productivity"]
+  "categories": ["food", "lifestyle", "shopping"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-desktop.png", 
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Scan QR Code",
+      "short_name": "Scan QR",
+      "description": "Quickly scan a restaurant QR code",
+      "url": "/?action=scan",
+      "icons": [
+        {
+          "src": "/vite.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Find Restaurants",
+      "short_name": "Find Food",
+      "description": "Discover restaurants near you",
+      "url": "/restaurants",
+      "icons": [
+        {
+          "src": "/vite.svg",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
 }

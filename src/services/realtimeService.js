@@ -16,33 +16,57 @@ class RealtimeService {
    * @param {Object} handlers - Event handlers
    */
   subscribeToSession(sessionId, handlers = {}) {
-    const channelName = `session-${sessionId}`
-    
-    // Unsubscribe from existing channel if exists
-    this.unsubscribeFromChannel(channelName)
+    try {
+      const channelName = `session-${sessionId}`
+      
+      // Unsubscribe from existing channel if exists
+      this.unsubscribeFromChannel(channelName)
 
-    const channel = supabase
-      .channel(channelName)
-      .on('broadcast', { event: 'order_confirmed' }, (payload) => {
-        handlers.onOrderConfirmed?.(payload.payload)
-      })
-      .on('broadcast', { event: 'order_assigned' }, (payload) => {
-        handlers.onOrderAssigned?.(payload.payload)
-      })
-      .on('broadcast', { event: 'order_status_update' }, (payload) => {
-        handlers.onStatusUpdate?.(payload.payload)
-      })
-      .on('broadcast', { event: 'payment_confirmed' }, (payload) => {
-        handlers.onPaymentConfirmed?.(payload.payload)
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`✅ Subscribed to session: ${sessionId}`)
-        }
-      })
+      const channel = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: true }
+          }
+        })
+        .on('broadcast', { event: 'order_confirmed' }, (payload) => {
+          console.log('Order confirmed:', payload)
+          handlers.onOrderConfirmed?.(payload.payload)
+        })
+        .on('broadcast', { event: 'order_assigned' }, (payload) => {
+          console.log('Order assigned:', payload)
+          handlers.onOrderAssigned?.(payload.payload)
+        })
+        .on('broadcast', { event: 'order_status_update' }, (payload) => {
+          console.log('Status update:', payload)
+          handlers.onStatusUpdate?.(payload.payload)
+        })
+        .on('broadcast', { event: 'payment_confirmed' }, (payload) => {
+          console.log('Payment confirmed:', payload)
+          handlers.onPaymentConfirmed?.(payload.payload)
+        })
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`✅ Subscribed to session: ${sessionId}`)
+            handlers.onConnected?.()
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`❌ Channel error for session: ${sessionId}`, err)
+            handlers.onError?.(err)
+          } else if (status === 'TIMED_OUT') {
+            console.warn(`⏰ Subscription timeout for session: ${sessionId}`)
+            handlers.onTimeout?.()
+          } else if (status === 'CLOSED') {
+            console.log(`🔒 Channel closed for session: ${sessionId}`)
+            handlers.onClosed?.()
+          }
+        })
 
-    this.channels.set(channelName, channel)
-    return channel
+      this.channels.set(channelName, channel)
+      return channel
+    } catch (error) {
+      console.error('Error subscribing to session:', error)
+      handlers.onError?.(error)
+      return null
+    }
   }
 
   /**
@@ -237,21 +261,43 @@ class RealtimeService {
   }
 
   /**
-   * Unsubscribe from a channel
-   * @param {string} channelName - Channel name
+   * Unsubscribe from a specific channel
+   * @param {string} channelName - Channel name to unsubscribe from
    */
   unsubscribeFromChannel(channelName) {
-    const channel = this.channels.get(channelName)
-    if (channel) {
-      channel.unsubscribe()
-      this.channels.delete(channelName)
-      console.log(`🔌 Unsubscribed from channel: ${channelName}`)
+    try {
+      const channel = this.channels.get(channelName)
+      if (channel) {
+        channel.unsubscribe()
+        this.channels.delete(channelName)
+        console.log(`🔌 Unsubscribed from channel: ${channelName}`)
+      }
+    } catch (error) {
+      console.error(`Error unsubscribing from channel ${channelName}:`, error)
     }
   }
 
   /**
-   * Unsubscribe from all channels and subscriptions
+   * Safely cleanup all channels
    */
+  cleanup() {
+    try {
+      console.log('🧹 Cleaning up realtime service...')
+      for (const [channelName, channel] of this.channels) {
+        try {
+          channel.unsubscribe()
+          console.log(`🔌 Cleaned up channel: ${channelName}`)
+        } catch (error) {
+          console.error(`Error cleaning up channel ${channelName}:`, error)
+        }
+      }
+      this.channels.clear()
+      this.subscriptions.clear()
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+    }
+  }
+
   unsubscribeAll() {
     // Unsubscribe from all channels
     this.channels.forEach((channel, name) => {

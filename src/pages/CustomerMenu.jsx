@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
 import OrderService from '../services/orderService'
@@ -16,6 +17,9 @@ import ErrorScreen from '../components/customer/ErrorScreen'
 import CartSidebar from '../components/customer/CartSidebar'
 import CheckoutModal from '../components/customer/CheckoutModal'
 import OrderTracking from '../components/customer/OrderTracking'
+import CustomerNavHeader from '../components/customer/CustomerNavHeader'
+import FloatingBackButton from '../components/customer/FloatingBackButton'
+import MobileMenu from '../components/customer/MobileMenu'
 
 const CustomerMenu = () => {
   const { restaurantId, tableId } = useParams()
@@ -38,13 +42,19 @@ const CustomerMenu = () => {
   const [currentOrder, setCurrentOrder] = useState(null)
   const [sessionId, setSessionId] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     initializeCustomerSession()
     fetchRestaurantData()
     
     return () => {
-      realtimeService.unsubscribeAll()
+      // Cleanup realtime connections safely
+      try {
+        realtimeService.cleanup()
+      } catch (error) {
+        console.warn('Error during cleanup:', error)
+      }
     }
   }, [restaurantId, finalTableId])
 
@@ -64,26 +74,41 @@ const CustomerMenu = () => {
   }
 
   const subscribeToOrderUpdates = (sessionId) => {
-    realtimeService.subscribeToSession(sessionId, {
-      onOrderConfirmed: (data) => {
-        toast.success(`Order #${data.orderNumber} confirmed!`)
-        setCurrentOrder(data)
-        setShowOrderTracking(true)
-      },
-      onOrderAssigned: (data) => {
-        toast.success(`${data.staffName} is handling your order`)
-        setCurrentOrder(prev => ({ ...prev, assignedStaff: data.staffName }))
-      },
-      onStatusUpdate: (data) => {
-        const statusMessages = {
-          preparing: '👨‍🍳 Your order is being prepared',
-          ready: '✅ Your order is ready!',
-          served: '🍽️ Your order has been served'
+    try {
+      realtimeService.subscribeToSession(sessionId, {
+        onOrderConfirmed: (data) => {
+          toast.success(`Order #${data.orderNumber} confirmed!`)
+          setCurrentOrder(data)
+          setShowOrderTracking(true)
+        },
+        onOrderAssigned: (data) => {
+          toast.success(`${data.staffName} is handling your order`)
+          setCurrentOrder(prev => ({ ...prev, assignedStaff: data.staffName }))
+        },
+        onStatusUpdate: (data) => {
+          const statusMessages = {
+            preparing: '👨‍🍳 Your order is being prepared',
+            ready: '✅ Your order is ready!',
+            served: '🍽️ Your order has been served'
+          }
+          toast(statusMessages[data.status] || 'Order updated', { icon: '📱' })
+          setCurrentOrder(prev => ({ ...prev, status: data.status }))
+        },
+        onError: (error) => {
+          console.warn('Realtime connection error:', error)
+          // Continue without realtime - app still works
+        },
+        onTimeout: () => {
+          console.warn('Realtime connection timeout - continuing without live updates')
+        },
+        onClosed: () => {
+          console.log('Realtime connection closed')
         }
-        toast(statusMessages[data.status] || 'Order updated', { icon: '📱' })
-        setCurrentOrder(prev => ({ ...prev, status: data.status }))
-      }
-    })
+      })
+    } catch (error) {
+      console.error('Error setting up realtime subscription:', error)
+      // App continues to work without realtime
+    }
   }
 
   const fetchRestaurantData = async () => {
@@ -177,10 +202,19 @@ const CustomerMenu = () => {
       }
     } catch (error) {
       console.error('Error fetching restaurant data:', error)
-      toast.error(`Failed to load menu: ${error.message}`)
       
-      // If restaurant not found, show error state
-      if (error.code === 'PGRST116' || error.message.includes('No rows found')) {
+      // Handle different types of errors
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Network')) {
+        toast.error('Network connection issue. Please check your internet and try again.')
+      } else if (error.code === 'PGRST116' || error.message?.includes('No rows found')) {
+        toast.error('Restaurant not found')
+        setRestaurant(null)
+      } else {
+        toast.error(`Failed to load menu: ${error.message || 'Unknown error'}`)
+      }
+      
+      // Set error state but don't break the app
+      if (error.code === 'PGRST116' || error.message?.includes('No rows found')) {
         setRestaurant(null)
       }
     } finally {
@@ -280,15 +314,92 @@ const CustomerMenu = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Restaurant Header */}
-      <RestaurantHeader 
-        restaurant={restaurant}
-        table={table}
-        cartCount={getCartCount()}
-        onCartClick={() => setShowCart(true)}
-        onOrderTrackingClick={() => setShowOrderTracking(true)}
-        hasCurrentOrder={!!currentOrder}
-      />
+      {/* Enhanced Restaurant Header with Navigation */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        {/* Top Navigation Bar */}
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.history.back()}
+              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all"
+            >
+              <ArrowLeftIcon className="w-5 h-5 text-gray-700" />
+            </motion.button>
+            
+            <div className="flex-1 text-center">
+              <h1 className="text-lg font-bold text-gray-900 truncate">
+                {restaurant?.name || 'Menu'}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {getCartCount() > 0 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowCart(true)}
+                  className="relative w-10 h-10 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-all"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.5 1.5M7 13l1.5 1.5M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
+                  </svg>
+                  <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {getCartCount()}
+                  </span>
+                </motion.button>
+              )}
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowMobileMenu(true)}
+                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all"
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        {/* Restaurant Info */}
+        {restaurant && (
+          <div className="px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                {restaurant.logo_url ? (
+                  <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
+                ) : (
+                  <span className="text-lg font-bold text-gray-600">{restaurant.name?.charAt(0)}</span>
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <h2 className="font-bold text-gray-900">{restaurant.name}</h2>
+                <p className="text-sm text-gray-600">{restaurant.address}</p>
+                {table && (
+                  <p className="text-xs text-gray-500 mt-1">Table {table.table_number}</p>
+                )}
+              </div>
+
+              {currentOrder && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowOrderTracking(true)}
+                  className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium"
+                >
+                  Track Order
+                </motion.button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {/* Category Tabs */}
       <CategoryTabs 
@@ -308,29 +419,44 @@ const CustomerMenu = () => {
 
       {/* Modals and Sidebars */}
       <AnimatePresence>
-        {/* Cart Sidebar */}
-        <CartSidebar 
-          isOpen={showCart}
-          onClose={() => setShowCart(false)}
-          onCheckout={() => {
-            setShowCart(false)
-            setShowCheckout(true)
-          }}
+        {/* Mobile Menu */}
+        <MobileMenu 
+          isOpen={showMobileMenu}
+          onClose={() => setShowMobileMenu(false)}
         />
+
+        {/* Cart Sidebar */}
+        {showCart && (
+          <CartSidebar 
+            key="cart-sidebar"
+            isOpen={showCart}
+            onClose={() => setShowCart(false)}
+            onCheckout={() => {
+              setShowCart(false)
+              setShowCheckout(true)
+            }}
+          />
+        )}
 
         {/* Checkout Modal */}
-        <CheckoutModal
-          isOpen={showCheckout}
-          onClose={() => setShowCheckout(false)}
-          onConfirm={handleCheckout}
-        />
+        {showCheckout && (
+          <CheckoutModal
+            key="checkout-modal"
+            isOpen={showCheckout}
+            onClose={() => setShowCheckout(false)}
+            onConfirm={handleCheckout}
+          />
+        )}
 
         {/* Order Tracking */}
-        <OrderTracking
-          order={currentOrder}
-          isOpen={showOrderTracking}
-          onClose={() => setShowOrderTracking(false)}
-        />
+        {showOrderTracking && (
+          <OrderTracking
+            key="order-tracking"
+            order={currentOrder}
+            isOpen={showOrderTracking}
+            onClose={() => setShowOrderTracking(false)}
+          />
+        )}
       </AnimatePresence>
     </div>
   )

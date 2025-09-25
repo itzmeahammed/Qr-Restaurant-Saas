@@ -1114,9 +1114,15 @@ const OwnerDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50">
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-xl backdrop-blur-sm">
+      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-2xl backdrop-blur-sm relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.3'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+        </div>
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
             {/* Left side - Restaurant Logo and Info */}
@@ -1377,12 +1383,14 @@ const OwnerDashboard = () => {
           }
         `}</style>
         {/* Desktop Tab Navigation */}
-        <div className="hidden md:block mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-1">
-            <div className="flex gap-1">
+        <div className="hidden md:block mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-2">
+            <div className="flex gap-2">
               {tabs.map((tab) => (
-                <button
+                <motion.button
                   key={tab.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                     activeTab === tab.id
@@ -1392,7 +1400,7 @@ const OwnerDashboard = () => {
                 >
                   <tab.icon className="h-4 w-4" />
                   <span className="text-sm">{tab.name}</span>
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>

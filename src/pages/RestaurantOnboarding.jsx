@@ -873,9 +873,45 @@ const RestaurantOnboarding = () => {
   }, [currentStep, formData, imagePreview, imageFiles, dragActive, loading])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-pink-50">
-      {/* Optimized Animated Background - Reduced elements for mobile */}
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-pink-50 relative">
+      {/* Enhanced Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
+        {/* Floating Orbs */}
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-orange-300/30 to-pink-300/30 rounded-full blur-xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -80, 0],
+            y: [0, 60, 0],
+            scale: [1.2, 1, 1.2],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute bottom-32 right-32 w-40 h-40 bg-gradient-to-r from-purple-300/30 to-blue-300/30 rounded-full blur-xl"
+        />
+        
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 opacity-[0.02]">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+        </div>
+        
+        {/* Floating Elements */}
         {[...Array(window.innerWidth < 768 ? 6 : 10)].map((_, i) => (
           <motion.div
             key={i}
