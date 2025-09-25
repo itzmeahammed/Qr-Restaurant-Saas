@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   UserIcon, 
   EnvelopeIcon, 
@@ -10,7 +10,11 @@ import {
   UserGroupIcon,
   ShieldCheckIcon,
   ArrowLeftIcon,
-  QrCodeIcon
+  QrCodeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  SparklesIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -19,8 +23,9 @@ import toast from 'react-hot-toast'
 const Auth = () => {
   const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(true)
-  const [selectedRole, setSelectedRole] = useState('customer')
+  const [selectedRole, setSelectedRole] = useState('restaurant_owner')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -44,18 +49,18 @@ const Auth = () => {
 
   const roles = [
     {
-      id: 'customer',
-      name: 'Customer',
-      description: 'Order food and track deliveries',
-      icon: UserIcon,
-      color: 'from-orange-400 to-orange-600'
-    },
-    {
       id: 'restaurant_owner',
       name: 'Restaurant Owner',
       description: 'Manage restaurant, menu, and staff',
       icon: BuildingStorefrontIcon,
       color: 'from-purple-400 to-purple-600'
+    },
+    {
+      id: 'staff',
+      name: 'Staff Member',
+      description: 'Manage orders and serve customers',
+      icon: UserGroupIcon,
+      color: 'from-blue-400 to-blue-600'
     },
     {
       id: 'super_admin',
@@ -258,7 +263,7 @@ const Auth = () => {
               transition={{ delay: 0.5 }}
               className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-600 to-purple-600 bg-clip-text text-transparent mb-2"
             >
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {isLogin ? 'Restaurant Portal' : 'Join QR Restaurant'}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -266,7 +271,7 @@ const Auth = () => {
               transition={{ delay: 0.6 }}
               className="text-gray-600"
             >
-              {isLogin ? 'Sign in to your account' : 'Join our QR ordering platform'}
+              {isLogin ? 'Sign in to manage your restaurant' : 'Start your digital restaurant journey'}
             </motion.p>
           </div>
 
@@ -462,18 +467,27 @@ const Auth = () => {
           </p>
         </motion.div>
 
-        {/* Staff Note */}
+        {/* Business Note */}
         {!isLogin && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="mt-4 p-3 bg-blue-50 rounded-lg"
+            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100"
           >
-            <p className="text-sm text-blue-700">
-              <strong>Note:</strong> Staff accounts are created by restaurant owners. 
-              If you're a staff member, contact your restaurant manager for login credentials.
-            </p>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <BuildingStorefrontIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-900 mb-1">
+                  For Restaurant Business
+                </p>
+                <p className="text-sm text-blue-700">
+                  This portal is for restaurant owners and staff members. Staff accounts are created by restaurant owners.
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
         </motion.div>

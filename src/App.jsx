@@ -2,9 +2,13 @@ import React, { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './stores/useAuthStore'
+import { CustomerNavigationProvider } from './contexts/CustomerNavigationContext'
 
 // Import pages
 import LandingPage from './pages/LandingPage'
+import CustomerLanding from './pages/CustomerLanding'
+import CustomerAuth from './pages/CustomerAuth'
+import RestaurantDiscovery from './pages/RestaurantDiscovery'
 import Auth from './pages/Auth'
 import CustomerMenu from './pages/CustomerMenu'
 import StaffDashboard from './pages/StaffDashboard'
@@ -13,6 +17,10 @@ import SuperAdminPanel from './pages/SuperAdminPanel'
 import EmailVerification from './components/EmailVerification'
 import RestaurantOnboarding from './pages/RestaurantOnboarding'
 import OrderTracking from './pages/OrderTracking'
+import CustomerProfile from './pages/CustomerProfile'
+import CustomerOrders from './pages/CustomerOrders'
+import CustomerFavorites from './pages/CustomerFavorites'
+import CustomerSettings from './pages/CustomerSettings'
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -170,8 +178,16 @@ function App() {
           } />
           
           {/* Customer Menu - Public but table-specific */}
-          <Route path="/menu/:restaurantId/:tableId" element={<CustomerMenu />} />
-          <Route path="/menu/:restaurantId" element={<CustomerMenu />} />
+          <Route path="/menu/:restaurantId/:tableId" element={
+            <CustomerNavigationProvider>
+              <CustomerMenu />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/menu/:restaurantId" element={
+            <CustomerNavigationProvider>
+              <CustomerMenu />
+            </CustomerNavigationProvider>
+          } />
           
           {/* Protected Routes */}
           <Route path="/staff" element={
@@ -198,8 +214,46 @@ function App() {
           
           <Route path="/order/:orderId" element={<OrderTracking />} />
           
-          {/* Landing Page */}
+          {/* Customer Routes - Wrapped with Navigation Provider */}
+          <Route path="/customer" element={
+            <CustomerNavigationProvider>
+              <CustomerLanding />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/customer-auth" element={
+            <CustomerNavigationProvider>
+              <CustomerAuth />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/customer-profile" element={
+            <CustomerNavigationProvider>
+              <CustomerProfile />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/restaurants" element={
+            <CustomerNavigationProvider>
+              <RestaurantDiscovery />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/customer-orders" element={
+            <CustomerNavigationProvider>
+              <CustomerOrders />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/customer-favorites" element={
+            <CustomerNavigationProvider>
+              <CustomerFavorites />
+            </CustomerNavigationProvider>
+          } />
+          <Route path="/customer-settings" element={
+            <CustomerNavigationProvider>
+              <CustomerSettings />
+            </CustomerNavigationProvider>
+          } />
+          
+          {/* Landing Pages */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/business" element={<LandingPage />} />
           
           {/* Default redirect for authenticated users */}
           <Route path="/home" element={
