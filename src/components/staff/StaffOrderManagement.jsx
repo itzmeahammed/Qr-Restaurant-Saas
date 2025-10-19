@@ -27,6 +27,8 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const [cachedOrders, setCachedOrders] = useState({})
 
   useEffect(() => {
+    console.log('🔍 StaffOrderManagement props:', { staffId, restaurantId, isOnline, filter })
+    
     if (restaurantId) {
       // Load cached data first for instant display
       const cacheKey = `orders_${restaurantId}_${filter}`
@@ -35,10 +37,12 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         try {
           const parsedCache = JSON.parse(cached)
           if (Date.now() - parsedCache.timestamp < 30000) { // 30 seconds cache
+            console.log('📦 Using cached orders:', parsedCache.data.length)
             setOrders(parsedCache.data)
             setLoading(false)
           }
         } catch (error) {
+          console.warn('Cache error:', error)
           localStorage.removeItem(cacheKey)
         }
       }
@@ -47,18 +51,31 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
       const cleanup = setupRealtimeSubscription()
       
       return cleanup
+    } else {
+      console.warn('⚠️ No restaurantId provided, stopping loading')
+      setLoading(false)
+      setOrders([])
     }
-  }, [restaurantId, filter])
+  }, [restaurantId, filter, staffId])
 
   const fetchOrders = async (isRefresh = false) => {
+    if (!restaurantId) {
+      console.warn('⚠️ Cannot fetch orders: restaurantId is missing')
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
+
     try {
       if (isRefresh) {
         setRefreshing(true)
+        console.log('🔄 Refreshing orders...')
       } else {
         setLoading(true)
+        console.log('📥 Fetching orders...')
       }
       
-      // Optimized query with minimal data for faster loading
+      // Simplified query for better reliability
       let query = supabase
         .from('orders')
         .select(`
@@ -73,7 +90,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
           customer_name,
           payment_method,
           special_instructions,
-          order_items!inner (
+          order_items (
             id,
             quantity,
             unit_price,
@@ -91,22 +108,29 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         `)
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
-        .limit(50) // Limit for better performance
+        .limit(30) // Reduced limit for faster loading
 
-      // Optimized filters
+      // Apply filters
       if (filter === 'pending') {
         query = query.eq('status', 'pending').is('assigned_staff_id', null)
-      } else if (filter === 'assigned') {
+      } else if (filter === 'assigned' && staffId) {
         query = query.eq('assigned_staff_id', staffId).in('status', ['assigned', 'preparing', 'ready'])
-      } else if (filter === 'completed') {
+      } else if (filter === 'completed' && staffId) {
         query = query.eq('assigned_staff_id', staffId).eq('status', 'delivered')
       }
 
+      console.log('🔍 Query details:', { restaurantId, staffId, filter })
+
       const { data, error } = await query
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Supabase query error:', error)
+        throw error
+      }
 
       const ordersData = data || []
+      console.log(`✅ Successfully loaded ${ordersData.length} orders for ${filter} filter`)
+      
       setOrders(ordersData)
       
       // Cache the results
@@ -116,11 +140,14 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         timestamp: Date.now()
       }))
 
-      console.log(`📦 Loaded ${ordersData.length} orders for ${filter} filter`)
     } catch (error) {
-      console.error('Error fetching orders:', error)
-      toast.error('Failed to fetch orders')
+      console.error('💥 Error fetching orders:', error)
+      toast.error(`Failed to fetch orders: ${error.message}`)
+      
+      // Set empty array on error to show empty state instead of loading
+      setOrders([])
     } finally {
+      console.log('🏁 Fetch complete, setting loading to false')
       setLoading(false)
       setRefreshing(false)
     }
@@ -281,69 +308,142 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {[
-          { key: 'pending', label: 'Available', icon: '🔔', color: 'bg-blue-500' },
-          { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', color: 'bg-orange-500' },
-          { key: 'completed', label: 'Completed', icon: '✅', color: 'bg-green-500' }
-        ].map((tab) => (
-          <motion.button
-            key={tab.key}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setFilter(tab.key)}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-              filter === tab.key
-                ? `${tab.color} text-white shadow-lg`
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
-          >
-            <span className="text-lg">{tab.icon}</span>
-            <span className="text-sm">{tab.label}</span>
-            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-              filter === tab.key
-                ? 'bg-white/20 text-white'
-                : 'bg-gray-100 text-gray-600'
-            }`}>
-              {orders.filter(o => {
-                if (tab.key === 'pending') return o.status === 'pending'
-                if (tab.key === 'assigned') return o.assigned_staff_id === staffId && ['assigned', 'preparing', 'ready'].includes(o.status)
-                if (tab.key === 'completed') return o.status === 'delivered' && o.assigned_staff_id === staffId
-                return false
-              }).length}
-            </span>
-          </motion.button>
-        ))}
+          { key: 'pending', label: 'Available', icon: '🔔', color: 'from-blue-500 to-blue-600', bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600' },
+          { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', color: 'from-orange-500 to-red-500', bgColor: 'bg-gradient-to-r from-orange-500 to-red-500' },
+          { key: 'completed', label: 'Completed', icon: '✅', color: 'from-green-500 to-emerald-500', bgColor: 'bg-gradient-to-r from-green-500 to-emerald-500' }
+        ].map((tab) => {
+          const count = orders.filter(o => {
+            if (tab.key === 'pending') return o.status === 'pending'
+            if (tab.key === 'assigned') return o.assigned_staff_id === staffId && ['assigned', 'preparing', 'ready'].includes(o.status)
+            if (tab.key === 'completed') return o.status === 'delivered' && o.assigned_staff_id === staffId
+            return false
+          }).length
+
+          return (
+            <motion.button
+              key={tab.key}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setFilter(tab.key)}
+              className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl font-medium transition-all duration-300 whitespace-nowrap min-w-fit ${
+                filter === tab.key
+                  ? `${tab.bgColor} text-white shadow-lg shadow-${tab.key === 'pending' ? 'blue' : tab.key === 'assigned' ? 'orange' : 'green'}-200`
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <motion.span 
+                className="text-lg"
+                animate={filter === tab.key ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {tab.icon}
+              </motion.span>
+              <span className="text-sm font-semibold">{tab.label}</span>
+              {count > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className={`px-2 py-1 rounded-full text-xs font-bold min-w-[20px] text-center ${
+                    filter === tab.key
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {count}
+                </motion.span>
+              )}
+              
+              {/* Active indicator */}
+              {filter === tab.key && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 bg-white/10 rounded-2xl"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+            </motion.button>
+          )
+        })}
       </div>
 
       {/* Orders List */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading orders...</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center py-16 px-4"
+        >
+          <div className="relative">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="absolute inset-0 flex items-center justify-center"
+            >
+              <span className="text-2xl">🍽️</span>
+            </motion.div>
+          </div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-gray-600 font-medium mt-4 text-center"
+          >
+            Loading delicious orders...
+          </motion.p>
+        </motion.div>
       ) : orders.length === 0 ? (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-16"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16 px-4"
         >
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ClockIcon className="h-10 w-10 text-gray-400" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">No orders found</h3>
-          <p className="text-gray-500 mb-6">
-            {filter === 'pending' ? 'No new orders available right now' : 
-             filter === 'assigned' ? 'No orders assigned to you yet' :
-             'No completed orders to show'}
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="w-24 h-24 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <span className="text-4xl">
+              {filter === 'pending' && '🔔'}
+              {filter === 'assigned' && '👨‍🍳'}
+              {filter === 'completed' && '✅'}
+            </span>
+          </motion.div>
+          <h3 className="text-xl font-bold text-gray-900 mb-3">
+            {filter === 'pending' && 'No New Orders'}
+            {filter === 'assigned' && 'No Active Orders'}
+            {filter === 'completed' && 'No Completed Orders'}
+          </h3>
+          <p className="text-gray-500 mb-6 max-w-sm mx-auto leading-relaxed">
+            {filter === 'pending' && 'All caught up! New orders will appear here when customers place them.'}
+            {filter === 'assigned' && 'You have no orders to work on right now. Check back soon!'}
+            {filter === 'completed' && 'No orders completed today. Keep up the great work!'}
           </p>
+          {!isOnline && filter === 'pending' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 font-medium mb-4"
+            >
+              <span className="text-lg">💡</span>
+              Go online to receive new orders
+            </motion.div>
+          )}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => fetchOrders(true)}
-            className="px-6 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors"
+            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-lg"
           >
-            Refresh Orders
+            🔄 Refresh Orders
           </motion.button>
         </motion.div>
       ) : (

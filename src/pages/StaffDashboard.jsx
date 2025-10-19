@@ -23,7 +23,8 @@ import {
   ChevronDownIcon,
   SparklesIcon,
   StarIcon,
-  ShoppingBagIcon
+  ShoppingBagIcon,
+  BookOpenIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -32,6 +33,8 @@ import StaffOrderManagement from '../components/staff/StaffOrderManagement'
 import StaffPerformance from '../components/staff/StaffPerformance'
 import RestaurantInfo from '../components/staff/RestaurantInfo'
 import StaffRestaurantApplication from '../components/staff/StaffRestaurantApplication'
+import StaffOverview from '../components/staff/StaffOverview'
+import StaffMenuView from '../components/staff/StaffMenuView'
 
 const StaffDashboard = () => {
   const navigate = useNavigate()
@@ -182,30 +185,38 @@ const StaffDashboard = () => {
       
       const today = new Date().toISOString().split('T')[0]
       
-      // Parallel fetch for better performance
-      const [ordersResult, reviewsResult] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('total_amount, tip_amount')
-          .eq('assigned_staff_id', staffId)
-          .gte('created_at', `${today}T00:00:00`)
-          .eq('status', 'delivered'),
-        supabase
-          .from('reviews')
-          .select('rating')
-          .eq('staff_id', staffId)
-      ])
+      // First, get today's orders for this staff member
+      const { data: todayOrdersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, total_amount, tip_amount')
+        .eq('assigned_staff_id', staffId)
+        .gte('created_at', `${today}T00:00:00`)
+        .eq('status', 'delivered')
 
-      const { data: todayOrdersData } = ordersResult
-      const { data: reviewsData } = reviewsResult
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError)
+        return
+      }
 
+      // Calculate basic stats from orders
       const todayOrders = todayOrdersData?.length || 0
       const todayEarnings = todayOrdersData?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
       const todayTips = todayOrdersData?.reduce((sum, order) => sum + (order.tip_amount || 0), 0) || 0
 
-      const avgRating = reviewsData?.length > 0 
-        ? reviewsData.reduce((sum, review) => sum + review.rating, 0) / reviewsData.length 
-        : 5.0
+      // Get reviews for this staff member's orders (if any orders exist)
+      let avgRating = 5.0
+      if (todayOrdersData && todayOrdersData.length > 0) {
+        const orderIds = todayOrdersData.map(order => order.id)
+        
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('overall_rating')
+          .in('order_id', orderIds)
+
+        if (!reviewsError && reviewsData?.length > 0) {
+          avgRating = reviewsData.reduce((sum, review) => sum + (review.overall_rating || 5), 0) / reviewsData.length
+        }
+      }
 
       setStats({
         todayOrders,
@@ -214,9 +225,21 @@ const StaffDashboard = () => {
         rating: Number(avgRating.toFixed(1))
       })
 
-      console.log('📊 Stats loaded successfully')
+      console.log('📊 Stats loaded successfully:', {
+        todayOrders,
+        todayEarnings: Math.round(todayEarnings),
+        todayTips: Math.round(todayTips),
+        rating: Number(avgRating.toFixed(1))
+      })
     } catch (error) {
       console.error('Error loading stats:', error)
+      // Set default stats on error
+      setStats({
+        todayOrders: 0,
+        todayEarnings: 0,
+        todayTips: 0,
+        rating: 5.0
+      })
     }
   }
 
@@ -253,9 +276,13 @@ const StaffDashboard = () => {
     }
   }
 
+
+
+// Define tabs
   const tabs = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'orders', name: 'Orders', icon: ShoppingBagIcon },
+    { id: 'menu', name: 'Menu', icon: BookOpenIcon },
     { id: 'performance', name: 'Performance', icon: TrophyIcon },
     { id: 'restaurant', name: 'Restaurant', icon: BuildingStorefrontIcon }
   ]
@@ -267,7 +294,7 @@ const StaffDashboard = () => {
         is_available: newStatus,
         updated_at: new Date().toISOString()
       }
-
+      
       const { error } = await supabase
         .from('staff')
         .update(updates)
@@ -278,6 +305,7 @@ const StaffDashboard = () => {
       setIsOnline(newStatus)
       toast.success(newStatus ? '🟢 You are now online!' : '🔴 You are now offline')
     } catch (error) {
+      console.error('Error updating status:', error)
       toast.error('Failed to update status')
     }
   }
@@ -342,202 +370,30 @@ const StaffDashboard = () => {
       )
     }
 
-    switch (activeTab) {
+switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-8">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Today's Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.todayOrders}</p>
-                    <p className="text-xs text-green-600 font-medium">+12% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <ShoppingBagIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Today's Earnings</p>
-                    <p className="text-3xl font-bold text-gray-900">₹{stats.todayEarnings}</p>
-                    <p className="text-xs text-green-600 font-medium">+8% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <CurrencyRupeeIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Tips Earned</p>
-                    <p className="text-3xl font-bold text-gray-900">₹{stats.todayTips}</p>
-                    <p className="text-xs text-green-600 font-medium">+15% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                    <SparklesIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Rating</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.rating}/5</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <StarIcon
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < Math.floor(stats.rating)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                    <TrophyIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
-            >
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <SparklesIcon className="h-6 w-6 text-orange-500" />
-                Quick Actions
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={toggleOnlineStatus}
-                  className={`flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 transition-all duration-200 ${
-                    isOnline
-                      ? 'border-red-200 bg-gradient-to-br from-red-50 to-red-100 text-red-700 hover:border-red-300'
-                      : 'border-green-200 bg-gradient-to-br from-green-50 to-green-100 text-green-700 hover:border-green-300'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    isOnline ? 'bg-red-200' : 'bg-green-200'
-                  }`}>
-                    {isOnline ? (
-                      <StopIcon className="h-6 w-6" />
-                    ) : (
-                      <PlayIcon className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">
-                      {isOnline ? 'Go Offline' : 'Go Online'}
-                    </p>
-                    <p className="text-sm opacity-75">
-                      {isOnline ? 'Stop receiving orders' : 'Start receiving orders'}
-                    </p>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab('orders')}
-                  className="flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 hover:border-blue-300 transition-all duration-200"
-                >
-                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
-                    <ShoppingBagIcon className="h-6 w-6" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">Manage Orders</p>
-                    <p className="text-sm opacity-75">View and update orders</p>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab('performance')}
-                  className="flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 text-purple-700 hover:border-purple-300 transition-all duration-200"
-                >
-                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
-                    <ChartBarIcon className="h-6 w-6" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">View Performance</p>
-                    <p className="text-sm opacity-75">Check your stats</p>
-                  </div>
-                </motion.button>
-              </div>
-            </motion.div>
-
-            {/* Status Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Current Status</h3>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full ${
-                      isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                    }`}></div>
-                    <span className="text-lg font-medium text-gray-700">
-                      You are {isOnline ? 'online and ready for orders' : 'offline'}
-                    </span>
-                  </div>
-                  <p className="text-gray-500 mt-1">
-                    Working at <span className="font-medium text-orange-600">{restaurantInfo?.name}</span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">Position</p>
-                  <p className="text-lg font-semibold text-gray-900">{staffSession?.position}</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <StaffOverview 
+            stats={stats}
+            isOnline={isOnline}
+            toggleOnlineStatus={toggleOnlineStatus}
+            setActiveTab={setActiveTab}
+            restaurantInfo={restaurantInfo}
+            staffSession={staffSession}
+          />
         )
 
       case 'orders':
-        return <StaffOrderManagement staffId={staffSession?.staff_id} />
+        return (
+          <StaffOrderManagement 
+            staffId={staffSession?.staff_id} 
+            restaurantId={staffSession?.restaurant_id}
+            isOnline={isOnline}
+          />
+        )
+
+      case 'menu':
+        return <StaffMenuView restaurantId={staffSession?.restaurant_id} />
 
       case 'performance':
         return <StaffPerformance staffId={staffSession?.staff_id} />
@@ -866,7 +722,11 @@ const StaffDashboard = () => {
               {tabs.find(tab => tab.id === activeTab)?.name || 'Overview'}
             </h1>
             <p className="text-gray-600">
-              Welcome back, <span className="font-medium text-orange-600">{staffSession?.full_name}</span>
+              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}`}
+              {activeTab === 'orders' && 'Manage your assigned orders'}
+              {activeTab === 'menu' && 'View restaurant menu items'}
+              {activeTab === 'performance' && 'Track your performance metrics'}
+              {activeTab === 'restaurant' && 'Restaurant information and details'}
             </p>
           </motion.div>
         </div>
@@ -897,22 +757,12 @@ const StaffDashboard = () => {
                   : 'text-gray-500 hover:text-orange-400 hover:bg-gray-50'
               }`}
             >
-              <tab.icon className={`h-6 w-6 ${
+              <tab.icon className={`h-5 w-5 ${
                 activeTab === tab.id ? 'text-orange-500' : 'text-gray-400'
               }`} />
               <span className="text-xs font-medium">{tab.name}</span>
             </motion.button>
           ))}
-          
-          {/* Staff Tab (Active indicator) */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex flex-col items-center justify-center gap-1 text-orange-500 bg-orange-50"
-          >
-            <UserIcon className="h-6 w-6 text-orange-500" />
-            <span className="text-xs font-medium">Staff</span>
-          </motion.button>
         </div>
       </div>
     </div>
