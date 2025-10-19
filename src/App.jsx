@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './stores/useAuthStore'
 import { CustomerNavigationProvider } from './contexts/CustomerNavigationContext'
+import { ConfirmationProvider } from './contexts/ConfirmationContext'
 
 // Import pages
 import LandingPage from './pages/LandingPage'
@@ -24,24 +25,20 @@ import CustomerSettings from './pages/CustomerSettings'
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { user, profile } = useAuthStore()
+  const { user, profile, userRole, userId } = useAuthStore()
 
   if (!user) {
     return <Navigate to="/auth" replace />
   }
 
-  // Check if email is verified
-  if (user && !user.email_confirmed_at) {
-    return <Navigate to="/verify-email" replace />
-  }
-
-  // Get user role from user metadata (more reliable than profile)
-  const userRole = user?.user_metadata?.role || profile?.role
+  // Check if email is verified (skip for unified users system)
+  // if (user && !user.email_confirmed_at) {
+  //   return <Navigate to="/verify-email" replace />
+  // }
 
   console.log('🔐 ProtectedRoute check:', {
-    userId: user.id,
+    userId,
     userRole,
-    userMetadataRole: user?.user_metadata?.role,
     profileRole: profile?.role,
     allowedRoles
   })
@@ -65,21 +62,21 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
-  const { user, profile, initialized } = useAuthStore()
+  const { user, profile, initialized, userRole, userId } = useAuthStore()
 
   console.log('🔄 PublicRoute check:', {
     user: !!user,
-    userId: user?.id,
-    userRole: user?.user_metadata?.role,
+    userId,
+    userRole,
     profileRole: profile?.role,
     initialized,
-    currentPath: window.location.pathname
+    currentPath: window.location.pathname,
+    fullUser: user,
+    fullProfile: profile
   })
 
   // Only redirect if user is authenticated AND initialized
   if (user && initialized) {
-    const userRole = user.user_metadata?.role || profile?.role
-
     console.log('🔄 PublicRoute: User authenticated, redirecting...', {
       userRole,
       currentPath: window.location.pathname
@@ -106,7 +103,7 @@ const PublicRoute = ({ children }) => {
 }
 
 function App() {
-  const { initialize, loading, user, profile, initialized } = useAuthStore()
+  const { initialize, loading, user, profile, initialized, userRole, userId } = useAuthStore()
 
   // Debug: Monitor auth state changes
   useEffect(() => {
@@ -114,10 +111,9 @@ function App() {
       loading,
       initialized,
       user: !!user,
-      userId: user?.id,
-      userRole: user?.user_metadata?.role,
+      userId,
+      userRole,
       profileRole: profile?.role,
-      profile: profile,
       currentPath: window.location.pathname
     })
 
@@ -163,17 +159,25 @@ function App() {
           {/* Public Routes */}
           <Route path="/auth" element={
             <PublicRoute>
-              <Auth />
+              <ConfirmationProvider>
+                <Auth />
+              </ConfirmationProvider>
             </PublicRoute>
           } />
           
           {/* Email Verification */}
-          <Route path="/verify-email" element={<EmailVerification />} />
+          <Route path="/verify-email" element={
+            <ConfirmationProvider>
+              <EmailVerification />
+            </ConfirmationProvider>
+          } />
           
           {/* Restaurant Onboarding */}
           <Route path="/restaurant-setup" element={
             <ProtectedRoute allowedRoles={['restaurant_owner']}>
-              <RestaurantOnboarding />
+              <ConfirmationProvider>
+                <RestaurantOnboarding />
+              </ConfirmationProvider>
             </ProtectedRoute>
           } />
           
@@ -192,7 +196,9 @@ function App() {
           {/* Protected Routes */}
           <Route path="/staff" element={
             <ProtectedRoute allowedRoles={['staff']}>
-              <StaffDashboard />
+              <ConfirmationProvider>
+                <StaffDashboard />
+              </ConfirmationProvider>
             </ProtectedRoute>
           } />
           
@@ -201,14 +207,18 @@ function App() {
               <Navigate to="/admin" replace />
             ) : (
               <ProtectedRoute allowedRoles={['restaurant_owner']}>
-                <OwnerDashboard />
+                <ConfirmationProvider>
+                  <OwnerDashboard />
+                </ConfirmationProvider>
               </ProtectedRoute>
             )
           } />
           
           <Route path="/admin" element={
             <ProtectedRoute allowedRoles={['super_admin']}>
-              <SuperAdminPanel />
+              <ConfirmationProvider>
+                <SuperAdminPanel />
+              </ConfirmationProvider>
             </ProtectedRoute>
           } />
           
@@ -253,23 +263,24 @@ function App() {
           
           {/* Landing Pages */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/business" element={<LandingPage />} />
+          <Route path="/business" element={
+            <ConfirmationProvider>
+              <LandingPage />
+            </ConfirmationProvider>
+          } />
           
           {/* Default redirect for authenticated users */}
           <Route path="/home" element={
             user ? (
               (() => {
-                // Fallback role detection from user metadata if profile is null
-                const userRole = user?.user_metadata?.role || profile?.role
-
                 console.log('🏡 Home route redirect:', {
                   userRole,
-                  userMetadataRole: user?.user_metadata?.role,
+                  userId,
                   profileRole: profile?.role
                 })
 
                 return (
-                  userRole === 'staff' ? <Navigate to="/staff" replace /> :
+                  userRole === 'staff' ? <Navigate to="/staff-dashboard" replace /> :
                   userRole === 'restaurant_owner' ? <Navigate to="/dashboard" replace /> :
                   userRole === 'super_admin' ? <Navigate to="/admin" replace /> :
                   <Navigate to="/auth" replace />
@@ -284,17 +295,14 @@ function App() {
           <Route path="*" element={
             user ? (
               (() => {
-                // Fallback role detection from user metadata if profile is null
-                const userRole = user?.user_metadata?.role || profile?.role
-
                 console.log('🎯 Catch-all route redirect:', {
                   userRole,
-                  userMetadataRole: user?.user_metadata?.role,
+                  userId,
                   profileRole: profile?.role
                 })
 
                 return (
-                  userRole === 'staff' ? <Navigate to="/staff" replace /> :
+                  userRole === 'staff' ? <Navigate to="/staff-dashboard" replace /> :
                   userRole === 'restaurant_owner' ? <Navigate to="/dashboard" replace /> :
                   userRole === 'super_admin' ? <Navigate to="/admin" replace /> :
                   <Navigate to="/" replace />

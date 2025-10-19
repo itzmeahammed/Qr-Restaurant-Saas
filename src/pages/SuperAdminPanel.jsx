@@ -34,10 +34,12 @@ import {
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
+import { useConfirmation } from '../contexts/ConfirmationContext'
 
 const SuperAdminPanel = () => {
   const navigate = useNavigate()
   const { user, signOut } = useAuthStore()
+  const { showConfirmation } = useConfirmation()
   const [activeTab, setActiveTab] = useState('overview')
   const [stats, setStats] = useState({
     totalRestaurants: 0,
@@ -344,9 +346,16 @@ const SuperAdminPanel = () => {
   }
 
   const handleDeleteUser = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return
-    }
+    const confirmed = await showConfirmation({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user?\n\nThis action cannot be undone.',
+      type: 'error',
+      confirmText: 'Delete User',
+      cancelText: 'Cancel',
+      confirmButtonColor: 'red'
+    })
+    
+    if (!confirmed) return
     
     try {
       // Note: In a real app, you'd need proper user deletion logic
@@ -358,9 +367,16 @@ const SuperAdminPanel = () => {
   }
 
   const handleBulkDeleteSpecificUsers = async () => {
-    if (!confirm('Are you sure you want to delete the specific users (sumaiya27khan@gmail.com, givegainz3@gmail.com)? This action cannot be undone.')) {
-      return
-    }
+    const confirmed = await showConfirmation({
+      title: 'Bulk Delete Users',
+      message: 'Are you sure you want to delete the specific users (sumaiya27khan@gmail.com, givegainz3@gmail.com)?\n\nThis action cannot be undone.',
+      type: 'error',
+      confirmText: 'Delete Users',
+      cancelText: 'Cancel',
+      confirmButtonColor: 'red'
+    })
+    
+    if (!confirmed) return
     
     try {
       // This is a placeholder for bulk deletion of specific users

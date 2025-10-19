@@ -37,7 +37,7 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     {
       icon: QrCodeIcon,
       label: 'Scan QR',
-      color: 'bg-black hover:bg-gray-800 text-white',
+      color: 'bg-orange-500 hover:bg-orange-600 text-white',
       onClick: () => {
         if (onQRScan) {
           onQRScan()
@@ -51,7 +51,7 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     {
       icon: MapPinIcon,
       label: 'Restaurants',
-      color: 'bg-white hover:bg-gray-50 text-black border border-gray-300',
+      color: 'bg-white hover:bg-gray-50 text-orange-600 border border-orange-200',
       onClick: () => {
         if (onLocationSearch) {
           onLocationSearch()
@@ -149,8 +149,8 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
               onClick={() => setIsOpen(!isOpen)}
               className={`relative w-12 h-12 rounded-xl shadow-lg flex items-center justify-center transition-all duration-200 ${
                 isOpen 
-                  ? 'bg-white border-2 border-gray-300 text-gray-700' 
-                  : 'bg-black text-white'
+                  ? 'bg-white border-2 border-orange-300 text-orange-600' 
+                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
               }`}
             >
               <motion.div
@@ -166,7 +166,7 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
               
               {/* Small notification dot */}
               {!isOpen && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               )}
             </motion.button>
           </motion.div>

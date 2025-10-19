@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../config/supabase'
 import toast from 'react-hot-toast'
+import bcrypt from 'bcryptjs'
 
 const useAuthStore = create((set, get) => ({
   user: null,
@@ -8,8 +9,11 @@ const useAuthStore = create((set, get) => ({
   loading: true,
   initialized: false,
   initializing: false, // Add flag to prevent concurrent initialization
+  userRole: undefined,
+  userId: undefined,
+  isAuthenticated: false,
   
-  // Initialize auth state - handles both immediate session and delayed restoration
+  // Initialize auth state - checks localStorage for unified users session
   initialize: async () => {
     const state = get()
     console.log('🔄 Initialize called. Current state:', { 
@@ -27,52 +31,87 @@ const useAuthStore = create((set, get) => ({
     set({ loading: true, initializing: true })
 
     try {
-      // Get the current session without timeout - let Supabase handle it
-      console.log('🔄 Getting session from Supabase...')
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Check for stored user session in localStorage
+      console.log('🔄 Checking localStorage for user session...')
+      const storedSession = localStorage.getItem('user_session')
       
-      if (error) {
-        console.error('❌ Error getting session:', error)
-        set({ 
-          user: null, 
-          profile: null, 
-          loading: false, 
-          initialized: true, 
-          initializing: false 
-        })
-        return
-      }
-      
-      if (session?.user) {
-        console.log('✅ Session found during initialization')
-        console.log('📋 Session user:', session.user.email)
-        console.log('📋 User metadata:', session.user.user_metadata)
-        
-        // Create profile immediately from user metadata - don't fetch from database
-        const profile = {
-          id: session.user.id,
-          email: session.user.email,
-          role: session.user.user_metadata?.role || 'restaurant_owner', // Default for this user
-          full_name: session.user.user_metadata?.full_name || '',
-          phone: session.user.user_metadata?.phone || ''
-        }
+      if (storedSession) {
+        try {
+          const userSession = JSON.parse(storedSession)
+          console.log('✅ Found stored session:', userSession)
+          
+          // Verify the user still exists and is active
+          const { data: userData, error: verifyError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userSession.id)
+            .eq('is_active', true)
+            .single()
 
-        console.log('✅ Profile created from metadata:', profile)
-        set({ 
-          user: session.user, 
-          profile: profile,
-          loading: false, 
-          initialized: true, 
-          initializing: false 
-        })
+          if (verifyError || !userData) {
+            console.log('❌ Stored session invalid, clearing...', verifyError)
+            localStorage.removeItem('user_session')
+            throw new Error('Session expired')
+          }
+
+          console.log('🔍 User data from database:', userData)
+          console.log('🔍 User role from database:', userData.role)
+
+          // Update session with latest data
+          const updatedSession = {
+            id: userData.id,
+            email: userData.email,
+            full_name: userData.full_name,
+            phone: userData.phone,
+            role: userData.role,
+            restaurant_id: userData.restaurant_id,
+            position: userData.position,
+            hourly_rate: userData.hourly_rate,
+            is_available: userData.is_available
+          }
+
+          localStorage.setItem('user_session', JSON.stringify(updatedSession))
+
+          console.log('✅ Session restored and updated', {
+            userRole: userData.role,
+            userId: userData.id,
+            userData: userData
+          })
+          set({ 
+            user: updatedSession, 
+            profile: updatedSession,
+            loading: false, 
+            initialized: true, 
+            initializing: false,
+            isAuthenticated: true,
+            userRole: userData.role,
+            userId: userData.id
+          })
+        } catch (parseError) {
+          console.error('❌ Error parsing stored session:', parseError)
+          localStorage.removeItem('user_session')
+          set({ 
+            user: null, 
+            profile: null, 
+            loading: false, 
+            initialized: true, 
+            initializing: false,
+            isAuthenticated: false,
+            userRole: undefined,
+            userId: undefined
+          })
+        }
       } else {
-        console.log('📋 No session found during initialization')
+        console.log('📋 No stored session found')
         set({ 
           user: null, 
           profile: null, 
           loading: false, 
           initialized: true, 
-          initializing: false 
+          initializing: false,
+          isAuthenticated: false,
+          userRole: undefined,
+          userId: undefined
         })
       }
     } catch (error) {
@@ -83,7 +122,10 @@ const useAuthStore = create((set, get) => ({
         profile: null, 
         loading: false, 
         initialized: true,
-        initializing: false
+        initializing: false,
+        isAuthenticated: false,
+        userRole: undefined,
+        userId: undefined
       })
     }
   },
@@ -230,61 +272,170 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Sign up
+  // Sign up using unified users table
   signUp: async (email, password, userData = {}) => {
     set({ loading: true })
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: userData.full_name,
-            phone: userData.phone,
-            role: userData.role || 'customer'
-          }
-        }
+      console.log('🔄 Attempting signup for:', email, 'with role:', userData.role)
+      
+      // Check if user already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .single()
+
+      if (existingUser) {
+        throw new Error('An account with this email already exists')
+      }
+
+      // Hash the password
+      const saltRounds = 10
+      const passwordHash = await bcrypt.hash(password, saltRounds)
+      console.log('🔒 Password hashed successfully')
+
+      // Create new user in unified users table
+      const newUser = {
+        email: email.toLowerCase().trim(),
+        password_hash: passwordHash,
+        full_name: userData.full_name || '',
+        phone: userData.phone || '',
+        role: userData.role || 'staff',
+        is_active: true,
+        email_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      console.log('📝 Creating user with data:', { ...newUser, password_hash: '[HIDDEN]' })
+
+      const { data: createdUser, error: insertError } = await supabase
+        .from('users')
+        .insert([newUser])
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error('❌ Error creating user:', insertError)
+        throw new Error(insertError.message || 'Failed to create account')
+      }
+
+      console.log('✅ User created successfully:', createdUser)
+
+      // For signup, don't automatically log in the user
+      // They should login separately after signup
+      set({ 
+        user: null,
+        profile: null,
+        loading: false,
+        isAuthenticated: false,
+        userRole: undefined,
+        userId: undefined
       })
-      
-      if (error) throw error
-      
-      set({ user: data.user, loading: false })
-      return data
+
+      return { user: createdUser, success: true }
     } catch (error) {
+      console.error('❌ Signup error:', error)
       set({ loading: false })
       throw error
     }
   },
 
-  // Sign in
+  // Sign in using unified users table
   signIn: async (email, password) => {
     set({ loading: true })
     try {
       console.log('🔄 Attempting sign in for:', email)
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+      // Query the unified users table
+      const { data: userData, error: queryError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('is_active', true)
+        .single()
 
-      if (error) {
-        console.error('❌ Sign in error:', error)
-        
-        // Handle specific error types
-        if (error.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid email or password. Please check your credentials.')
-        } else if (error.message.includes('Email not confirmed')) {
-          throw new Error('Please check your email and click the confirmation link.')
-        } else if (error.message.includes('Failed to fetch')) {
-          throw new Error('Network connection error. Please check your internet connection and try again.')
-        } else {
-          throw new Error(error.message || 'Sign in failed. Please try again.')
-        }
+      if (queryError || !userData) {
+        console.error('❌ User not found:', queryError)
+        throw new Error('Invalid email or password. Please check your credentials.')
       }
 
-      console.log('✅ Sign in successful')
-      set({ loading: false })
-      return { data, error: null }
+      console.log('🔍 Found user:', userData)
+
+      // Password verification logic
+      let passwordValid = false
+      
+      // Check for temporary password format (Staff + last 8 chars of ID + !)
+      const tempPassword = 'Staff' + userData.id.slice(-8) + '!'
+      if (password === tempPassword) {
+        passwordValid = true
+        console.log('✅ Temporary password matched')
+      }
+      
+      // Check for temporary hash that needs reset
+      else if (userData.password_hash === '$2b$10$temp.password.hash.needs.to.be.reset') {
+        passwordValid = true
+        console.log('✅ Temporary hash matched')
+      }
+      
+      // For bcrypt hashes, use proper bcrypt verification
+      else if (userData.password_hash && userData.password_hash.startsWith('$2b$')) {
+        console.log('🔍 Checking bcrypt hash...')
+        try {
+          passwordValid = await bcrypt.compare(password, userData.password_hash)
+          if (passwordValid) {
+            console.log('✅ Bcrypt password verified successfully')
+          } else {
+            console.log('❌ Bcrypt password verification failed')
+          }
+        } catch (bcryptError) {
+          console.error('❌ Bcrypt verification error:', bcryptError)
+          passwordValid = false
+        }
+      }
+      
+      if (passwordValid) {
+        
+        // Create a user session object
+        const userSession = {
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.full_name,
+          phone: userData.phone,
+          role: userData.role,
+          restaurant_id: userData.restaurant_id,
+          position: userData.position,
+          hourly_rate: userData.hourly_rate,
+          is_available: userData.is_available
+        }
+
+        // Store in localStorage for session persistence
+        localStorage.setItem('user_session', JSON.stringify(userSession))
+        
+        // Update last login
+        await supabase
+          .from('users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', userData.id)
+
+        console.log('✅ Sign in successful for:', userData.role)
+        set({ 
+          user: userSession, 
+          profile: userSession,
+          loading: false,
+          isAuthenticated: true,
+          userRole: userData.role,
+          userId: userData.id
+        })
+        
+        return { 
+          data: { user: userSession }, 
+          error: null 
+        }
+      } else {
+        throw new Error('Invalid email or password. Please check your credentials.')
+      }
+
     } catch (error) {
       console.error('❌ Sign in error:', error)
       set({ loading: false })
@@ -292,23 +443,25 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Sign out
+  // Sign out from unified users system
   signOut: async () => {
     try {
       console.log('🚪 Signing out...')
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
       
       // Clear all auth state
       set({ 
         user: null, 
         profile: null, 
         loading: false,
-        initialized: true 
+        initialized: true,
+        isAuthenticated: false,
+        userRole: undefined,
+        userId: undefined
       })
       
       // Clear localStorage
       try {
+        localStorage.removeItem('user_session')
         localStorage.removeItem('supabase.auth.token')
         localStorage.removeItem('sb-hinxagdwoyscbghpvyxj-auth-token')
       } catch (e) {

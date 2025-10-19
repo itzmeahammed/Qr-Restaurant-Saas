@@ -13,13 +13,17 @@ import {
   StarIcon,
   ArrowTrendingUpIcon as TrendingUpIcon,
   ShoppingBagIcon,
-  ArrowRightOnRectangleIcon,
-  UserCircleIcon,
+  XMarkIcon,
   BellIcon,
-  Cog6ToothIcon,
+  UserCircleIcon,
   ChevronDownIcon,
-  XMarkIcon
+  ArrowRightOnRectangleIcon,
+  CogIcon,
+  ClipboardDocumentListIcon,
+  Bars3Icon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
+import Header from '../components/header/Header'
 import { 
   LineChart, 
   Line, 
@@ -50,13 +54,23 @@ const OwnerDashboard = () => {
   const { user, profile, signOut, loading: authLoading } = useAuthStore()
   const navigate = useNavigate()
   
+  // State declarations (moved before usage)
+  const [loading, setLoading] = useState(true)
+  const [restaurant, setRestaurant] = useState(null)
+  
   // Debug auth state
-  console.log('=== OwnerDashboard Render ====')
-  console.log('Auth loading:', authLoading)
-  console.log('User:', user)
-  console.log('Profile:', profile)
-  const [showProfileMenu, setShowProfileMenu] = useState(false)
+  console.log('=== Dashboard Render State ===')
+  console.log('authLoading:', authLoading)
+  console.log('loading:', loading)
+  console.log('user:', user)
+  console.log('restaurant:', restaurant)
+  
+  if (loading) {
+    console.log('Showing loading screen because:', { authLoading, loading })
+  }
+  
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showProfileSettings, setShowProfileSettings] = useState(false)
   const [showRestaurantSettings, setShowRestaurantSettings] = useState(false)
   const [profileData, setProfileData] = useState({
@@ -79,7 +93,6 @@ const OwnerDashboard = () => {
   const [imagePreview, setImagePreview] = useState({ logo: null, banner: null })
   const [uploadingImages, setUploadingImages] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
-  const [restaurant, setRestaurant] = useState(null)
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -94,17 +107,26 @@ const OwnerDashboard = () => {
   const [menuItems, setMenuItems] = useState([])
   const [categories, setCategories] = useState([])
   const [tables, setTables] = useState([])
-  const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState([])
+
+  // Handle logout function
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   // Removed artificial timeout - database should maintain persistent connection
 
-  // Wait for auth to initialize before checking restaurant setup
+  // Optimized useEffect to prevent multiple API calls
   useEffect(() => {
     console.log('=== OwnerDashboard useEffect triggered =====')
     console.log('Auth loading:', authLoading)
-    console.log('User:', user)
-    console.log('Profile:', profile)
+    console.log('User ID:', user?.id)
+    console.log('Restaurant loaded:', !!restaurant)
     
     // Don't proceed if auth is still loading
     if (authLoading) {
@@ -113,41 +135,23 @@ const OwnerDashboard = () => {
     }
     
     // If auth is done but no user, redirect to login
-    if (!user) {
+    if (!user?.id) {
       console.log('No user found after auth completed, redirecting to login')
-      navigate('/login')
+      navigate('/auth')
       return
     }
     
     // Prevent multiple calls if restaurant is already loaded
-    if (restaurant) {
+    if (restaurant?.id) {
       console.log('Restaurant already loaded, skipping setup check')
       return
     }
     
-    // Database is now set up - using real API calls
-    
-    // User is available, proceed with restaurant setup check
+    // Only run once when user is available and restaurant not loaded
     console.log('User available, checking restaurant setup')
     checkRestaurantSetup()
-  }, [authLoading, user, navigate]) // Removed profile and restaurant from dependencies to prevent multiple calls
+  }, [authLoading, user?.id, restaurant?.id]) // Simplified dependencies to prevent multiple calls
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showProfileMenu && !event.target.closest('.profile-dropdown')) {
-        setShowProfileMenu(false)
-      }
-      if (showNotifications && !event.target.closest('.notifications-dropdown')) {
-        setShowNotifications(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showProfileMenu, showNotifications])
 
   const checkRestaurantSetup = async () => {
     console.log('=== checkRestaurantSetup called =====')
@@ -156,138 +160,92 @@ const OwnerDashboard = () => {
     
     if (!user?.id) {
       console.log('No user ID found, redirecting to login')
-      navigate('/login')
-      return
-    }
-    
-    // Check if this is first time login and restaurant needs verification
-    const checkRestaurantVerification = async (restaurant) => {
-      // If restaurant doesn't have logo or banner, redirect to onboarding for verification
-      if (!restaurant.logo_url || !restaurant.banner_url) {
-        console.log('Restaurant missing verification images, redirecting to setup')
-        toast('Please complete restaurant verification by uploading logo and banner images')
-        navigate('/restaurant-setup')
-        return false
-      }
-      return true
-    }
-    
-    // Remove aggressive timeout - let API calls complete naturally
-    console.log('=== Starting restaurant setup check ===')
-    
-    // Enhanced Supabase connection with retry logic
-    console.log('Establishing persistent database connection...')
-    let retryCount = 0
-    const maxRetries = 3
-    
-    const testConnection = async () => {
-      try {
-        const { data, error } = await supabase.from('restaurants').select('count').limit(1)
-        console.log('Database connection test result:', { data, error })
-        if (error) {
-          if (retryCount < maxRetries) {
-            retryCount++
-            console.log(`Connection failed, retrying... (${retryCount}/${maxRetries})`)
-            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
-            return await testConnection()
-          } else {
-            throw error
-          }
-        }
-        console.log('✅ Persistent database connection established')
-        return true
-      } catch (connectionError) {
-        if (retryCount < maxRetries) {
-          retryCount++
-          console.log(`Connection error, retrying... (${retryCount}/${maxRetries})`)
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          return await testConnection()
-        }
-        throw connectionError
-      }
-    }
-    
-    try {
-      await testConnection()
-    } catch (finalError) {
-      console.error('Failed to establish database connection after retries:', finalError)
-      toast.error('Database connection failed after retries: ' + finalError.message)
-      setLoading(false)
+      navigate('/auth')
       return
     }
     
     try {
-      // Check if user is super_admin
-      const userRole = user.user_metadata?.role || profile?.role
-      console.log('User role:', userRole)
+      // Fetch fresh user data from database to check restaurant setup
+      console.log('Fetching fresh user data for restaurant setup check:', user.id)
       
-      if (userRole === 'super_admin') {
-        // Super admin can view any restaurant - get the first one for demo
-        console.log('Super admin detected, fetching first restaurant')
-        const { data: restaurants, error } = await supabase
-          .from('restaurants')
-          .select('*')
-          .limit(1)
-
-        console.log('Restaurant query result for super admin:', { restaurants, error })
-
-        if (error) {
-          console.error('Error fetching restaurants for super admin:', error)
-          toast.error('Failed to load restaurant data: ' + error.message)
-          setLoading(false)
-          return
-        }
-
-        if (!restaurants || restaurants.length === 0) {
-          console.log('No restaurants found in system')
-          toast('No restaurants found. Please create a restaurant first.')
-          setLoading(false)
-          return
-        }
-
-        console.log('Restaurant found for super admin:', restaurants[0])
-        
-        // Check if restaurant needs verification (even for super admin viewing)
-        const isVerified = await checkRestaurantVerification(restaurants[0])
-        if (!isVerified) return
-        
-        setRestaurant(restaurants[0])
-        await fetchDashboardData(restaurants[0].id)
-        return
-      }
-
-      console.log('Checking restaurants for owner_id:', user.id)
-      // Check if owner has a restaurant
-      const { data: restaurants, error } = await supabase
-        .from('restaurants')
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('*')
-        .eq('owner_id', user.id)
-        .limit(1)
+        .eq('id', user.id)
+        .eq('is_active', true)
+        .single()
 
-      console.log('Restaurant query result:', { restaurants, error })
-
-      if (error) throw error
-
-      if (!restaurants || restaurants.length === 0) {
-        console.log('No restaurant found for owner, redirecting to setup')
-        toast('Please complete your restaurant setup first')
-        navigate('/restaurant-setup')
+      if (userError || !userData) {
+        console.error('Error fetching user data:', userError)
+        toast.error('Error loading user data')
+        navigate('/auth')
         return
       }
 
-      console.log('Restaurant found:', restaurants[0])
+      console.log('Fresh user data:', userData)
       
-      // Check if restaurant needs verification
-      const isVerified = await checkRestaurantVerification(restaurants[0])
-      if (!isVerified) return
+      // Check if required restaurant fields are filled
+      const hasRestaurantName = userData.restaurant_name && userData.restaurant_name.trim() !== ''
+      const hasRestaurantAddress = userData.restaurant_address && userData.restaurant_address.trim() !== ''
+      const hasCuisineType = userData.cuisine_type && userData.cuisine_type.trim() !== ''
       
-      setRestaurant(restaurants[0])
-      await fetchDashboardData(restaurants[0].id)
+      console.log('Restaurant setup check:', {
+        hasRestaurantName,
+        hasRestaurantAddress,
+        hasCuisineType,
+        restaurant_name: userData.restaurant_name,
+        restaurant_address: userData.restaurant_address,
+        cuisine_type: userData.cuisine_type
+      })
+      
+      if (!hasRestaurantName || !hasRestaurantAddress || !hasCuisineType) {
+        // Restaurant setup incomplete - redirect to setup
+        console.log('Restaurant setup incomplete, redirecting to setup')
+        toast.error('Please complete restaurant setup first')
+        navigate('/restaurant-setup')
+        return
+      }
+      
+      // Restaurant setup is complete, create restaurant object from fresh user data
+      const restaurantData = {
+        id: userData.id, // Use user ID as restaurant ID in unified system
+        name: userData.restaurant_name,
+        description: userData.restaurant_description || '',
+        address: userData.restaurant_address,
+        phone: userData.restaurant_phone || userData.phone,
+        email: userData.restaurant_email || userData.email,
+        cuisine_type: userData.cuisine_type,
+        logo_url: userData.logo_url,
+        banner_url: userData.banner_url,
+        owner_id: userData.id
+      }
+      
+      console.log('✅ Restaurant setup complete:', restaurantData.name)
+      setRestaurant(restaurantData)
+      
+      // Fetch all dashboard data using user ID as restaurant ID
+      await Promise.all([
+        fetchOrders(user.id),
+        fetchStaff(user.id),
+        fetchMenuItems(user.id),
+        fetchCategories(user.id),
+        fetchTables(user.id)
+      ])
+      
+      console.log('✅ Dashboard data loaded successfully')
+      
     } catch (error) {
       console.error('Error in checkRestaurantSetup:', error)
-      toast.error('Failed to load restaurant data: ' + error.message)
+      toast.error('Failed to load dashboard: ' + error.message)
+    } finally {
       setLoading(false)
     }
+  }
+  
+  const ensureUserInUnifiedTable = async () => {
+    // Skip unified table creation - use existing restaurant system
+    console.log('Skipping unified table migration - using existing restaurant system')
+    return null
   }
 
   const fetchDashboardData = async (restaurantId) => {
@@ -570,7 +528,7 @@ const OwnerDashboard = () => {
         .select(`
           *,
           tables(*),
-          staff(*, users(*))
+          staff(*)
         `)
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
@@ -592,43 +550,33 @@ const OwnerDashboard = () => {
 
   const fetchStaff = async (restaurantId) => {
     try {
-      console.log('Fetching staff for restaurant:', restaurantId)
+      console.log('Fetching staff for restaurant (user ID):', restaurantId)
       
-      const { data, error } = await supabase
+      // In unified system, staff are linked directly to user ID (restaurant owner)
+      // Query staff table where restaurant_id equals the user ID
+      const { data: staffData, error } = await supabase
         .from('staff')
-        .select(`
-          *,
-          users:user_id (
-            full_name,
-            email,
-            phone
-          )
-        `)
+        .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Staff query error:', error)
-        // If the users join fails, try without it
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('staff')
-          .select('*')
-          .eq('restaurant_id', restaurantId)
-          .order('created_at', { ascending: false })
-        
-        if (fallbackError) {
-          console.error('Fallback staff query error:', fallbackError)
-          setStaff([])
-          return
-        }
-        
-        console.log('Staff fetched (fallback):', fallbackData?.length || 0)
-        setStaff(fallbackData || [])
+        setStaff([])
         return
       }
 
-      console.log('Staff fetched:', data?.length || 0)
-      setStaff(data || [])
+      // Transform the data to flatten the structure
+      const enrichedStaff = (staffData || []).map(staff => ({
+        ...staff,
+        full_name: staff.staff_applications?.full_name || 'Staff Member',
+        email: staff.staff_applications?.email || 'No email',
+        phone: staff.staff_applications?.phone || 'No phone'
+      }))
+
+      console.log('Staff fetched with application data:', enrichedStaff?.length || 0)
+      console.log('Sample staff data:', enrichedStaff[0])
+      setStaff(enrichedStaff || [])
     } catch (error) {
       console.error('Error in fetchStaff:', error)
       setStaff([])
@@ -709,40 +657,220 @@ const OwnerDashboard = () => {
 
   const handleAddStaff = async (staffData) => {
     try {
-      console.log('Adding staff member:', staffData)
+      console.log('=== Creating Staff Account (Unified Schema) ===')
       
-      // Add staff member to database with restaurant_id
-      const { data: staffRecord, error: staffError } = await supabase
-        .from('staff')
-        .insert({
-          restaurant_id: restaurant.id,
-          position: staffData.position,
-          hourly_rate: parseFloat(staffData.hourly_rate) || 0,
-          is_available: true,
-          total_orders_completed: 0,
-          total_tips_received: 0,
-          performance_rating: 5.0
+      // Validate required fields
+      if (!staffData.full_name?.trim()) {
+        toast.error('Please enter staff member name')
+        return
+      }
+      if (!staffData.email?.trim()) {
+        toast.error('Please enter email address')
+        return
+      }
+      if (!staffData.position?.trim()) {
+        toast.error('Please select a position')
+        return
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(staffData.email)) {
+        toast.error('Please enter a valid email address')
+        return
+      }
+      
+      if (!user?.id) {
+        toast.error('Restaurant owner information not available')
+        return
+      }
+      
+      // Find restaurant in the existing restaurants table
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .eq('owner_id', user.id)
+        .single()
+      
+      if (restaurantError || !restaurantData) {
+        toast.error('Restaurant not found. Please complete restaurant setup first.')
+        console.error('Restaurant lookup error:', restaurantError)
+        return
+      }
+      
+      console.log('Found restaurant:', restaurantData.id, restaurantData.name)
+      
+      // Generate secure password if not provided
+      const tempPassword = staffData.password?.trim() || 
+        `Staff${Math.random().toString(36).slice(-8)}${Date.now().toString().slice(-4)}`
+      
+      console.log('Creating staff with existing schema:', staffData.email)
+      
+      // Try to create auth user for login capability
+      let authUserId = null
+      let authCreated = false
+      
+      try {
+        console.log('Step 1: Creating auth user account...')
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: staffData.email,
+          password: tempPassword,
+          options: {
+            data: {
+              full_name: staffData.full_name,
+              phone: staffData.phone || '',
+              role: 'staff',
+              restaurant_id: restaurantData.id
+            }
+          }
         })
+
+        if (authError) {
+          console.error('Auth user creation failed:', authError)
+          if (authError.message?.includes('User already registered')) {
+            toast.error('This email is already registered. Please use a different email.')
+            return
+          }
+          
+          // Handle network connectivity issues
+          if (authError.message?.includes('Failed to fetch') || authError.message?.includes('ERR_INTERNET_DISCONNECTED')) {
+            toast.error('Network connection issue. Please check your internet connection and try again.')
+            return
+          }
+          
+          console.warn('Auth creation failed, will create staff record without login capability')
+        } else if (authData?.user?.id) {
+          authUserId = authData.user.id
+          authCreated = true
+          console.log('✅ Auth user created:', authUserId)
+        }
+      } catch (authCreateError) {
+        console.warn('Auth user creation failed, continuing without login capability:', authCreateError)
+      }
+
+      // Step 2: Create staff record (with or without auth user link)
+      console.log('Step 2: Creating staff record...')
+      const staffInsertData = {
+        restaurant_id: restaurantData.id,
+        position: staffData.position,
+        hourly_rate: parseFloat(staffData.hourly_rate) || 0,
+        is_available: true,
+        total_orders_completed: 0,
+        total_tips_received: 0,
+        performance_rating: 5.0
+      }
+      
+      // Only add user_id if auth user was created successfully
+      if (authUserId) {
+        staffInsertData.user_id = authUserId
+      }
+      
+      let { data: staffRecord, error: staffError } = await supabase
+        .from('staff')
+        .insert(staffInsertData)
         .select('*')
         .single()
 
-      if (staffError) throw staffError
+      if (staffError) {
+        console.error('Staff record creation failed:', staffError)
+        if (staffError.code === '23505') {
+          toast.error('This staff member already exists.')
+          return
+        }
+        if (staffError.code === '23503') {
+          // Foreign key constraint - try creating staff record without user_id
+          console.log('Retrying staff creation without user_id...')
+          const staffInsertDataWithoutUser = {
+            restaurant_id: restaurantData.id,
+            position: staffData.position,
+            hourly_rate: parseFloat(staffData.hourly_rate) || 0,
+            is_available: true,
+            total_orders_completed: 0,
+            total_tips_received: 0,
+            performance_rating: 5.0
+          }
+          
+          const { data: retryStaffRecord, error: retryStaffError } = await supabase
+            .from('staff')
+            .insert(staffInsertDataWithoutUser)
+            .select('*')
+            .single()
+          
+          if (retryStaffError) {
+            throw new Error(`Failed to create staff record even without user_id: ${retryStaffError.message}`)
+          }
+          
+          // Use the retry result
+          staffRecord = retryStaffRecord
+          authUserId = null
+          authCreated = false
+          
+          toast.success('Staff record created without login capability. You can create login credentials later.')
+        } else {
+          throw new Error(`Failed to create staff record: ${staffError.message}`)
+        }
+      }
+
+      if (!staffRecord) {
+        throw new Error('Staff record creation returned null')
+      }
+
+      console.log('✅ Staff record created:', staffRecord.id)
       
       // Create display object with user data
       const newStaffMember = {
         ...staffRecord,
-        users: {
-          full_name: staffData.full_name,
-          email: staffData.email,
-          phone: staffData.phone
-        }
+        full_name: staffData.full_name,
+        email: staffData.email,
+        phone: staffData.phone || '',
+        user_id: authUserId
       }
       
-      setStaff([...staff, newStaffMember])
-      toast.success('Staff member added successfully!')
+      // Update local state
+      setStaff(prevStaff => [...prevStaff, newStaffMember])
+      
+      // Show success message based on auth creation status
+      if (authCreated) {
+        toast.success(
+          `✅ Staff Account Created Successfully!\n\n🔑 Login Credentials:\nEmail: ${staffData.email}\nPassword: ${tempPassword}\n\n👤 Staff: ${staffData.full_name}\n📍 Position: ${staffData.position}\n\n📧 Staff can now login to the system.\n\nShare these credentials with ${staffData.full_name}.`,
+          {
+            duration: 15000,
+            style: {
+              maxWidth: '500px',
+              whiteSpace: 'pre-line',
+              fontSize: '14px'
+            }
+          }
+        )
+      } else {
+        toast.success(
+          `✅ Staff Record Created!\n\n👤 Staff: ${staffData.full_name}\n📍 Position: ${staffData.position}\n\n⚠️ Note: Login account creation failed due to network issues.\nYou can create login credentials later.`,
+          {
+            duration: 10000,
+            style: {
+              maxWidth: '500px',
+              whiteSpace: 'pre-line',
+              fontSize: '14px'
+            }
+          }
+        )
+      }
+      
+      console.log('=== Staff Creation Complete ===')
+      console.log('Staff ID:', staffRecord.id)
+      console.log('Auth User ID:', authUserId || 'None')
+      console.log('Login Available:', authCreated ? 'Yes' : 'No')
+      
     } catch (error) {
-      console.error('Error adding staff:', error)
-      toast.error('Failed to add staff member: ' + error.message)
+      console.error('=== Staff Creation Failed ===')
+      console.error('Error:', error)
+      
+      // Handle network connectivity issues
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_INTERNET_DISCONNECTED')) {
+        toast.error('Network connection issue. Please check your internet connection and try again.')
+      } else {
+        toast.error(`Failed to create staff account: ${error.message}`)
+      }
     }
   }
 
@@ -750,20 +878,209 @@ const OwnerDashboard = () => {
     try {
       console.log('Updating staff:', staffId, updates)
       
+      // Find the staff member
+      const staffMember = staff.find(member => member.id === staffId)
+      if (!staffMember) {
+        throw new Error('Staff member not found')
+      }
+      
+      // Prepare staff table updates (only fields that exist in schema)
+      const staffUpdates = { ...updates }
+      
+      // Remove user fields that don't exist in staff table
+      const userUpdates = {
+        full_name: updates.full_name,
+        email: updates.email,
+        phone: updates.phone
+      }
+      delete staffUpdates.full_name
+      delete staffUpdates.email
+      delete staffUpdates.phone
+      
+      // Step 1: Update staff record in database
       const { data, error } = await supabase
         .from('staff')
-        .update(updates)
+        .update(staffUpdates)
         .eq('id', staffId)
-        .select('*, users(*)')
+        .select('*')
         .single()
 
-      if (error) throw error
+      if (error) {
+        if (error.code === '23503') {
+          // Foreign key constraint violation - remove user_id and retry
+          console.log('Foreign key constraint error, retrying without user_id...')
+          const staffUpdatesWithoutUserId = { ...staffUpdates }
+          delete staffUpdatesWithoutUserId.user_id
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from('staff')
+            .update(staffUpdatesWithoutUserId)
+            .eq('id', staffId)
+            .select('*')
+            .single()
+          
+          if (retryError) throw retryError
+          
+          toast.warning('Staff updated but login link failed. User information updated separately.')
+          return retryData
+        } else {
+          throw error
+        }
+      }
       
-      setStaff(staff.map(member => member.id === staffId ? data : member))
-      toast.success('Staff member updated successfully')
+      // Step 2: Handle user information updates
+      let updatedUserId = staffMember.user_id
+      
+      if (userUpdates.email || userUpdates.full_name || userUpdates.phone) {
+        if (staffMember.user_id) {
+          // Update existing auth user
+          try {
+            const userMetadataUpdates = {}
+            if (userUpdates.full_name) userMetadataUpdates.full_name = userUpdates.full_name
+            if (userUpdates.phone) userMetadataUpdates.phone = userUpdates.phone
+            
+            await supabase.auth.admin.updateUserById(staffMember.user_id, {
+              user_metadata: userMetadataUpdates
+            })
+            console.log('User metadata updated successfully')
+          } catch (metadataError) {
+            console.warn('Could not update user metadata:', metadataError)
+          }
+        } else if (userUpdates.email) {
+          // Create new auth user if email is provided and no user_id exists
+          try {
+            console.log('Creating new auth user for existing staff member...')
+            const tempPassword = `Staff${Math.random().toString(36).slice(-8)}${Date.now().toString().slice(-4)}`
+            
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+              email: userUpdates.email,
+              password: tempPassword,
+              options: {
+                data: {
+                  full_name: userUpdates.full_name || 'Staff Member',
+                  phone: userUpdates.phone || '',
+                  role: 'staff',
+                  staff_id: staffId,
+                  restaurant_id: restaurant.id
+                }
+              }
+            })
+            
+            if (!authError && authData?.user?.id) {
+              updatedUserId = authData.user.id
+              
+              // Link the auth user to staff record with error handling
+              try {
+                const { error: linkError } = await supabase
+                  .from('staff')
+                  .update({ user_id: authData.user.id })
+                  .eq('id', staffId)
+                
+                if (linkError) {
+                  console.error('Failed to link auth user to staff:', linkError)
+                  // Don't update the user_id if linking failed
+                  updatedUserId = staffMember.user_id
+                  toast.error('Staff updated but failed to create login account. Please try again.')
+                } else {
+                  toast.success(
+                    `Staff updated and login account created!\n\nLogin Credentials:\nEmail: ${userUpdates.email}\nPassword: ${tempPassword}\n\nPlease share these credentials with the staff member.`,
+                    {
+                      duration: 10000,
+                      style: {
+                        maxWidth: '500px',
+                        whiteSpace: 'pre-line'
+                      }
+                    }
+                  )
+                  console.log('New auth user created and linked to staff:', authData.user.id)
+                }
+              } catch (linkError) {
+                console.error('Error linking auth user to staff:', linkError)
+                updatedUserId = staffMember.user_id
+                toast.error('Staff updated but failed to create login account. Please try again.')
+              }
+            } else {
+              console.warn('Auth user creation failed:', authError)
+              toast.warning('Staff updated but login account creation failed. You can try creating login credentials later.')
+            }
+          } catch (authCreateError) {
+            console.warn('Could not create auth user during update:', authCreateError)
+          }
+        }
+      }
+      
+      // Step 3: Create updated staff object with user data for display
+      const updatedStaff = {
+        ...data,
+        user_id: updatedUserId,
+        full_name: userUpdates.full_name || staffMember.full_name,
+        email: userUpdates.email || staffMember.email,
+        phone: userUpdates.phone || staffMember.phone
+      }
+      
+      setStaff(staff.map(member => member.id === staffId ? updatedStaff : member))
+      
+      if (!userUpdates.email || staffMember.user_id) {
+        toast.success('Staff member updated successfully')
+      }
+      
     } catch (error) {
       console.error('Error updating staff:', error)
-      toast.error('Failed to update staff member')
+      toast.error('Failed to update staff member: ' + error.message)
+    }
+  }
+
+  const handleCreateLoginForStaff = async (staffId, email, fullName, phone) => {
+    try {
+      console.log('Creating login account for existing staff member:', staffId)
+      
+      const tempPassword = `Staff${Math.random().toString(36).slice(-8)}${Date.now().toString().slice(-4)}`
+      
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: tempPassword,
+        options: {
+          data: {
+            full_name: fullName || 'Staff Member',
+            phone: phone || '',
+            role: 'staff',
+            staff_id: staffId,
+            restaurant_id: restaurant.id
+          }
+        }
+      })
+      
+      if (!authError && authData?.user?.id) {
+        // Link the auth user to staff record
+        await supabase
+          .from('staff')
+          .update({ user_id: authData.user.id })
+          .eq('id', staffId)
+        
+        // Update the staff in state
+        setStaff(staff.map(member => 
+          member.id === staffId 
+            ? { ...member, user_id: authData.user.id }
+            : member
+        ))
+        
+        toast.success(
+          `Login account created successfully!\n\nLogin Credentials:\nEmail: ${email}\nPassword: ${tempPassword}\n\nPlease share these credentials with the staff member.`,
+          {
+            duration: 10000,
+            style: {
+              maxWidth: '500px',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+        console.log('Login account created for staff:', authData.user.id)
+      } else {
+        throw new Error(authError?.message || 'Failed to create login account')
+      }
+    } catch (error) {
+      console.error('Error creating login for staff:', error)
+      toast.error('Failed to create login account: ' + error.message)
     }
   }
 
@@ -779,10 +1096,10 @@ const OwnerDashboard = () => {
       if (error) throw error
       
       setStaff(staff.filter(member => member.id !== staffId))
-      toast.success('Staff member removed successfully')
+      toast.success('Staff member deleted successfully')
     } catch (error) {
       console.error('Error deleting staff:', error)
-      toast.error('Failed to remove staff member')
+      toast.error('Failed to delete staff member')
     }
   }
 
@@ -839,18 +1156,25 @@ const OwnerDashboard = () => {
 
   const handleAddMenuItem = async (itemData) => {
     try {
+      if (!restaurant?.id) {
+        throw new Error('Restaurant ID not available')
+      }
+
+      const insertData = { ...itemData, restaurant_id: restaurant.id }
+
       const { data, error } = await supabase
         .from('menu_items')
-        .insert([{ ...itemData, restaurant_id: restaurant.id }])
+        .insert([insertData])
         .select('*, categories(*)')
         .single()
 
       if (error) throw error
+      
       setMenuItems([...menuItems, data])
       toast.success('Menu item added successfully')
     } catch (error) {
       console.error('Error adding menu item:', error)
-      toast.error('Failed to add menu item')
+      toast.error('Failed to add menu item: ' + error.message)
     }
   }
 
@@ -911,7 +1235,7 @@ const OwnerDashboard = () => {
         .from('orders')
         .update(updates)
         .eq('id', orderId)
-        .select('*, tables(*), staff(*, users(*))')
+        .select('*, tables(*), staff(*)')
         .single()
 
       if (error) throw error
@@ -1115,257 +1439,15 @@ const OwnerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50">
-      {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-2xl backdrop-blur-sm relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.3'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-        </div>
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
-            {/* Left side - Restaurant Logo and Info */}
-            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-              <div className="flex-shrink-0">
-                {restaurant?.logo_url ? (
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-xl shadow-lg overflow-hidden ring-2 ring-white/20">
-                    <img 
-                      src={restaurant.logo_url} 
-                      alt={`${restaurant.name} logo`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        e.target.nextSibling.style.display = 'flex'
-                      }}
-                    />
-                    <div className="w-full h-full bg-white rounded-xl flex items-center justify-center" style={{display: 'none'}}>
-                      <QrCodeIcon className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white/20">
-                    <QrCodeIcon className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="hidden sm:block">
-                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate">
-                    {restaurant?.name || 'Restaurant Dashboard'}
-                  </h1>
-                  <p className="text-orange-100 text-xs sm:text-sm md:text-base font-medium">
-                    {restaurant?.cuisine_type || 'Manage your restaurant operations'}
-                  </p>
-                </div>
-                <div className="sm:hidden">
-                  <h1 className="text-base font-bold text-white truncate">
-                    {restaurant?.name?.length > 15 ? restaurant?.name?.substring(0, 15) + '...' : restaurant?.name || 'Dashboard'}
-                  </h1>
-                  <p className="text-orange-100 text-xs font-medium">
-                    {restaurant?.cuisine_type || 'Dashboard'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right side - Actions and Profile */}
-            <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
-              {/* Quick Actions - Responsive */}
-              <div className="hidden md:flex items-center space-x-2">
-                <button 
-                  onClick={() => setActiveTab('tables')}
-                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
-                >
-                  <QrCodeIcon className="h-4 w-4 mr-2" />
-                  <span className="hidden lg:inline">QR Codes</span>
-                  <span className="lg:hidden">QR</span>
-                </button>
-                <button 
-                  onClick={() => setActiveTab('menu')}
-                  className="flex items-center px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  <span className="hidden lg:inline">Add Item</span>
-                  <span className="lg:hidden">Add</span>
-                </button>
-              </div>
-              
-              {/* Mobile Quick Actions */}
-              <div className="md:hidden flex items-center space-x-1">
-                <button 
-                  onClick={() => setActiveTab('tables')}
-                  className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
-                >
-                  <QrCodeIcon className="h-4 w-4" />
-                </button>
-                <button 
-                  onClick={() => setActiveTab('menu')}
-                  className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Notifications */}
-              <div className="relative notifications-dropdown">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
-                >
-                  <BellIcon className="h-5 w-5 md:h-6 md:w-6" />
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-yellow-400 text-xs font-bold text-orange-900 rounded-full flex items-center justify-center animate-pulse">
-                      {notifications.length > 9 ? '9+' : notifications.length}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-neutral-200 py-2 z-50 max-h-96 overflow-y-auto"
-                  >
-                    <div className="px-4 py-2 border-b border-neutral-200">
-                      <h3 className="text-sm font-semibold text-neutral-900">Notifications</h3>
-                    </div>
-                    
-                    {notifications.length > 0 ? (
-                      <div className="py-2">
-                        {notifications.map((notification) => (
-                          <div key={notification.id} className="px-4 py-3 hover:bg-neutral-50 border-b border-neutral-100 last:border-b-0">
-                            <div className="flex items-start gap-3">
-                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                                notification.type === 'success' ? 'bg-green-500' :
-                                notification.type === 'warning' ? 'bg-yellow-500' :
-                                notification.type === 'error' ? 'bg-red-500' :
-                                'bg-blue-500'
-                              }`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-neutral-900">{notification.message}</p>
-                                <p className="text-xs text-neutral-500 mt-1">{notification.time}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-4 py-8 text-center text-neutral-500">
-                        <BellIcon className="h-8 w-8 mx-auto mb-2 text-neutral-300" />
-                        <p className="text-sm">No new notifications</p>
-                      </div>
-                    )}
-                    
-                    <div className="px-4 py-2 border-t border-neutral-200">
-                      <button className="text-xs text-orange-600 hover:text-orange-700 font-medium">
-                        Mark all as read
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Enhanced Profile Dropdown */}
-              <div className="relative profile-dropdown">
-                <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center space-x-2 sm:space-x-3 p-1.5 sm:p-2 text-white hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
-                >
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center ring-2 ring-white/20 shadow-lg">
-                    <UserCircleIcon className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />
-                  </div>
-                  <div className="hidden sm:block text-left min-w-0">
-                    <p className="text-sm font-medium text-white truncate max-w-24 md:max-w-none">
-                      {profile?.full_name || user?.email?.split('@')[0] || 'Owner'}
-                    </p>
-                    <p className="text-xs text-orange-100 truncate">
-                      {user?.user_metadata?.role === 'super_admin' ? 'Super Admin' : 'Owner'}
-                    </p>
-                  </div>
-                  <ChevronDownIcon className={`h-4 w-4 text-white transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Enhanced Profile Dropdown Menu */}
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-neutral-200 py-2 z-50 backdrop-blur-sm"
-                  >
-                    <div className="px-4 py-2 border-b border-neutral-200">
-                      <p className="text-sm font-medium text-neutral-900">
-                        {profile?.full_name || user?.email?.split('@')[0] || 'Owner'}
-                      </p>
-                      <p className="text-xs text-neutral-500">{user?.email}</p>
-                    </div>
-                    
-                    <button 
-                      onClick={() => {
-                        setShowProfileSettings(true)
-                        setShowProfileMenu(false)
-                        setProfileData({
-                          full_name: profile?.full_name || user?.user_metadata?.full_name || '',
-                          email: user?.email || '',
-                          phone: profile?.phone || user?.user_metadata?.phone || '',
-                          role: user?.user_metadata?.role || 'restaurant_owner'
-                        })
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 flex items-center"
-                    >
-                      <UserCircleIcon className="h-4 w-4 mr-3" />
-                      Profile Settings
-                    </button>
-                    
-                    <button 
-                      onClick={() => {
-                        setShowRestaurantSettings(true)
-                        setShowProfileMenu(false)
-                        setRestaurantData({
-                          name: restaurant?.name || '',
-                          description: restaurant?.description || '',
-                          address: restaurant?.address || '',
-                          phone: restaurant?.phone || '',
-                          email: restaurant?.email || '',
-                          cuisine_type: restaurant?.cuisine_type || '',
-                          logo_url: restaurant?.logo_url || '',
-                          banner_url: restaurant?.banner_url || ''
-                        })
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 flex items-center transition-colors duration-150"
-                    >
-                      <Cog6ToothIcon className="h-4 w-4 mr-3" />
-                      Restaurant Settings
-                    </button>
-                    
-                    <div className="border-t border-neutral-200 mt-2 pt-2">
-                      <button
-                        onClick={async () => {
-                          try {
-                            await signOut()
-                            toast.success('Logged out successfully')
-                            navigate('/login')
-                          } catch (error) {
-                            toast.error('Failed to logout')
-                          }
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
-                      >
-                        <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
-                        Sign Out
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Enhanced Header Component */}
+      <Header 
+        restaurant={restaurant}
+        user={user}
+        profile={profile}
+        notifications={notifications}
+        setActiveTab={setActiveTab}
+        handleLogout={handleLogout}
+      />
 
 
       {/* Main Content */}
@@ -1380,6 +1462,14 @@ const OwnerDashboard = () => {
           }
           .hover\\:scale-102:hover {
             transform: scale(1.02);
+          }
+          .notifications-dropdown,
+          .profile-dropdown {
+            z-index: 99999 !important;
+          }
+          .notifications-dropdown > div,
+          .profile-dropdown > div {
+            z-index: 99999 !important;
           }
         `}</style>
         {/* Desktop Tab Navigation */}
@@ -1426,9 +1516,9 @@ const OwnerDashboard = () => {
           <MenuTab 
             menuItems={menuItems}
             categories={categories}
-            onAddMenuItem={handleAddMenuItem}
-            onUpdateMenuItem={handleUpdateMenuItem}
-            onDeleteMenuItem={handleDeleteMenuItem}
+            onAddItem={handleAddMenuItem}
+            onUpdateItem={handleUpdateMenuItem}
+            onDeleteItem={handleDeleteMenuItem}
             onAddCategory={handleAddCategory}
           />
         )}
@@ -1450,6 +1540,8 @@ const OwnerDashboard = () => {
             onAddStaff={handleAddStaff}
             onUpdateStaff={handleUpdateStaff}
             onDeleteStaff={handleDeleteStaff}
+            onCreateLoginForStaff={handleCreateLoginForStaff}
+            restaurant={restaurant}
           />
         )}
 
