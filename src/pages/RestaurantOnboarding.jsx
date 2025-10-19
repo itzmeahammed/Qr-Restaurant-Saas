@@ -19,12 +19,14 @@ import {
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
+import { useConfirmation } from '../contexts/ConfirmationContext'
 import toast from 'react-hot-toast'
 import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
 
 const RestaurantOnboarding = () => {
   const navigate = useNavigate()
   const { user, fetchProfile } = useAuthStore()
+  const { showConfirmation } = useConfirmation()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const prefersReducedMotion = useReducedMotion()
@@ -168,8 +170,17 @@ const RestaurantOnboarding = () => {
     if (currentStep === 5) handleSubmit()
   })
 
-  useHotkeys('escape', () => {
-    if (window.confirm('Are you sure you want to exit restaurant setup?')) {
+  useHotkeys('escape', async () => {
+    const confirmed = await showConfirmation({
+      title: 'Exit Restaurant Setup',
+      message: 'Are you sure you want to exit restaurant setup?\n\nYour progress will be lost.',
+      type: 'warning',
+      confirmText: 'Exit Setup',
+      cancelText: 'Continue Setup',
+      confirmButtonColor: 'red'
+    })
+    
+    if (confirmed) {
       navigate('/dashboard')
     }
   })

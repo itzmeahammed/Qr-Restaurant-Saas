@@ -14,7 +14,9 @@ import {
   EyeIcon,
   EyeSlashIcon,
   SparklesIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  CurrencyRupeeIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -22,6 +24,7 @@ import toast from 'react-hot-toast'
 
 const Auth = () => {
   const navigate = useNavigate()
+  const { signIn, signUp } = useAuthStore()
   const [isLogin, setIsLogin] = useState(true)
   const [selectedRole, setSelectedRole] = useState('restaurant_owner')
   const [loading, setLoading] = useState(false)
@@ -33,19 +36,7 @@ const Auth = () => {
     phone: ''
   })
 
-  const { signIn, signUp, user, profile } = useAuthStore()
-
-  // Debug: Show current auth state
-  useEffect(() => {
-    if (user) {
-      console.log('🔍 Auth.jsx - Current user state:', {
-        userId: user.id,
-        userRole: user.user_metadata?.role,
-        profileRole: profile?.role,
-        userMetadata: user.user_metadata
-      })
-    }
-  }, [user, profile])
+  // This will be handled by the unified login logic
 
   const roles = [
     {
@@ -57,8 +48,8 @@ const Auth = () => {
     },
     {
       id: 'staff',
-      name: 'Staff Member',
-      description: 'Manage orders and serve customers',
+      name: 'Restaurant Staff',
+      description: 'Apply to work at a restaurant',
       icon: UserGroupIcon,
       color: 'from-blue-400 to-blue-600'
     },
@@ -72,56 +63,98 @@ const Auth = () => {
   ]
 
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const redirectToRoleDashboard = (role) => {
+    switch (role) {
+      case 'staff':
+        navigate('/staff')
+        break
+      case 'restaurant_owner':
+        navigate('/dashboard')
+        break
+      case 'super_admin':
+        navigate('/admin')
+        break
+      default:
+        navigate('/dashboard')
+    }
+  }
+
+  const handleStaffSignup = async () => {
+    try {
+      const { data, error } = await signUp(formData.email, formData.password, {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        role: 'staff'
+      })
+
+      if (error) {
+        toast.error(error.message || 'Signup failed')
+        return
+      }
+
+      toast.success('Account created successfully! You can now login.')
+      setIsLogin(true)
+      setFormData({ email: formData.email, password: '', fullName: '', phone: '' })
+    } catch (error) {
+      console.error('Staff signup error:', error)
+      toast.error('An unexpected error occurred. Please try again.')
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+
     try {
       if (isLogin) {
-        const result = await signIn(formData.email, formData.password)
-        if (result.data) {
-          console.log('✅ Login successful, user should be redirected automatically')
-          toast.success('Logged in successfully!')
+        // Handle login for all roles
+        const { data, error } = await signIn(formData.email, formData.password)
+        
+        if (error) {
+          toast.error(error.message || 'Login failed')
+          return
+        }
 
-          // Force redirect after a short delay as backup
-          setTimeout(() => {
-            const userRole = result.data.user?.user_metadata?.role
-            console.log('🔄 Force redirect check:', { userRole })
-
-            if (userRole === 'super_admin') {
-              navigate('/admin')
-            } else if (userRole === 'staff') {
-              navigate('/staff')
-            } else {
-              navigate('/dashboard')
-            }
-          }, 1000)
-
-          // The PublicRoute component should handle the redirect automatically
-          // No manual navigation needed
+        if (data?.user) {
+          toast.success('Login successful!')
+          redirectToRoleDashboard(data.user.role)
         }
       } else {
-        // For signup, include role in metadata
-        await signUp(formData.email, formData.password, {
-          full_name: formData.fullName,
-          phone: formData.phone,
-          role: selectedRole
-        })
-        toast.success('Account created successfully! Please check your email to verify.')
+        // Handle signup for all roles (including staff)
+        if (selectedRole === 'staff') {
+          await handleStaffSignup()
+        } else {
+          // Regular signup for restaurant_owner and super_admin
+          const { data, error } = await signUp(formData.email, formData.password, {
+            full_name: formData.fullName,
+            phone: formData.phone,
+            role: selectedRole
+          })
+
+          if (error) {
+            toast.error(error.message || 'Signup failed')
+            return
+          }
+
+          toast.success('Account created successfully! You can now login.')
+          setIsLogin(true)
+          setFormData({ email: formData.email, password: '', fullName: '', phone: '' })
+        }
       }
     } catch (error) {
-      console.error('❌ Auth error:', error)
-      toast.error(error.message || 'Authentication failed')
+      console.error('Auth error:', error)
+      toast.error('An unexpected error occurred')
     } finally {
       setLoading(false)
     }
   }
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Animated Background */}
@@ -263,7 +296,7 @@ const Auth = () => {
               transition={{ delay: 0.5 }}
               className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-600 to-purple-600 bg-clip-text text-transparent mb-2"
             >
-              {isLogin ? 'Restaurant Portal' : 'Join QR Restaurant'}
+              {isLogin ? 'QR Restaurant Login' : 'Join QR Restaurant'}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -271,7 +304,7 @@ const Auth = () => {
               transition={{ delay: 0.6 }}
               className="text-gray-600"
             >
-              {isLogin ? 'Sign in to manage your restaurant' : 'Start your digital restaurant journey'}
+              {isLogin ? 'Staff • Restaurant Owner • Super Admin' : 'Start your digital restaurant journey'}
             </motion.p>
           </div>
 
@@ -399,6 +432,8 @@ const Auth = () => {
             </motion.div>
           )}
 
+
+
           {/* Password */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -458,7 +493,12 @@ const Auth = () => {
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin)
-                setFormData({ email: '', password: '', fullName: '', phone: '' })
+                setFormData({ 
+                  email: '', 
+                  password: '', 
+                  fullName: '', 
+                  phone: ''
+                })
               }}
               className="ml-2 text-orange-600 hover:text-orange-700 font-medium"
             >
@@ -468,7 +508,7 @@ const Auth = () => {
         </motion.div>
 
         {/* Business Note */}
-        {!isLogin && (
+        {!isLogin && selectedRole === 'restaurant_owner' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -484,7 +524,55 @@ const Auth = () => {
                   For Restaurant Business
                 </p>
                 <p className="text-sm text-blue-700">
-                  This portal is for restaurant owners and staff members. Staff accounts are created by restaurant owners.
+                  Create your restaurant account to manage menu, orders, and staff applications.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Staff Note */}
+        {!isLogin && selectedRole === 'staff' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-100"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <UserGroupIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-green-900 mb-1">
+                  Staff Account
+                </p>
+                <p className="text-sm text-green-700">
+                  Create your staff account. After login, you can apply to restaurants using their signup key.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Login Note */}
+        {isLogin && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <UserCircleIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-900 mb-1">
+                  Welcome Back
+                </p>
+                <p className="text-sm text-blue-700">
+                  Login with your account credentials to access your dashboard.
                 </p>
               </div>
             </div>
