@@ -40,6 +40,8 @@ import {
 } from 'recharts'
 import { supabase } from '../config/supabase'
 import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
+import OrderService from '../services/orderService'
+import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
 import OverviewTab from '../components/dashboard/OverviewTab'
@@ -523,25 +525,25 @@ const OwnerDashboard = () => {
     try {
       console.log('Fetching orders for restaurant:', restaurantId)
       
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          tables(*),
-          staff(*)
-        `)
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false })
-        .limit(50)
+      // Use enhanced OrderService for restaurant orders with analytics
+      const ordersData = await OrderService.getRestaurantOrdersWithAnalytics(restaurantId, {
+        limit: 50,
+        include_analytics: true
+      })
 
-      if (error) {
-        console.error('Orders query error:', error)
-        setOrders([])
-        return
+      console.log('Orders fetched:', ordersData.orders?.length || 0)
+      setOrders(ordersData.orders || [])
+      
+      // Update stats with analytics data if available
+      if (ordersData.analytics) {
+        setStats(prevStats => ({
+          ...prevStats,
+          totalOrders: ordersData.analytics.totalOrders,
+          todayOrders: ordersData.analytics.todaysOrders,
+          totalRevenue: ordersData.analytics.totalRevenue,
+          todayRevenue: ordersData.analytics.todaysRevenue
+        }))
       }
-
-      console.log('Orders fetched:', data?.length || 0)
-      setOrders(data || [])
     } catch (error) {
       console.error('Error in fetchOrders:', error)
       setOrders([])
@@ -1154,6 +1156,33 @@ const OwnerDashboard = () => {
     }
   }
 
+  const handleUpdateOrder = async (orderId, updates) => {
+    try {
+      // Use enhanced OrderService for order updates with proper validation
+      if (updates.assigned_staff_id && user?.id) {
+        // Manual staff assignment by owner
+        await OrderService.assignOrderToStaffByOwner(orderId, updates.assigned_staff_id, user.id)
+        toast.success('Order assigned to staff successfully')
+      } else {
+        // Other order updates
+        const { error } = await supabase
+          .from('orders')
+          .update(updates)
+          .eq('id', orderId)
+
+        if (error) throw error
+        toast.success('Order updated successfully')
+      }
+
+      if (restaurant?.id) {
+        fetchOrders(restaurant.id)
+      }
+    } catch (error) {
+      console.error('Error updating order:', error)
+      toast.error(error.message || 'Failed to update order')
+    }
+  }
+
   const handleAddMenuItem = async (itemData) => {
     try {
       if (!restaurant?.id) {
@@ -1229,23 +1258,7 @@ const OwnerDashboard = () => {
     }
   }
 
-  const handleUpdateOrder = async (orderId, updates) => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', orderId)
-        .select('*, tables(*), staff(*)')
-        .single()
 
-      if (error) throw error
-      setOrders(orders.map(order => order.id === orderId ? data : order))
-      toast.success('Order updated successfully')
-    } catch (error) {
-      console.error('Error updating order:', error)
-      toast.error('Failed to update order')
-    }
-  }
 
   // Profile and Restaurant Settings Handlers
   const handleUpdateProfile = async () => {

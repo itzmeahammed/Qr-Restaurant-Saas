@@ -14,17 +14,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'public' 
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
   global: {
     headers: {
       'x-my-custom-header': 'restaurant-saas'
     }
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    },
-    heartbeatIntervalMs: 30000,
-    reconnectAfterMs: 1000
   }
 })
 

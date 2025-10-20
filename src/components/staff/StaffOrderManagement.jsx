@@ -16,175 +16,103 @@ import {
   ChatBubbleLeftIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../../config/supabase'
+import OrderService from '../../services/orderService'
+import useOrderStore from '../../stores/useOrderStore'
 import toast from 'react-hot-toast'
 
 const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
-  const [orders, setOrders] = useState([])
+  // Use enhanced order store
+  const {
+    orders,
+    loading,
+    error,
+    fetchStaffOrders,
+    updateOrderStatusByStaff,
+    subscribeToStaffOrders,
+    clearError
+  } = useOrderStore()
+
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending') // pending, assigned, completed
   const [refreshing, setRefreshing] = useState(false)
-  const [cachedOrders, setCachedOrders] = useState({})
+  const [subscription, setSubscription] = useState(null)
 
   useEffect(() => {
     console.log('🔍 StaffOrderManagement props:', { staffId, restaurantId, isOnline, filter })
     
-    if (restaurantId) {
-      // Load cached data first for instant display
-      const cacheKey = `orders_${restaurantId}_${filter}`
-      const cached = localStorage.getItem(cacheKey)
-      if (cached) {
-        try {
-          const parsedCache = JSON.parse(cached)
-          if (Date.now() - parsedCache.timestamp < 30000) { // 30 seconds cache
-            console.log('📦 Using cached orders:', parsedCache.data.length)
-            setOrders(parsedCache.data)
-            setLoading(false)
-          }
-        } catch (error) {
-          console.warn('Cache error:', error)
-          localStorage.removeItem(cacheKey)
+    if (restaurantId && staffId) {
+      // Clear any previous errors
+      clearError()
+      
+      // Fetch staff orders using enhanced service
+      fetchStaffOrders(staffId, {
+        status: getStatusFilter(filter),
+        limit: 30
+      })
+      
+      // Setup real-time subscription
+      const sub = subscribeToStaffOrders(staffId, (newOrder) => {
+        console.log('📨 New order notification:', newOrder)
+        playNotificationSound()
+        toast.success(`New order assigned: #${newOrder.order_number}`, {
+          icon: '🔔',
+          duration: 5000
+        })
+      })
+      
+      setSubscription(sub)
+      
+      return () => {
+        if (sub) {
+          console.log('🔌 Cleaning up staff order subscription')
+          sub.unsubscribe()
         }
       }
-      
-      fetchOrders()
-      const cleanup = setupRealtimeSubscription()
-      
-      return cleanup
     } else {
-      console.warn('⚠️ No restaurantId provided, stopping loading')
-      setLoading(false)
-      setOrders([])
+      console.warn('⚠️ Missing staffId or restaurantId')
     }
   }, [restaurantId, filter, staffId])
 
-  const fetchOrders = async (isRefresh = false) => {
-    if (!restaurantId) {
-      console.warn('⚠️ Cannot fetch orders: restaurantId is missing')
-      setLoading(false)
-      setRefreshing(false)
-      return
+  const getStatusFilter = (filter) => {
+    switch (filter) {
+      case 'pending':
+        return ['pending']
+      case 'assigned':
+        return ['assigned', 'preparing', 'ready']
+      case 'completed':
+        return ['delivered', 'cancelled']
+      default:
+        return null
     }
+  }
 
+  const handleRefresh = async () => {
+    if (!staffId) return
+    
+    setRefreshing(true)
     try {
-      if (isRefresh) {
-        setRefreshing(true)
-        console.log('🔄 Refreshing orders...')
-      } else {
-        setLoading(true)
-        console.log('📥 Fetching orders...')
-      }
-      
-      // Simplified query for better reliability
-      let query = supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          status,
-          total_amount,
-          tip_amount,
-          created_at,
-          assigned_at,
-          assigned_staff_id,
-          customer_name,
-          payment_method,
-          special_instructions,
-          order_items (
-            id,
-            quantity,
-            unit_price,
-            total_price,
-            special_instructions,
-            menu_items (
-              id,
-              name,
-              image_url
-            )
-          ),
-          tables (
-            table_number
-          )
-        `)
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false })
-        .limit(30) // Reduced limit for faster loading
-
-      // Apply filters
-      if (filter === 'pending') {
-        query = query.eq('status', 'pending').is('assigned_staff_id', null)
-      } else if (filter === 'assigned' && staffId) {
-        query = query.eq('assigned_staff_id', staffId).in('status', ['assigned', 'preparing', 'ready'])
-      } else if (filter === 'completed' && staffId) {
-        query = query.eq('assigned_staff_id', staffId).eq('status', 'delivered')
-      }
-
-      console.log('🔍 Query details:', { restaurantId, staffId, filter })
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('❌ Supabase query error:', error)
-        throw error
-      }
-
-      const ordersData = data || []
-      console.log(`✅ Successfully loaded ${ordersData.length} orders for ${filter} filter`)
-      
-      setOrders(ordersData)
-      
-      // Cache the results
-      const cacheKey = `orders_${restaurantId}_${filter}`
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data: ordersData,
-        timestamp: Date.now()
-      }))
-
+      await fetchStaffOrders(staffId, {
+        status: getStatusFilter(filter),
+        limit: 30
+      })
+      toast.success('Orders refreshed!')
     } catch (error) {
-      console.error('💥 Error fetching orders:', error)
-      toast.error(`Failed to fetch orders: ${error.message}`)
-      
-      // Set empty array on error to show empty state instead of loading
-      setOrders([])
+      toast.error('Failed to refresh orders')
     } finally {
-      console.log('🏁 Fetch complete, setting loading to false')
-      setLoading(false)
       setRefreshing(false)
     }
   }
 
-  const setupRealtimeSubscription = () => {
-    const subscription = supabase
-      .channel('staff-orders')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'orders',
-          filter: `restaurant_id=eq.${restaurantId}`
-        }, 
-        (payload) => {
-          console.log('Order update received:', payload)
-          
-          if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
-            // New order notification
-            toast.success('🔔 New order available!', {
-              duration: 5000,
-              icon: '🛎️'
-            })
-            
-            // Play notification sound
-            playNotificationSound()
-          }
-          
-          // Refresh orders
-          fetchOrders()
-        }
-      )
-      .subscribe()
+  // Cleanup subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [subscription])
 
-    return () => subscription.unsubscribe()
-  }
+
 
   const playNotificationSound = () => {
     // Create audio notification
@@ -193,60 +121,53 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   }
 
   const acceptOrder = async (orderId) => {
-    if (!isOnline) {
-      toast.error('You must be online to accept orders')
+    if (!staffId) {
+      toast.error('Staff ID not available')
       return
     }
 
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          status: 'assigned', 
-          assigned_staff_id: staffId,
-          assigned_at: new Date().toISOString()
-        })
-        .eq('id', orderId)
-
-      if (error) throw error
+      console.log('✅ Accepting order:', orderId, 'for staff:', staffId)
+      
+      const result = await updateOrderStatusByStaff(orderId, 'assigned', staffId)
+      
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
 
       toast.success('Order accepted successfully!')
-      fetchOrders()
+      
+      // Refresh orders to show updated status
+      await handleRefresh()
     } catch (error) {
-      console.error('Error accepting order:', error)
-      toast.error('Failed to accept order')
+      console.error('❌ Error accepting order:', error)
+      toast.error(`Failed to accept order: ${error.message}`)
     }
   }
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    if (!staffId) {
+      toast.error('Staff ID not available')
+      return
+    }
+
     try {
-      const updates = { status: newStatus }
+      console.log('🔄 Updating order status:', orderId, 'to:', newStatus)
       
-      // Add timestamp for each status
-      switch (newStatus) {
-        case 'preparing':
-          updates.preparing_at = new Date().toISOString()
-          break
-        case 'ready':
-          updates.ready_at = new Date().toISOString()
-          break
-        case 'delivered':
-          updates.delivered_at = new Date().toISOString()
-          break
+      const result = await updateOrderStatusByStaff(orderId, newStatus, staffId)
+      
+      if (result.error) {
+        throw new Error(result.error.message)
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', orderId)
-
-      if (error) throw error
-
-      toast.success(`Order marked as ${newStatus}`)
-      fetchOrders()
+      toast.success(`Order marked as ${newStatus}!`)
+      
+      // Refresh orders to show updated status
+      await handleRefresh()
+      setSelectedOrder(null)
     } catch (error) {
-      console.error('Error updating order status:', error)
-      toast.error('Failed to update order status')
+      console.error('❌ Error updating order status:', error)
+      toast.error(`Failed to update order: ${error.message}`)
     }
   }
 
@@ -280,248 +201,234 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   })
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Orders</h2>
-          <p className="text-sm text-gray-500">
-            {isOnline ? '🟢 Online & Ready' : '🔴 Offline'}
-          </p>
+    <div className="h-full bg-gradient-to-br from-orange-50 via-white to-purple-50">
+      {/* Mobile-First Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 backdrop-blur-md bg-white/90">
+        <div className="px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">
+                📋 Order Management
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {isOnline ? 'Online - Ready for orders' : 'Offline - Not receiving orders'}
+                </p>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+            >
+              <motion.div
+                animate={{ rotate: refreshing ? 360 : 0 }}
+                transition={{ duration: 1, repeat: refreshing ? Infinity : 0 }}
+                className="text-sm sm:text-base"
+              >
+                🔄
+              </motion.div>
+              <span className="hidden sm:inline">Refresh</span>
+            </motion.button>
+          </div>
         </div>
-        
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => fetchOrders(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
-        >
-          <motion.div
-            animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
-            transition={{ duration: 1, repeat: refreshing ? Infinity : 0 }}
-          >
-            🔄
-          </motion.div>
-          Refresh
-        </motion.button>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {[
-          { key: 'pending', label: 'Available', icon: '🔔', color: 'from-blue-500 to-blue-600', bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600' },
-          { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', color: 'from-orange-500 to-red-500', bgColor: 'bg-gradient-to-r from-orange-500 to-red-500' },
-          { key: 'completed', label: 'Completed', icon: '✅', color: 'from-green-500 to-emerald-500', bgColor: 'bg-gradient-to-r from-green-500 to-emerald-500' }
-        ].map((tab) => {
-          const count = orders.filter(o => {
-            if (tab.key === 'pending') return o.status === 'pending'
-            if (tab.key === 'assigned') return o.assigned_staff_id === staffId && ['assigned', 'preparing', 'ready'].includes(o.status)
-            if (tab.key === 'completed') return o.status === 'delivered' && o.assigned_staff_id === staffId
-            return false
-          }).length
-
-          return (
+      {/* Mobile-First Filter Tabs */}
+      <div className="px-4 sm:px-6 py-4 bg-white border-b border-gray-100">
+        <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
+          {[
+            { key: 'pending', label: 'Pending', icon: '🔔', count: orders.filter(o => o.status === 'pending').length },
+            { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', count: orders.filter(o => ['assigned', 'preparing', 'ready'].includes(o.status)).length },
+            { key: 'completed', label: 'Completed', icon: '✅', count: orders.filter(o => ['delivered', 'cancelled'].includes(o.status)).length }
+          ].map((tab) => (
             <motion.button
               key={tab.key}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setFilter(tab.key)}
-              className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl font-medium transition-all duration-300 whitespace-nowrap min-w-fit ${
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-medium transition-all duration-200 whitespace-nowrap min-w-0 ${
                 filter === tab.key
-                  ? `${tab.bgColor} text-white shadow-lg shadow-${tab.key === 'pending' ? 'blue' : tab.key === 'assigned' ? 'orange' : 'green'}-200`
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
             >
-              <motion.span 
-                className="text-lg"
-                animate={filter === tab.key ? { scale: [1, 1.2, 1] } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                {tab.icon}
-              </motion.span>
-              <span className="text-sm font-semibold">{tab.label}</span>
-              {count > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className={`px-2 py-1 rounded-full text-xs font-bold min-w-[20px] text-center ${
-                    filter === tab.key
-                      ? 'bg-white/20 text-white'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {count}
-                </motion.span>
-              )}
-              
-              {/* Active indicator */}
-              {filter === tab.key && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-white/10 rounded-2xl"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                />
+              <span className="text-sm sm:text-lg">{tab.icon}</span>
+              <span className="font-bold text-xs sm:text-sm">{tab.label}</span>
+              {tab.count > 0 && (
+                <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
+                  filter === tab.key ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'
+                }`}>
+                  {tab.count}
+                </span>
               )}
             </motion.button>
-          )
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* Orders List */}
-      {loading ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-16 px-4"
-        >
-          <div className="relative">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <span className="text-2xl">🍽️</span>
-            </motion.div>
+      {/* Mobile-First Orders List */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="w-8 sm:w-12 h-8 sm:h-12 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"
+              />
+              <p className="text-gray-600 font-medium text-sm sm:text-base">Loading orders...</p>
+            </div>
           </div>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-gray-600 font-medium mt-4 text-center"
-          >
-            Loading delicious orders...
-          </motion.p>
-        </motion.div>
-      ) : orders.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-16 px-4"
-        >
+        ) : error ? (
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="w-24 h-24 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12"
           >
-            <span className="text-4xl">
-              {filter === 'pending' && '🔔'}
-              {filter === 'assigned' && '👨‍🍳'}
-              {filter === 'completed' && '✅'}
-            </span>
-          </motion.div>
-          <h3 className="text-xl font-bold text-gray-900 mb-3">
-            {filter === 'pending' && 'No New Orders'}
-            {filter === 'assigned' && 'No Active Orders'}
-            {filter === 'completed' && 'No Completed Orders'}
-          </h3>
-          <p className="text-gray-500 mb-6 max-w-sm mx-auto leading-relaxed">
-            {filter === 'pending' && 'All caught up! New orders will appear here when customers place them.'}
-            {filter === 'assigned' && 'You have no orders to work on right now. Check back soon!'}
-            {filter === 'completed' && 'No orders completed today. Keep up the great work!'}
-          </p>
-          {!isOnline && filter === 'pending' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 font-medium mb-4"
+            <div className="text-4xl sm:text-6xl mb-4">😞</div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Something went wrong</h3>
+            <p className="text-gray-600 mb-6 text-sm sm:text-base px-4">{error}</p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRefresh}
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
             >
-              <span className="text-lg">💡</span>
-              Go online to receive new orders
-            </motion.div>
-          )}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => fetchOrders(true)}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-lg"
+              Try Again
+            </motion.button>
+          </motion.div>
+        ) : orders.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12"
           >
-            🔄 Refresh Orders
-          </motion.button>
-        </motion.div>
-      ) : (
-        <div className="space-y-3">
+            <div className="text-4xl sm:text-6xl mb-4">
+              {filter === 'pending' ? '🔔' : filter === 'assigned' ? '👨‍🍳' : '✅'}
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+              {filter === 'pending' ? 'No pending orders' : filter === 'assigned' ? 'No assigned orders' : 'No completed orders'}
+            </h3>
+            <p className="text-gray-600 mb-6 text-sm sm:text-base px-4">
+              {filter === 'pending' ? 'All caught up! New orders will appear here.' : 
+               filter === 'assigned' ? 'Accept some pending orders to get started.' : 
+               'Completed orders will show up here.'}
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRefresh}
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+            >
+              Refresh Orders
+            </motion.button>
+          </motion.div>
+        ) : (
+        <div className="space-y-3 sm:space-y-4">
           {orders.map((order, index) => (
             <motion.div
               key={order.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-lg transition-all duration-200"
+              className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-all duration-200 touch-manipulation"
             >
-              {/* Order Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-lg font-bold text-gray-900">
+              {/* Mobile-First Order Header */}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 sm:mb-4">
+                <div className="flex-1 mb-3 sm:mb-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
                       #{order.order_number || order.id.slice(-6)}
                     </h3>
                     {getOrderPriority(order) === 'high' && (
-                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full animate-pulse"
+                      >
                         🔥 URGENT
-                      </span>
+                      </motion.span>
                     )}
                   </div>
-                  <p className="text-gray-600 font-medium">
+                  <p className="text-gray-600 font-medium mb-2">
                     {order.customer_name || 'Guest Customer'}
                   </p>
-                  <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                    <span>🪑 Table {order.tables?.table_number || 'N/A'}</span>
-                    <span>⏰ {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      🪑 Table {order.tables?.table_number || 'N/A'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      ⏰ {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                 </div>
                 
-                <span className={`px-3 py-1.5 rounded-xl text-sm font-bold ${getStatusColor(order.status)}`}>
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`px-3 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${getStatusColor(order.status)}`}
+                >
                   {order.status === 'pending' && '🔔 New'}
                   {order.status === 'assigned' && '👨‍🍳 Assigned'}
                   {order.status === 'preparing' && '🔥 Cooking'}
                   {order.status === 'ready' && '✅ Ready'}
                   {order.status === 'delivered' && '🎉 Done'}
-                </span>
+                </motion.span>
               </div>
 
-              {/* Order Items Preview */}
-              <div className="mb-3">
-                <div className="flex flex-wrap gap-1.5">
+              {/* Mobile-First Order Items Preview */}
+              <div className="mb-4">
+                <div className="flex flex-wrap gap-2">
                   {order.order_items?.slice(0, 2).map((item, index) => (
-                    <span key={index} className="px-3 py-1 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium">
+                    <motion.span 
+                      key={index} 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="px-3 py-2 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium border border-orange-200"
+                    >
                       {item.quantity}× {item.menu_items?.name}
-                    </span>
+                    </motion.span>
                   ))}
                   {order.order_items?.length > 2 && (
-                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium">
+                    <motion.span 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium border border-gray-200"
+                    >
                       +{order.order_items.length - 2} more items
-                    </span>
+                    </motion.span>
                   )}
                 </div>
               </div>
 
-              {/* Order Total & Actions */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-xl font-bold text-gray-900">
+              {/* Mobile-First Order Total & Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <span className="text-xl sm:text-2xl font-bold text-gray-900">
                     ₹{Math.round(order.total_amount)}
                   </span>
                   {order.tip_amount > 0 && (
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-lg">
+                    <motion.span 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="px-2 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-lg border border-green-200"
+                    >
                       💰 +₹{Math.round(order.tip_amount)}
-                    </span>
+                    </motion.span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setSelectedOrder(order)}
-                    className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                    className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors touch-manipulation"
                   >
                     <EyeIcon className="h-5 w-5" />
                   </motion.button>
@@ -531,9 +438,9 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => acceptOrder(order.id)}
-                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-lg"
+                      className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-lg text-sm sm:text-base touch-manipulation"
                     >
-                      Accept
+                      Accept Order
                     </motion.button>
                   )}
 
@@ -542,7 +449,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => updateOrderStatus(order.id, 'preparing')}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
+                      className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors text-sm sm:text-base touch-manipulation"
                     >
                       Start Cooking
                     </motion.button>
@@ -553,7 +460,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => updateOrderStatus(order.id, 'ready')}
-                      className="px-4 py-2 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors"
+                      className="px-4 sm:px-6 py-2 sm:py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors text-sm sm:text-base touch-manipulation"
                     >
                       Mark Ready
                     </motion.button>
@@ -564,7 +471,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => updateOrderStatus(order.id, 'delivered')}
-                      className="px-4 py-2 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-colors"
+                      className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-colors text-sm sm:text-base touch-manipulation"
                     >
                       Delivered
                     </motion.button>
@@ -575,6 +482,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
           ))}
         </div>
       )}
+      </div>
 
       {/* Order Details Modal */}
       <AnimatePresence>

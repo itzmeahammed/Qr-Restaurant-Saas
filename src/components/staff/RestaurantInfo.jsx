@@ -124,24 +124,68 @@ const RestaurantInfo = ({ restaurantId }) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto space-y-4">
+          {/* Loading Header */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-2xl"></div>
+                <div className="flex-1">
+                  <div className="h-6 sm:h-8 bg-gray-200 rounded-lg w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="h-16 bg-gray-200 rounded-xl"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Loading Cards */}
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+              <div className="animate-pulse">
+                <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                <div className="space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   if (!restaurant) {
     return (
-      <div className="text-center py-12">
-        <BuildingStorefrontIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Restaurant not found</h3>
-        <p className="text-gray-500">Unable to load restaurant information</p>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center bg-white rounded-2xl shadow-lg border border-gray-200 p-8 sm:p-12 max-w-md mx-auto"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="w-20 h-20 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6"
+          >
+            <BuildingStorefrontIcon className="h-10 w-10 text-orange-600" />
+          </motion.div>
+          <h3 className="text-xl font-bold text-gray-900 mb-3">Restaurant not found</h3>
+          <p className="text-gray-600">Unable to load restaurant information</p>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Restaurant Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -182,25 +226,25 @@ const RestaurantInfo = ({ restaurantId }) => {
         </div>
 
         {/* Restaurant Info */}
-        <div className="pt-16 p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{restaurant.name}</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+        <div className="pt-16 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{restaurant.name}</h1>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
-                  <MapPinIcon className="h-4 w-4" />
-                  <span>{restaurant.address || 'Address not provided'}</span>
+                  <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                  <span className="line-clamp-2">{restaurant.address || 'Address not provided'}</span>
                 </div>
                 {restaurant.phone && (
                   <div className="flex items-center gap-1">
-                    <PhoneIcon className="h-4 w-4" />
+                    <PhoneIcon className="h-4 w-4 flex-shrink-0" />
                     <span>{restaurant.phone}</span>
                   </div>
                 )}
               </div>
             </div>
             
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
                 isCurrentlyOpen() 
                   ? 'bg-green-100 text-green-800' 
@@ -209,9 +253,12 @@ const RestaurantInfo = ({ restaurantId }) => {
                 <div className={`w-2 h-2 rounded-full ${
                   isCurrentlyOpen() ? 'bg-green-500' : 'bg-red-500'
                 }`}></div>
-                {isCurrentlyOpen() ? 'Open Now' : 'Closed'}
+                {isCurrentlyOpen() ? 'Open' : 'Closed'}
               </div>
-              <p className="text-sm text-gray-600 mt-1">{getOperatingHours()}</p>
+              <div className="flex items-center gap-1 text-gray-500 mt-1">
+                <ClockIcon className="h-4 w-4 flex-shrink-0" />
+                <span className="text-xs">{getOperatingHours()}</span>
+              </div>
             </div>
           </div>
 
@@ -310,53 +357,119 @@ const RestaurantInfo = ({ restaurantId }) => {
         </div>
       </motion.div>
 
-      {/* Menu Categories */}
+      {/* Stats Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-white rounded-lg border border-gray-200 p-6"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
       >
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Menu Categories</h2>
-        {menuCategories.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {menuCategories.map((category) => (
-              <div
-                key={category.id}
-                className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-center"
-              >
-                <h3 className="font-medium text-gray-900">{category.name}</h3>
-                {category.description && (
-                  <p className="text-xs text-gray-600 mt-1">{category.description}</p>
-                )}
+        {[
+          { icon: TagIcon, label: 'Categories', value: menuCategories.length, bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
+          { icon: CurrencyRupeeIcon, label: 'Menu Items', value: popularItems.length, bgColor: 'bg-green-100', iconColor: 'text-green-600' },
+          { icon: StarIcon, label: 'Rating', value: '4.5', bgColor: 'bg-yellow-100', iconColor: 'text-yellow-600' },
+          { icon: UserGroupIcon, label: 'Orders', value: '150+', bgColor: 'bg-purple-100', iconColor: 'text-purple-600' }
+        ].map((stat, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 + index * 0.05 }}
+            whileHover={{ scale: 1.02, y: -2 }}
+            className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 lg:p-6 hover:shadow-lg transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center ${stat.bgColor}`}>
+                <stat.icon className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 ${stat.iconColor}`} />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            <TagIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No menu categories available</p>
-          </div>
-        )}
+            </div>
+            <div>
+              <p className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+              <p className="text-xs sm:text-sm text-gray-600 font-medium line-clamp-1">{stat.label}</p>
+            </div>
+          </motion.div>
+        ))}
       </motion.div>
 
-      {/* Popular Items */}
+      {/* Mobile-First Menu Categories */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white rounded-lg border border-gray-200 p-6"
+        className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6"
       >
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Popular Menu Items</h2>
-        {popularItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {popularItems.map((item) => (
-              <div
-                key={item.id}
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl flex items-center justify-center">
+            <TagIcon className="h-5 w-5 text-orange-600" />
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Menu Categories</h2>
+        </div>
+        
+        {menuCategories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {menuCategories.map((category, index) => (
+              <motion.div
+                key={category.id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 + index * 0.05 }}
+                className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 text-center hover:shadow-md transition-all duration-200 hover:scale-105"
               >
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                <div className="text-center">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-orange-200 to-orange-300 rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <TagIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 text-orange-700" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1 text-sm sm:text-base">{category.name}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{category.description || 'Category items'}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-8 sm:py-12"
+          >
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <TagIcon className="h-8 w-8 text-orange-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">No Categories Yet</h3>
+            <p className="text-gray-600 text-sm">Menu categories will appear here</p>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* Mobile-First Popular Items */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6"
+      >
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+            <StarIcon className="h-5 w-5 text-green-600" />
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Popular Menu Items</h2>
+        </div>
+        
+        {popularItems.length > 0 ? (
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {popularItems.map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 + index * 0.05 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 lg:p-6 hover:shadow-lg transition-all duration-300"
+              >
+                <div className="flex gap-2 sm:gap-3">
+                  <motion.div 
+                    whileHover={{ scale: 1.05 }}
+                    className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl overflow-hidden flex-shrink-0 border-2 border-orange-200"
+                  >
                     {item.image_url ? (
                       <img
                         src={item.image_url}
@@ -365,33 +478,45 @@ const RestaurantInfo = ({ restaurantId }) => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <CameraIcon className="h-6 w-6 text-gray-400" />
+                        <CameraIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-orange-600" />
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">{item.categories?.name}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-orange-600">
+                    <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 text-sm sm:text-base">{item.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 font-medium line-clamp-1">{item.categories?.name}</p>
+                    <div className="flex flex-col gap-1 sm:gap-2">
+                      <span className="text-sm sm:text-base lg:text-lg font-bold text-orange-600">
                         {formatCurrency(item.price)}
                       </span>
                       {item.orderCount > 0 && (
-                        <span className="text-xs text-gray-500">
+                        <motion.span 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold self-start"
+                        >
+                          <FireIcon className="h-3 w-3" />
                           {item.orderCount} orders
-                        </span>
+                        </motion.span>
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <CurrencyRupeeIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No popular items to display</p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-8 sm:py-12"
+          >
+            <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <CurrencyRupeeIcon className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">No Popular Items</h3>
+            <p className="text-gray-600 text-sm">Popular menu items will appear here</p>
+          </motion.div>
         )}
       </motion.div>
 
@@ -421,6 +546,7 @@ const RestaurantInfo = ({ restaurantId }) => {
           </div>
         </motion.div>
       )}
+      </div>
     </div>
   )
 }
