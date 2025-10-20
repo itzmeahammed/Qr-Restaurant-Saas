@@ -8,11 +8,14 @@ import {
   TruckIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline'
-import realtimeService from '../../services/realtimeService'
+import OrderService from '../../services/orderService'
+import useOrderStore from '../../stores/useOrderStore'
 
 const OrderTracking = ({ order, isOpen, onClose }) => {
+  const { subscribeToCustomerOrders } = useOrderStore()
   const [currentStatus, setCurrentStatus] = useState(order?.status || 'pending')
   const [assignedStaff, setAssignedStaff] = useState(order?.assignedStaff || null)
+  const [subscription, setSubscription] = useState(null)
 
   const orderStatuses = [
     { 
@@ -53,22 +56,36 @@ const OrderTracking = ({ order, isOpen, onClose }) => {
   ]
 
   useEffect(() => {
-    if (order?.id) {
-      // Subscribe to order updates
-      const subscription = realtimeService.subscribeToOrder(order.id, (payload) => {
-        if (payload.new) {
-          setCurrentStatus(payload.new.status)
-          if (payload.new.assigned_staff_name) {
-            setAssignedStaff(payload.new.assigned_staff_name)
+    if (order?.session_id) {
+      // Subscribe to customer order updates using enhanced service
+      const sub = subscribeToCustomerOrders(order.session_id, (orderUpdate) => {
+        console.log('📨 Customer order update:', orderUpdate)
+        if (orderUpdate.id === order.id) {
+          setCurrentStatus(orderUpdate.status)
+          if (orderUpdate.assigned_staff_name) {
+            setAssignedStaff(orderUpdate.assigned_staff_name)
           }
         }
       })
-
+      
+      setSubscription(sub)
+      
       return () => {
-        subscription?.unsubscribe()
+        if (sub) {
+          sub.unsubscribe()
+        }
       }
     }
-  }, [order?.id])
+  }, [order?.session_id, order?.id])
+
+  // Cleanup subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [subscription])
 
   const getCurrentStatusIndex = () => {
     return orderStatuses.findIndex(s => s.id === currentStatus)

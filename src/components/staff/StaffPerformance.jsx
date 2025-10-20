@@ -264,8 +264,53 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="space-y-4 p-2 sm:p-4">
+        {/* Loading Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="animate-pulse">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-200 rounded-xl"></div>
+              <div>
+                <div className="h-5 sm:h-6 bg-gray-200 rounded w-32 mb-2"></div>
+                <div className="h-3 sm:h-4 bg-gray-200 rounded w-48"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="animate-pulse">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-200 rounded-lg"></div>
+                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-8"></div>
+                </div>
+                <div className="h-5 sm:h-6 bg-gray-200 rounded w-16 mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded w-20"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Performance Metrics */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="animate-pulse">
+            <div className="h-5 sm:h-6 bg-gray-200 rounded w-40 mb-4"></div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i}>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="h-3 sm:h-4 bg-gray-200 rounded w-32"></div>
+                    <div className="h-3 sm:h-4 bg-gray-200 rounded w-12"></div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -273,42 +318,61 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
   const currentStats = getCurrentStats()
 
   return (
-    <div className="space-y-6">
-      {/* Period Selector */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {[
-          { key: 'today', label: 'Today' },
-          { key: 'week', label: 'This Week' },
-          { key: 'month', label: 'This Month' }
-        ].map(period => (
-          <button
-            key={period.key}
-            onClick={() => setSelectedPeriod(period.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              selectedPeriod === period.key
-                ? 'bg-white text-orange-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {period.label}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-4 p-2 sm:p-4">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+              <TrophyIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Performance Dashboard</h2>
+              <p className="text-sm sm:text-base text-gray-600">Track your work metrics and achievements</p>
+            </div>
+          </div>
+          
+          {/* Period Selector */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+            {[
+              { key: 'today', label: 'Today' },
+              { key: 'week', label: 'Week' },
+              { key: 'month', label: 'Month' }
+            ].map(period => (
+              <button
+                key={period.key}
+                onClick={() => setSelectedPeriod(period.key)}
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                  selectedPeriod === period.key
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
 
       {/* Performance Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg border border-gray-200"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CheckCircleIcon className="h-6 w-6 text-blue-600" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+              <CheckCircleIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-blue-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{currentStats.ordersCompleted}</p>
-              <p className="text-sm text-gray-600">Orders Completed</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{currentStats.ordersCompleted}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Orders Completed</p>
             </div>
           </div>
         </motion.div>
@@ -317,15 +381,15 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg border border-gray-200"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CurrencyRupeeIcon className="h-6 w-6 text-green-600" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
+              <CurrencyRupeeIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-green-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(currentStats.earnings)}</p>
-              <p className="text-sm text-gray-600">Earnings</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(currentStats.earnings)}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Earnings</p>
             </div>
           </div>
         </motion.div>
@@ -334,15 +398,15 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg border border-gray-200"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <GiftIcon className="h-6 w-6 text-yellow-600" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-yellow-100 rounded-lg">
+              <GiftIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-yellow-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(currentStats.tips)}</p>
-              <p className="text-sm text-gray-600">Tips Received</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(currentStats.tips)}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Tips Received</p>
             </div>
           </div>
         </motion.div>
@@ -351,32 +415,15 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg border border-gray-200"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <ClockIcon className="h-6 w-6 text-purple-600" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+              <StarIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-purple-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{currentStats.hoursWorked.toFixed(1)}h</p>
-              <p className="text-sm text-gray-600">Hours Worked</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-lg border border-gray-200"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <StarIcon className="h-6 w-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{currentStats.avgRating.toFixed(1)}</p>
-              <p className="text-sm text-gray-600">Avg Rating</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{currentStats.avgRating.toFixed(1)}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Average Rating</p>
             </div>
           </div>
         </motion.div>
