@@ -14,13 +14,24 @@ import CustomerNavHeader from '../components/customer/CustomerNavHeader'
 import MobileMenu from '../components/customer/MobileMenu'
 import { useCustomerNavigation } from '../contexts/CustomerNavigationContext'
 import { supabase } from '../config/supabase'
+import OrderService from '../services/orderService'
+import useOrderStore from '../stores/useOrderStore'
 import toast from 'react-hot-toast'
 
 const CustomerOrders = () => {
+  // Use enhanced order store
+  const {
+    orders,
+    loading,
+    error,
+    getCustomerOrders,
+    subscribeToCustomerOrders,
+    clearError
+  } = useOrderStore()
+
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [activeTab, setActiveTab] = useState('all')
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] = useState(null)
 
   // Safe navigation hook usage
   let navigationContext = null
@@ -32,63 +43,55 @@ const CustomerOrders = () => {
   
   const { currentUser, isAuthenticated } = navigationContext || {}
 
-  // Fetch real order data
+  // Fetch customer orders using enhanced service
   useEffect(() => {
-    const fetchOrders = async () => {
-      if (!currentUser) {
-        setLoading(false)
-        return
-      }
+    if (!currentUser) {
+      return
+    }
 
+    // Clear any previous errors
+    clearError()
+
+    // Fetch customer orders
+    const fetchCustomerOrders = async () => {
       try {
-        // Fetch orders from Supabase
-        const { data, error } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            restaurants (name, address),
-            tables (table_number),
-            order_items (
-              quantity,
-              price,
-              menu_items (name)
-            )
-          `)
-          .eq('customer_id', currentUser.id)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        // Transform data to match UI expectations
-        const transformedOrders = data?.map(order => ({
-          id: order.id,
-          restaurantName: order.restaurants?.name || 'Unknown Restaurant',
-          restaurantAddress: order.restaurants?.address || 'Unknown Address',
-          date: new Date(order.created_at).toLocaleDateString(),
-          time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: order.status,
-          total: order.total_amount,
-          items: order.order_items?.map(item => ({
-            name: item.menu_items?.name || 'Unknown Item',
-            quantity: item.quantity,
-            price: item.price
-          })) || [],
-          tableNumber: order.tables?.table_number ? `Table ${order.tables.table_number}` : 'Unknown Table'
-        })) || []
-
-        setOrders(transformedOrders)
+        await getCustomerOrders(currentUser.id)
       } catch (error) {
-        console.error('Error fetching orders:', error)
+        console.error('Error fetching customer orders:', error)
         toast.error('Failed to load orders')
-        // Show empty state on error
-        setOrders([])
-      } finally {
-        setLoading(false)
       }
     }
 
-    fetchOrders()
+    fetchCustomerOrders()
+
+    // Setup real-time subscription for order updates
+    if (currentUser.session_id) {
+      const sub = subscribeToCustomerOrders(currentUser.session_id, (orderUpdate) => {
+        console.log('📨 Customer order update:', orderUpdate)
+        toast.success(`Order #${orderUpdate.order_number} status updated: ${orderUpdate.status}`, {
+          icon: '🔔',
+          duration: 3000
+        })
+      })
+      
+      setSubscription(sub)
+      
+      return () => {
+        if (sub) {
+          sub.unsubscribe()
+        }
+      }
+    }
   }, [currentUser])
+
+  // Cleanup subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [subscription])
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -108,7 +111,25 @@ const CustomerOrders = () => {
     }
   }
 
-  const filteredOrders = orders.filter(order => {
+  // Transform orders for UI display
+  const transformedOrders = orders.map(order => ({
+    id: order.id,
+    restaurantName: order.restaurant_name || 'Unknown Restaurant',
+    restaurantAddress: order.restaurant_address || 'Unknown Address',
+    date: new Date(order.created_at).toLocaleDateString(),
+    time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    status: order.status,
+    total: order.total_amount,
+    items: order.order_items?.map(item => ({
+      name: item.menu_items?.name || 'Unknown Item',
+      quantity: item.quantity,
+      price: item.unit_price
+    })) || [],
+    tableNumber: order.table_number ? `Table ${order.table_number}` : 'Unknown Table',
+    order_number: order.order_number
+  }))
+
+  const filteredOrders = transformedOrders.filter(order => {
     if (activeTab === 'all') return true
     return order.status === activeTab
   })

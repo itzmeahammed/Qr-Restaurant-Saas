@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -9,21 +9,18 @@ import {
   CurrencyRupeeIcon,
   TrophyIcon,
   BellIcon,
+  ChevronDownIcon,
+  ArrowRightOnRectangleIcon,
   PlayIcon,
   StopIcon,
-  Bars3Icon,
-  HomeIcon,
-  ClipboardDocumentListIcon,
+  StarIcon,
+  ShoppingBagIcon,
   ChartBarIcon,
+  UserGroupIcon,
   BuildingStorefrontIcon,
   Cog6ToothIcon,
-  ArrowRightOnRectangleIcon,
-  XMarkIcon,
-  UserCircleIcon,
-  ChevronDownIcon,
-  SparklesIcon,
-  StarIcon,
-  ShoppingBagIcon
+  HomeIcon,
+  BookOpenIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -32,6 +29,8 @@ import StaffOrderManagement from '../components/staff/StaffOrderManagement'
 import StaffPerformance from '../components/staff/StaffPerformance'
 import RestaurantInfo from '../components/staff/RestaurantInfo'
 import StaffRestaurantApplication from '../components/staff/StaffRestaurantApplication'
+import StaffOverview from '../components/staff/StaffOverview'
+import StaffMenuView from '../components/staff/StaffMenuView'
 
 const StaffDashboard = () => {
   const navigate = useNavigate()
@@ -52,8 +51,67 @@ const StaffDashboard = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [staffSession, setStaffSession] = useState(null)
   const [restaurantInfo, setRestaurantInfo] = useState(null)
+  
+  // Refs for click-outside handling
+  const profileDropdownRef = useRef(null)
+  const notificationsDropdownRef = useRef(null)
+
+  // Handle click outside 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false)
+      }
+      if (notificationsDropdownRef.current && !notificationsDropdownRef.current.contains(event.target)) {
+        setShowNotifications(false)
+      }
+    }
+
+    if (showProfileDropdown || showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showProfileDropdown, showNotifications])
+
+  // Load order notifications
+  const loadOrderNotifications = async (staffId) => {
+    try {
+      // Get recent orders assigned to this staff member
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          status,
+          total_amount,
+          created_at,
+          users (full_name)
+        `)
+        .eq('assigned_staff_id', staffId)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (!error && orders) {
+        const notificationList = orders.map(order => ({
+          id: order.id,
+          type: 'order',
+          title: `New Order #${order.id.slice(-6)}`,
+          message: `Order from ${order.users?.full_name || 'Customer'} - ₹${order.total_amount}`,
+          time: new Date(order.created_at).toLocaleTimeString(),
+          status: order.status,
+          isRead: false
+        }))
+        
+        setNotifications(notificationList)
+        setUnreadNotifications(notificationList.filter(n => !n.isRead).length)
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    }
+  }
 
   useEffect(() => {
     const checkStaffApprovalStatus = async () => {
@@ -74,8 +132,9 @@ const StaffDashboard = () => {
               })
               setLoading(false)
               
-              // Load stats in background
+              // Load stats and notifications in background
               loadStaffStats(sessionData.staff_id)
+              loadOrderNotifications(sessionData.staff_id)
               return
             }
           } catch (error) {
@@ -103,28 +162,34 @@ const StaffDashboard = () => {
         const { data: staffData, error: staffError } = staffResult
         const { data: applicationData, error: appError } = applicationResult
 
-        if (!staffError && staffData?.approved_at) {
-          console.log('✅ Staff approved - loading dashboard')
+        if (!staffError && staffData?.data) {
+          console.log('✅ Staff approved, loading dashboard...')
+          setStaffData(staffData.data)
+          setRestaurant(staffData.data.restaurants)
+          
+          // Cache session for faster subsequent loads
           const sessionData = {
-            staff_id: staffData.id,
             user_id: user.id,
-            restaurant_id: staffData.restaurant_id,
-            position: staffData.position,
-            full_name: user.full_name || 'Staff Member',
+            staff_id: staffData.data.id,
+            restaurant_id: staffData.data.restaurant_id,
+            restaurant_name: staffData.data.restaurants?.name,
+            full_name: user.user_metadata?.full_name,
             email: user.email,
-            phone: user.phone || '',
-            restaurant_name: staffData.restaurants?.name || 'Restaurant'
+            position: staffData.data.position,
+            cached_at: Date.now()
           }
-
+          
+          localStorage.setItem('staff_session', JSON.stringify(sessionData))
           setStaffSession(sessionData)
           setRestaurantInfo({
-            id: staffData.restaurant_id,
-            name: staffData.restaurants?.name
+            id: staffData.data.restaurant_id,
+            name: staffData.data.restaurants?.name
           })
-          localStorage.setItem('staff_session', JSON.stringify(sessionData))
           
-          // Load stats in parallel
-          loadStaffStats(staffData.id)
+          // Load performance stats and notifications
+          await loadStaffStats(staffData.data.id)
+          await loadOrderNotifications(staffData.data.id)
+          await checkOnlineStatus(staffData.data.id)
         } else if (!appError && applicationData) {
           console.log(`📋 Application status: ${applicationData.status}`)
           setApplicationStatus(applicationData.status)
@@ -182,30 +247,38 @@ const StaffDashboard = () => {
       
       const today = new Date().toISOString().split('T')[0]
       
-      // Parallel fetch for better performance
-      const [ordersResult, reviewsResult] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('total_amount, tip_amount')
-          .eq('assigned_staff_id', staffId)
-          .gte('created_at', `${today}T00:00:00`)
-          .eq('status', 'delivered'),
-        supabase
-          .from('reviews')
-          .select('rating')
-          .eq('staff_id', staffId)
-      ])
+      // First, get today's orders for this staff member
+      const { data: todayOrdersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, total_amount, tip_amount')
+        .eq('assigned_staff_id', staffId)
+        .gte('created_at', `${today}T00:00:00`)
+        .eq('status', 'delivered')
 
-      const { data: todayOrdersData } = ordersResult
-      const { data: reviewsData } = reviewsResult
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError)
+        return
+      }
 
+      // Calculate basic stats from orders
       const todayOrders = todayOrdersData?.length || 0
       const todayEarnings = todayOrdersData?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
       const todayTips = todayOrdersData?.reduce((sum, order) => sum + (order.tip_amount || 0), 0) || 0
 
-      const avgRating = reviewsData?.length > 0 
-        ? reviewsData.reduce((sum, review) => sum + review.rating, 0) / reviewsData.length 
-        : 5.0
+      // Get reviews for this staff member's orders (if any orders exist)
+      let avgRating = 5.0
+      if (todayOrdersData && todayOrdersData.length > 0) {
+        const orderIds = todayOrdersData.map(order => order.id)
+        
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('overall_rating')
+          .in('order_id', orderIds)
+
+        if (!reviewsError && reviewsData?.length > 0) {
+          avgRating = reviewsData.reduce((sum, review) => sum + (review.overall_rating || 5), 0) / reviewsData.length
+        }
+      }
 
       setStats({
         todayOrders,
@@ -214,9 +287,21 @@ const StaffDashboard = () => {
         rating: Number(avgRating.toFixed(1))
       })
 
-      console.log('📊 Stats loaded successfully')
+      console.log('📊 Stats loaded successfully:', {
+        todayOrders,
+        todayEarnings: Math.round(todayEarnings),
+        todayTips: Math.round(todayTips),
+        rating: Number(avgRating.toFixed(1))
+      })
     } catch (error) {
       console.error('Error loading stats:', error)
+      // Set default stats on error
+      setStats({
+        todayOrders: 0,
+        todayEarnings: 0,
+        todayTips: 0,
+        rating: 5.0
+      })
     }
   }
 
@@ -253,9 +338,13 @@ const StaffDashboard = () => {
     }
   }
 
+
+
+// Define tabs
   const tabs = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'orders', name: 'Orders', icon: ShoppingBagIcon },
+    { id: 'menu', name: 'Menu', icon: BookOpenIcon },
     { id: 'performance', name: 'Performance', icon: TrophyIcon },
     { id: 'restaurant', name: 'Restaurant', icon: BuildingStorefrontIcon }
   ]
@@ -267,7 +356,7 @@ const StaffDashboard = () => {
         is_available: newStatus,
         updated_at: new Date().toISOString()
       }
-
+      
       const { error } = await supabase
         .from('staff')
         .update(updates)
@@ -278,6 +367,7 @@ const StaffDashboard = () => {
       setIsOnline(newStatus)
       toast.success(newStatus ? '🟢 You are now online!' : '🔴 You are now offline')
     } catch (error) {
+      console.error('Error updating status:', error)
       toast.error('Failed to update status')
     }
   }
@@ -342,202 +432,30 @@ const StaffDashboard = () => {
       )
     }
 
-    switch (activeTab) {
+switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-8">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Today's Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.todayOrders}</p>
-                    <p className="text-xs text-green-600 font-medium">+12% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <ShoppingBagIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Today's Earnings</p>
-                    <p className="text-3xl font-bold text-gray-900">₹{stats.todayEarnings}</p>
-                    <p className="text-xs text-green-600 font-medium">+8% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <CurrencyRupeeIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Tips Earned</p>
-                    <p className="text-3xl font-bold text-gray-900">₹{stats.todayTips}</p>
-                    <p className="text-xs text-green-600 font-medium">+15% from yesterday</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                    <SparklesIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Rating</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.rating}/5</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <StarIcon
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < Math.floor(stats.rating)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                    <TrophyIcon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
-            >
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <SparklesIcon className="h-6 w-6 text-orange-500" />
-                Quick Actions
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={toggleOnlineStatus}
-                  className={`flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 transition-all duration-200 ${
-                    isOnline
-                      ? 'border-red-200 bg-gradient-to-br from-red-50 to-red-100 text-red-700 hover:border-red-300'
-                      : 'border-green-200 bg-gradient-to-br from-green-50 to-green-100 text-green-700 hover:border-green-300'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    isOnline ? 'bg-red-200' : 'bg-green-200'
-                  }`}>
-                    {isOnline ? (
-                      <StopIcon className="h-6 w-6" />
-                    ) : (
-                      <PlayIcon className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">
-                      {isOnline ? 'Go Offline' : 'Go Online'}
-                    </p>
-                    <p className="text-sm opacity-75">
-                      {isOnline ? 'Stop receiving orders' : 'Start receiving orders'}
-                    </p>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab('orders')}
-                  className="flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 hover:border-blue-300 transition-all duration-200"
-                >
-                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
-                    <ShoppingBagIcon className="h-6 w-6" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">Manage Orders</p>
-                    <p className="text-sm opacity-75">View and update orders</p>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab('performance')}
-                  className="flex flex-col items-center justify-center gap-4 p-6 rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 text-purple-700 hover:border-purple-300 transition-all duration-200"
-                >
-                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
-                    <ChartBarIcon className="h-6 w-6" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg">View Performance</p>
-                    <p className="text-sm opacity-75">Check your stats</p>
-                  </div>
-                </motion.button>
-              </div>
-            </motion.div>
-
-            {/* Status Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Current Status</h3>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full ${
-                      isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                    }`}></div>
-                    <span className="text-lg font-medium text-gray-700">
-                      You are {isOnline ? 'online and ready for orders' : 'offline'}
-                    </span>
-                  </div>
-                  <p className="text-gray-500 mt-1">
-                    Working at <span className="font-medium text-orange-600">{restaurantInfo?.name}</span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">Position</p>
-                  <p className="text-lg font-semibold text-gray-900">{staffSession?.position}</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <StaffOverview 
+            stats={stats}
+            isOnline={isOnline}
+            toggleOnlineStatus={toggleOnlineStatus}
+            setActiveTab={setActiveTab}
+            restaurantInfo={restaurantInfo}
+            staffSession={staffSession}
+          />
         )
 
       case 'orders':
-        return <StaffOrderManagement staffId={staffSession?.staff_id} />
+        return (
+          <StaffOrderManagement 
+            staffId={staffSession?.staff_id} 
+            restaurantId={staffSession?.restaurant_id}
+            isOnline={isOnline}
+          />
+        )
+
+      case 'menu':
+        return <StaffMenuView restaurantId={staffSession?.restaurant_id} />
 
       case 'performance':
         return <StaffPerformance staffId={staffSession?.staff_id} />
@@ -754,9 +672,9 @@ const StaffDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 pb-20">
-      {/* Top Header Bar */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
+      {/* Fixed Top Header Bar */}
+      <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3 z-40 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -769,92 +687,257 @@ const StaffDashboard = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"
-            >
-              <BellIcon className="h-5 w-5" />
-            </motion.button>
-            
-            {/* Profile */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-2 bg-white/20 rounded-xl px-3 py-2"
-            >
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-orange-500 text-sm font-bold">
-                  {staffSession?.full_name?.charAt(0) || 'S'}
-                </span>
-              </div>
-              <ChevronDownIcon className="h-4 w-4" />
-            </motion.button>
+            {/* Enhanced Notifications */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 hover:bg-white/30 transition-all duration-200"
+              >
+                <BellIcon className="h-5 w-5 text-white" />
+                {unreadNotifications > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg"
+                  >
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </motion.span>
+                )}
+              </motion.button>
 
-            {/* Profile Dropdown */}
-            <AnimatePresence>
-              {showProfileDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-16 right-4 w-64 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50"
-                >
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="font-semibold text-gray-900">{staffSession?.full_name}</p>
-                    <p className="text-sm text-gray-500">{staffSession?.email}</p>
-                    <p className="text-sm text-orange-600 font-medium">{staffSession?.position}</p>
-                  </div>
-                  
-                  <div className="px-4 py-2">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                      }`}></div>
-                      <span className="text-sm text-gray-700">
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
+              {/* Notifications Dropdown */}
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div
+                    ref={notificationsDropdownRef}
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="fixed top-20 left-4 right-4 sm:absolute sm:top-12 sm:left-auto sm:right-0 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 py-2 z-[9999] max-h-96 overflow-y-auto"
+                    style={{ zIndex: 9999 }}
+                  >
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900">🔔 Notifications</h3>
+                        {unreadNotifications > 0 && (
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">
+                            {unreadNotifications} new
+                          </span>
+                        )}
+                      </div>
                     </div>
                     
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={toggleOnlineStatus}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
-                        isOnline
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}
-                    >
-                      {isOnline ? (
-                        <StopIcon className="h-4 w-4" />
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification, index) => (
+                          <motion.div
+                            key={notification.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
+                              notification.isRead ? 'border-gray-200' : 'border-orange-400 bg-orange-50/30'
+                            }`}
+                            onClick={() => {
+                              // Mark as read
+                              const updatedNotifications = notifications.map(n => 
+                                n.id === notification.id ? { ...n, isRead: true } : n
+                              )
+                              setNotifications(updatedNotifications)
+                              setUnreadNotifications(updatedNotifications.filter(n => !n.isRead).length)
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                notification.status === 'pending' ? 'bg-yellow-100' :
+                                notification.status === 'preparing' ? 'bg-blue-100' :
+                                notification.status === 'ready' ? 'bg-green-100' : 'bg-gray-100'
+                              }`}>
+                                {notification.status === 'pending' ? '⏳' :
+                                 notification.status === 'preparing' ? '👨‍🍳' :
+                                 notification.status === 'ready' ? '✅' : '📋'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 text-sm">{notification.title}</p>
+                                <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                                <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                              </div>
+                              {!notification.isRead && (
+                                <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-2"></div>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))
                       ) : (
-                        <PlayIcon className="h-4 w-4" />
+                        <div className="px-4 py-8 text-center">
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <BellIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <p className="text-gray-500 text-sm">No notifications yet</p>
+                        </div>
                       )}
-                      {isOnline ? 'Go Offline' : 'Go Online'}
-                    </motion.button>
+                    </div>
+                    
+                    {notifications.length > 0 && (
+                      <div className="px-4 py-2 border-t border-gray-100">
+                        <button
+                          onClick={() => {
+                            const updatedNotifications = notifications.map(n => ({ ...n, isRead: true }))
+                            setNotifications(updatedNotifications)
+                            setUnreadNotifications(0)
+                          }}
+                          className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          Mark all as read
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            {/* Enhanced Profile */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/30 hover:bg-white/30 transition-all duration-200"
+              >
+                <div className="relative">
+                  <div className="w-8 h-8 bg-gradient-to-br from-white to-gray-100 rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-orange-500 text-sm font-bold">
+                      {staffSession?.full_name?.charAt(0) || 'S'}
+                    </span>
                   </div>
-                  
-                  <div className="border-t border-gray-100 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                      Sign Out
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-white text-sm font-medium">{staffSession?.full_name || 'Staff Member'}</p>
+                  <p className="text-white/80 text-xs">{staffSession?.position || 'Staff'}</p>
+                </div>
+                <ChevronDownIcon className="h-4 w-4 text-white" />
+              </motion.button>
+
+              {/* Enhanced Profile Dropdown */}
+              <AnimatePresence>
+                {showProfileDropdown && (
+                  <motion.div
+                    ref={profileDropdownRef}
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-[9999]"
+                    style={{ zIndex: 9999 }}
+                  >
+                    {/* Profile Header */}
+                    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-4 text-white">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
+                            <span className="text-white text-lg font-bold">
+                              {staffSession?.full_name?.charAt(0) || 'S'}
+                            </span>
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                            isOnline ? 'bg-green-500' : 'bg-gray-400'
+                          }`}></div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-white">{staffSession?.full_name || 'Staff Member'}</p>
+                          <p className="text-white/90 text-sm">{staffSession?.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                              {staffSession?.position || 'Staff'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              isOnline ? 'bg-green-500/20 text-green-100' : 'bg-gray-500/20 text-gray-200'
+                            }`}>
+                              {isOnline ? '🟢 Online' : '⚫ Offline'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Quick Stats */}
+                    <div className="px-4 py-3 bg-gray-50">
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-orange-600">{stats.todayOrders}</p>
+                          <p className="text-xs text-gray-600">Orders</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-green-600">₹{stats.todayEarnings}</p>
+                          <p className="text-xs text-gray-600">Earnings</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-yellow-600">{stats.rating}★</p>
+                          <p className="text-xs text-gray-600">Rating</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="px-4 py-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={toggleOnlineStatus}
+                        className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 mb-3 ${
+                          isOnline
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-lg'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200 hover:shadow-lg'
+                        }`}
+                      >
+                        {isOnline ? (
+                          <>
+                            <StopIcon className="h-4 w-4" />
+                            Go Offline
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="h-4 w-4" />
+                            Go Online
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                        >
+                          <Cog6ToothIcon className="h-4 w-4" />
+                          Settings
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleLogout}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                        >
+                          <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                          Sign Out
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="px-4 py-6">
+      {/* Main Content Area with top padding for fixed header */}
+      <div className="px-4 py-6 pt-20">
         {/* Page Header */}
         <div className="mb-6">
           <motion.div
@@ -866,7 +949,11 @@ const StaffDashboard = () => {
               {tabs.find(tab => tab.id === activeTab)?.name || 'Overview'}
             </h1>
             <p className="text-gray-600">
-              Welcome back, <span className="font-medium text-orange-600">{staffSession?.full_name}</span>
+              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}`}
+              {activeTab === 'orders' && 'Manage your assigned orders'}
+              {activeTab === 'menu' && 'View restaurant menu items'}
+              {activeTab === 'performance' && 'Track your performance metrics'}
+              {activeTab === 'restaurant' && 'Restaurant information and details'}
             </p>
           </motion.div>
         </div>
@@ -897,22 +984,12 @@ const StaffDashboard = () => {
                   : 'text-gray-500 hover:text-orange-400 hover:bg-gray-50'
               }`}
             >
-              <tab.icon className={`h-6 w-6 ${
+              <tab.icon className={`h-5 w-5 ${
                 activeTab === tab.id ? 'text-orange-500' : 'text-gray-400'
               }`} />
               <span className="text-xs font-medium">{tab.name}</span>
             </motion.button>
           ))}
-          
-          {/* Staff Tab (Active indicator) */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex flex-col items-center justify-center gap-1 text-orange-500 bg-orange-50"
-          >
-            <UserIcon className="h-6 w-6 text-orange-500" />
-            <span className="text-xs font-medium">Staff</span>
-          </motion.button>
         </div>
       </div>
     </div>
