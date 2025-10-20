@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -9,21 +9,17 @@ import {
   CurrencyRupeeIcon,
   TrophyIcon,
   BellIcon,
+  ChevronDownIcon,
+  ArrowRightOnRectangleIcon,
   PlayIcon,
   StopIcon,
-  Bars3Icon,
-  HomeIcon,
-  ClipboardDocumentListIcon,
-  ChartBarIcon,
-  BuildingStorefrontIcon,
-  Cog6ToothIcon,
-  ArrowRightOnRectangleIcon,
-  XMarkIcon,
-  UserCircleIcon,
-  ChevronDownIcon,
-  SparklesIcon,
   StarIcon,
   ShoppingBagIcon,
+  ChartBarIcon,
+  UserGroupIcon,
+  BuildingStorefrontIcon,
+  Cog6ToothIcon,
+  HomeIcon,
   BookOpenIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
@@ -55,8 +51,67 @@ const StaffDashboard = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [staffSession, setStaffSession] = useState(null)
   const [restaurantInfo, setRestaurantInfo] = useState(null)
+  
+  // Refs for click-outside handling
+  const profileDropdownRef = useRef(null)
+  const notificationsDropdownRef = useRef(null)
+
+  // Handle click outside 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false)
+      }
+      if (notificationsDropdownRef.current && !notificationsDropdownRef.current.contains(event.target)) {
+        setShowNotifications(false)
+      }
+    }
+
+    if (showProfileDropdown || showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showProfileDropdown, showNotifications])
+
+  // Load order notifications
+  const loadOrderNotifications = async (staffId) => {
+    try {
+      // Get recent orders assigned to this staff member
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          status,
+          total_amount,
+          created_at,
+          users (full_name)
+        `)
+        .eq('assigned_staff_id', staffId)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (!error && orders) {
+        const notificationList = orders.map(order => ({
+          id: order.id,
+          type: 'order',
+          title: `New Order #${order.id.slice(-6)}`,
+          message: `Order from ${order.users?.full_name || 'Customer'} - ₹${order.total_amount}`,
+          time: new Date(order.created_at).toLocaleTimeString(),
+          status: order.status,
+          isRead: false
+        }))
+        
+        setNotifications(notificationList)
+        setUnreadNotifications(notificationList.filter(n => !n.isRead).length)
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    }
+  }
 
   useEffect(() => {
     const checkStaffApprovalStatus = async () => {
@@ -77,8 +132,9 @@ const StaffDashboard = () => {
               })
               setLoading(false)
               
-              // Load stats in background
+              // Load stats and notifications in background
               loadStaffStats(sessionData.staff_id)
+              loadOrderNotifications(sessionData.staff_id)
               return
             }
           } catch (error) {
@@ -106,28 +162,34 @@ const StaffDashboard = () => {
         const { data: staffData, error: staffError } = staffResult
         const { data: applicationData, error: appError } = applicationResult
 
-        if (!staffError && staffData?.approved_at) {
-          console.log('✅ Staff approved - loading dashboard')
+        if (!staffError && staffData?.data) {
+          console.log('✅ Staff approved, loading dashboard...')
+          setStaffData(staffData.data)
+          setRestaurant(staffData.data.restaurants)
+          
+          // Cache session for faster subsequent loads
           const sessionData = {
-            staff_id: staffData.id,
             user_id: user.id,
-            restaurant_id: staffData.restaurant_id,
-            position: staffData.position,
-            full_name: user.full_name || 'Staff Member',
+            staff_id: staffData.data.id,
+            restaurant_id: staffData.data.restaurant_id,
+            restaurant_name: staffData.data.restaurants?.name,
+            full_name: user.user_metadata?.full_name,
             email: user.email,
-            phone: user.phone || '',
-            restaurant_name: staffData.restaurants?.name || 'Restaurant'
+            position: staffData.data.position,
+            cached_at: Date.now()
           }
-
+          
+          localStorage.setItem('staff_session', JSON.stringify(sessionData))
           setStaffSession(sessionData)
           setRestaurantInfo({
-            id: staffData.restaurant_id,
-            name: staffData.restaurants?.name
+            id: staffData.data.restaurant_id,
+            name: staffData.data.restaurants?.name
           })
-          localStorage.setItem('staff_session', JSON.stringify(sessionData))
           
-          // Load stats in parallel
-          loadStaffStats(staffData.id)
+          // Load performance stats and notifications
+          await loadStaffStats(staffData.data.id)
+          await loadOrderNotifications(staffData.data.id)
+          await checkOnlineStatus(staffData.data.id)
         } else if (!appError && applicationData) {
           console.log(`📋 Application status: ${applicationData.status}`)
           setApplicationStatus(applicationData.status)
@@ -610,9 +672,9 @@ switch (activeTab) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 pb-20">
-      {/* Top Header Bar */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
+      {/* Fixed Top Header Bar */}
+      <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3 z-40 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -625,92 +687,257 @@ switch (activeTab) {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"
-            >
-              <BellIcon className="h-5 w-5" />
-            </motion.button>
-            
-            {/* Profile */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-2 bg-white/20 rounded-xl px-3 py-2"
-            >
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-orange-500 text-sm font-bold">
-                  {staffSession?.full_name?.charAt(0) || 'S'}
-                </span>
-              </div>
-              <ChevronDownIcon className="h-4 w-4" />
-            </motion.button>
+            {/* Enhanced Notifications */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 hover:bg-white/30 transition-all duration-200"
+              >
+                <BellIcon className="h-5 w-5 text-white" />
+                {unreadNotifications > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg"
+                  >
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </motion.span>
+                )}
+              </motion.button>
 
-            {/* Profile Dropdown */}
-            <AnimatePresence>
-              {showProfileDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-16 right-4 w-64 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50"
-                >
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="font-semibold text-gray-900">{staffSession?.full_name}</p>
-                    <p className="text-sm text-gray-500">{staffSession?.email}</p>
-                    <p className="text-sm text-orange-600 font-medium">{staffSession?.position}</p>
-                  </div>
-                  
-                  <div className="px-4 py-2">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                      }`}></div>
-                      <span className="text-sm text-gray-700">
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
+              {/* Notifications Dropdown */}
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div
+                    ref={notificationsDropdownRef}
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="fixed top-20 left-4 right-4 sm:absolute sm:top-12 sm:left-auto sm:right-0 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 py-2 z-[9999] max-h-96 overflow-y-auto"
+                    style={{ zIndex: 9999 }}
+                  >
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900">🔔 Notifications</h3>
+                        {unreadNotifications > 0 && (
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">
+                            {unreadNotifications} new
+                          </span>
+                        )}
+                      </div>
                     </div>
                     
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={toggleOnlineStatus}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
-                        isOnline
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}
-                    >
-                      {isOnline ? (
-                        <StopIcon className="h-4 w-4" />
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification, index) => (
+                          <motion.div
+                            key={notification.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
+                              notification.isRead ? 'border-gray-200' : 'border-orange-400 bg-orange-50/30'
+                            }`}
+                            onClick={() => {
+                              // Mark as read
+                              const updatedNotifications = notifications.map(n => 
+                                n.id === notification.id ? { ...n, isRead: true } : n
+                              )
+                              setNotifications(updatedNotifications)
+                              setUnreadNotifications(updatedNotifications.filter(n => !n.isRead).length)
+                            }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                notification.status === 'pending' ? 'bg-yellow-100' :
+                                notification.status === 'preparing' ? 'bg-blue-100' :
+                                notification.status === 'ready' ? 'bg-green-100' : 'bg-gray-100'
+                              }`}>
+                                {notification.status === 'pending' ? '⏳' :
+                                 notification.status === 'preparing' ? '👨‍🍳' :
+                                 notification.status === 'ready' ? '✅' : '📋'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 text-sm">{notification.title}</p>
+                                <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                                <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                              </div>
+                              {!notification.isRead && (
+                                <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-2"></div>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))
                       ) : (
-                        <PlayIcon className="h-4 w-4" />
+                        <div className="px-4 py-8 text-center">
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <BellIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <p className="text-gray-500 text-sm">No notifications yet</p>
+                        </div>
                       )}
-                      {isOnline ? 'Go Offline' : 'Go Online'}
-                    </motion.button>
+                    </div>
+                    
+                    {notifications.length > 0 && (
+                      <div className="px-4 py-2 border-t border-gray-100">
+                        <button
+                          onClick={() => {
+                            const updatedNotifications = notifications.map(n => ({ ...n, isRead: true }))
+                            setNotifications(updatedNotifications)
+                            setUnreadNotifications(0)
+                          }}
+                          className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          Mark all as read
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            {/* Enhanced Profile */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/30 hover:bg-white/30 transition-all duration-200"
+              >
+                <div className="relative">
+                  <div className="w-8 h-8 bg-gradient-to-br from-white to-gray-100 rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-orange-500 text-sm font-bold">
+                      {staffSession?.full_name?.charAt(0) || 'S'}
+                    </span>
                   </div>
-                  
-                  <div className="border-t border-gray-100 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                      Sign Out
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-white text-sm font-medium">{staffSession?.full_name || 'Staff Member'}</p>
+                  <p className="text-white/80 text-xs">{staffSession?.position || 'Staff'}</p>
+                </div>
+                <ChevronDownIcon className="h-4 w-4 text-white" />
+              </motion.button>
+
+              {/* Enhanced Profile Dropdown */}
+              <AnimatePresence>
+                {showProfileDropdown && (
+                  <motion.div
+                    ref={profileDropdownRef}
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-[9999]"
+                    style={{ zIndex: 9999 }}
+                  >
+                    {/* Profile Header */}
+                    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-4 text-white">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
+                            <span className="text-white text-lg font-bold">
+                              {staffSession?.full_name?.charAt(0) || 'S'}
+                            </span>
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                            isOnline ? 'bg-green-500' : 'bg-gray-400'
+                          }`}></div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-white">{staffSession?.full_name || 'Staff Member'}</p>
+                          <p className="text-white/90 text-sm">{staffSession?.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                              {staffSession?.position || 'Staff'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              isOnline ? 'bg-green-500/20 text-green-100' : 'bg-gray-500/20 text-gray-200'
+                            }`}>
+                              {isOnline ? '🟢 Online' : '⚫ Offline'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Quick Stats */}
+                    <div className="px-4 py-3 bg-gray-50">
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-orange-600">{stats.todayOrders}</p>
+                          <p className="text-xs text-gray-600">Orders</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-green-600">₹{stats.todayEarnings}</p>
+                          <p className="text-xs text-gray-600">Earnings</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-yellow-600">{stats.rating}★</p>
+                          <p className="text-xs text-gray-600">Rating</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="px-4 py-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={toggleOnlineStatus}
+                        className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 mb-3 ${
+                          isOnline
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-lg'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200 hover:shadow-lg'
+                        }`}
+                      >
+                        {isOnline ? (
+                          <>
+                            <StopIcon className="h-4 w-4" />
+                            Go Offline
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="h-4 w-4" />
+                            Go Online
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                        >
+                          <Cog6ToothIcon className="h-4 w-4" />
+                          Settings
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleLogout}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                        >
+                          <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                          Sign Out
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="px-4 py-6">
+      {/* Main Content Area with top padding for fixed header */}
+      <div className="px-4 py-6 pt-20">
         {/* Page Header */}
         <div className="mb-6">
           <motion.div

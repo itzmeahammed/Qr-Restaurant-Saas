@@ -62,7 +62,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
-  const { user, profile, initialized, userRole, userId } = useAuthStore()
+  const { user, profile, initialized, userRole, userId, loading } = useAuthStore()
 
   console.log('🔄 PublicRoute check:', {
     user: !!user,
@@ -70,10 +70,25 @@ const PublicRoute = ({ children }) => {
     userRole,
     profileRole: profile?.role,
     initialized,
+    loading,
     currentPath: window.location.pathname,
     fullUser: user,
     fullProfile: profile
   })
+
+  // Show loading screen while authentication is being initialized
+  if (!initialized || loading) {
+    console.log('⏳ PublicRoute: Still initializing, showing loading screen')
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-purple-50 to-pink-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we set up your session</p>
+        </div>
+      </div>
+    )
+  }
 
   // Only redirect if user is authenticated AND initialized
   if (user && initialized) {
@@ -280,7 +295,7 @@ function App() {
                 })
 
                 return (
-                  userRole === 'staff' ? <Navigate to="/staff-dashboard" replace /> :
+                  userRole === 'staff' ? <Navigate to="/staff" replace /> :
                   userRole === 'restaurant_owner' ? <Navigate to="/dashboard" replace /> :
                   userRole === 'super_admin' ? <Navigate to="/admin" replace /> :
                   <Navigate to="/auth" replace />
@@ -302,7 +317,7 @@ function App() {
                 })
 
                 return (
-                  userRole === 'staff' ? <Navigate to="/staff-dashboard" replace /> :
+                  userRole === 'staff' ? <Navigate to="/staff" replace /> :
                   userRole === 'restaurant_owner' ? <Navigate to="/dashboard" replace /> :
                   userRole === 'super_admin' ? <Navigate to="/admin" replace /> :
                   <Navigate to="/" replace />

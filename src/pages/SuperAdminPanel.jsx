@@ -32,6 +32,8 @@ import {
   Line
 } from 'recharts'
 import { supabase } from '../config/supabase'
+import OrderService from '../services/orderService'
+import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
 import { useConfirmation } from '../contexts/ConfirmationContext'
@@ -40,7 +42,16 @@ const SuperAdminPanel = () => {
   const navigate = useNavigate()
   const { user, signOut } = useAuthStore()
   const { showConfirmation } = useConfirmation()
+  
+  // Use enhanced order store for platform analytics
+  const {
+    fetchPlatformAnalytics,
+    loading: ordersLoading,
+    error: ordersError
+  } = useOrderStore()
+  
   const [activeTab, setActiveTab] = useState('overview')
+  const [platformAnalytics, setPlatformAnalytics] = useState(null)
   const [stats, setStats] = useState({
     totalRestaurants: 0,
     activeRestaurants: 0,
@@ -70,7 +81,21 @@ const SuperAdminPanel = () => {
 
   useEffect(() => {
     fetchSuperAdminData()
+    fetchPlatformOrderAnalytics()
   }, [])
+
+  const fetchPlatformOrderAnalytics = async () => {
+    try {
+      const analytics = await fetchPlatformAnalytics({
+        date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
+        date_to: new Date().toISOString()
+      })
+      setPlatformAnalytics(analytics)
+    } catch (error) {
+      console.error('Error fetching platform analytics:', error)
+      toast.error('Failed to load platform analytics')
+    }
+  }
 
   const fetchSuperAdminData = async () => {
     try {
@@ -95,10 +120,30 @@ const SuperAdminPanel = () => {
         .from('restaurants')
         .select('id, is_active')
 
-      // Fetch orders
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('total_amount, status')
+      // Fetch orders using enhanced service for better analytics
+      let ordersData = []
+      try {
+        const platformData = await OrderService.getPlatformOrderAnalytics()
+        ordersData = platformData ? Object.values(platformData.ordersByStatus).map((count, index) => ({
+          total_amount: platformData.totalRevenue / platformData.totalOrders || 0,
+          status: Object.keys(platformData.ordersByStatus)[index] || 'pending'
+        })) : []
+        
+        // Update stats with platform analytics
+        if (platformData) {
+          setStats(prevStats => ({
+            ...prevStats,
+            totalOrders: platformData.totalOrders,
+            totalRevenue: platformData.totalRevenue
+          }))
+        }
+      } catch (error) {
+        console.warn('Enhanced analytics failed, falling back to basic query:', error)
+        const { data } = await supabase
+          .from('orders')
+          .select('total_amount, status')
+        ordersData = data || []
+      }
 
       // Fetch staff count
       const { data: staffData } = await supabase
