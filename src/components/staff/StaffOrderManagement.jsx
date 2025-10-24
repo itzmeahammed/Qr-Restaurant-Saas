@@ -36,6 +36,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const [filter, setFilter] = useState('pending') // pending, assigned, completed
   const [refreshing, setRefreshing] = useState(false)
   const [subscription, setSubscription] = useState(null)
+  const [processingOrders, setProcessingOrders] = useState(new Set())
 
   useEffect(() => {
     console.log('🔍 StaffOrderManagement props:', { staffId, restaurantId, isOnline, filter })
@@ -76,11 +77,11 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const getStatusFilter = (filter) => {
     switch (filter) {
       case 'pending':
-        return ['pending']
+        return ['pending', 'assigned'] // Include assigned orders in pending tab
       case 'assigned':
         return ['assigned', 'preparing', 'ready']
       case 'completed':
-        return ['delivered', 'cancelled']
+        return ['delivered', 'cancelled', 'served', 'completed']
       default:
         return null
     }
@@ -126,6 +127,11 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
       return
     }
 
+    // Prevent multiple clicks
+    if (processingOrders.has(orderId)) return
+    
+    setProcessingOrders(prev => new Set(prev).add(orderId))
+
     try {
       console.log('✅ Accepting order:', orderId, 'for staff:', staffId)
       
@@ -135,13 +141,22 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         throw new Error(result.error.message)
       }
 
-      toast.success('Order accepted successfully!')
+      toast.success('Order accepted successfully!', {
+        icon: '✅',
+        duration: 3000
+      })
       
       // Refresh orders to show updated status
       await handleRefresh()
     } catch (error) {
       console.error('❌ Error accepting order:', error)
       toast.error(`Failed to accept order: ${error.message}`)
+    } finally {
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
     }
   }
 
@@ -150,6 +165,11 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
       toast.error('Staff ID not available')
       return
     }
+
+    // Prevent multiple clicks
+    if (processingOrders.has(orderId)) return
+    
+    setProcessingOrders(prev => new Set(prev).add(orderId))
 
     try {
       console.log('🔄 Updating order status:', orderId, 'to:', newStatus)
@@ -160,7 +180,17 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         throw new Error(result.error.message)
       }
 
-      toast.success(`Order marked as ${newStatus}!`)
+      const statusMessages = {
+        'preparing': 'Started preparing order! 🍳',
+        'ready': 'Order is ready for pickup! 🔔',
+        'served': 'Order served successfully! ✅',
+        'completed': 'Order completed! 🎉'
+      }
+
+      toast.success(statusMessages[newStatus] || `Order status updated to ${newStatus}!`, {
+        icon: newStatus === 'completed' ? '🎉' : '🔄',
+        duration: 3000
+      })
       
       // Refresh orders to show updated status
       await handleRefresh()
@@ -168,17 +198,35 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     } catch (error) {
       console.error('❌ Error updating order status:', error)
       toast.error(`Failed to update order: ${error.message}`)
+    } finally {
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
     }
   }
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'assigned': return 'bg-blue-100 text-blue-800'
-      case 'preparing': return 'bg-orange-100 text-orange-800'
-      case 'ready': return 'bg-green-100 text-green-800'
-      case 'delivered': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'assigned':
+        return 'bg-blue-100 text-blue-800'
+      case 'preparing':
+        return 'bg-orange-100 text-orange-800'
+      case 'ready':
+        return 'bg-green-100 text-green-800'
+      case 'served':
+        return 'bg-purple-100 text-purple-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'delivered':
+        return 'bg-gray-100 text-gray-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
@@ -328,245 +376,306 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
             </motion.button>
           </motion.div>
         ) : (
-        <div className="space-y-3 sm:space-y-4">
-          {orders.map((order, index) => (
-            <motion.div
-              key={order.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-lg transition-all duration-200 touch-manipulation"
-            >
-              {/* Mobile-First Order Header */}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 sm:mb-4">
-                <div className="flex-1 mb-3 sm:mb-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                      #{order.order_number || order.id.slice(-6)}
-                    </h3>
-                    {getOrderPriority(order) === 'high' && (
-                      <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full animate-pulse"
+          <div className="space-y-3 sm:space-y-4">
+            {filteredOrders.map((order, index) => {
+              const priority = getOrderPriority(order)
+              const isProcessing = processingOrders.has(order.id)
+              
+              return (
+                <motion.div
+                  key={order.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`bg-white rounded-2xl border-2 p-4 sm:p-6 hover:shadow-xl transition-all duration-300 touch-manipulation ${
+                    priority === 'high' ? 'border-red-200 bg-red-50/30' :
+                    priority === 'medium' ? 'border-yellow-200 bg-yellow-50/30' :
+                    'border-gray-200'
+                  } ${isProcessing ? 'opacity-75 pointer-events-none' : ''}`}
+                >
+                  {/* Enhanced Order Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4">
+                    <div className="flex-1 mb-3 sm:mb-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
+                          #{order.order_number || order.id.slice(-6)}
+                        </h3>
+                        
+                        {/* Priority Badge */}
+                        {priority === 'high' && (
+                          <motion.span 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                            className="px-3 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-lg"
+                          >
+                            🚨 URGENT
+                          </motion.span>
+                        )}
+                        
+                        {priority === 'medium' && (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                            ⚡ PRIORITY
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Order Info */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <ClockIcon className="h-4 w-4" />
+                          <span>{new Date(order.created_at).toLocaleTimeString()}</span>
+                          <span className="text-gray-400">•</span>
+                          <span className="font-medium">Table {order.table_number || 'N/A'}</span>
+                        </div>
+                        
+                        {order.customer_name && (
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <UserIcon className="h-4 w-4" />
+                            <span>{order.customer_name}</span>
+                          </div>
+                        )}
+                        
+                        {order.special_instructions && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                            <p className="text-xs text-blue-600 font-medium mb-1">SPECIAL INSTRUCTIONS</p>
+                            <p className="text-sm text-blue-800">{order.special_instructions}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Status and Amount */}
+                    <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 sm:gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
+                        {order.status.toUpperCase()}
+                      </span>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-gray-900">₹{Math.round(order.total_amount)}</p>
+                        <p className="text-xs text-gray-500">
+                          {order.payment_method === 'cash' ? '💵 Cash' : '💳 Online'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Order Items Preview */}
+                  {order.order_items && order.order_items.length > 0 && (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-gray-700">Items ({order.order_items.length})</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {order.order_items.slice(0, 4).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <span className="text-sm font-medium text-gray-900 truncate">
+                              {item.menu_items?.name || item.item_name}
+                            </span>
+                            <span className="text-sm text-gray-600 ml-2">
+                              {item.quantity}× ₹{Math.round(item.unit_price)}
+                            </span>
+                          </div>
+                        ))}
+                        {order.order_items.length > 4 && (
+                          <div className="flex items-center justify-center p-2 bg-gray-100 rounded-lg text-sm text-gray-600">
+                            +{order.order_items.length - 4} more items
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    {/* View Details Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedOrder(order)}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 text-sm"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                      <span>View Details</span>
+                    </motion.button>
+                    
+                    {/* Status Action Buttons */}
+                    {order.status === 'pending' && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => acceptOrder(order.id)}
+                        disabled={isProcessing}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
                       >
-                        🔥 URGENT
-                      </motion.span>
+                        {isProcessing ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                          />
+                        ) : (
+                          <>
+                            <CheckCircleIcon className="h-4 w-4" />
+                            <span>Accept Order</span>
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                    
+                    {order.status === 'assigned' && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => updateOrderStatus(order.id, 'preparing')}
+                        disabled={isProcessing}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                      >
+                        {isProcessing ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                          />
+                        ) : (
+                          <>
+                            <PlayIcon className="h-4 w-4" />
+                            <span>Start Preparing</span>
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                    
+                    {order.status === 'preparing' && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => updateOrderStatus(order.id, 'ready')}
+                        disabled={isProcessing}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                      >
+                        {isProcessing ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                          />
+                        ) : (
+                          <>
+                            <BellIcon className="h-4 w-4" />
+                            <span>Mark Ready</span>
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                    
+                    {order.status === 'ready' && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => updateOrderStatus(order.id, 'served')}
+                        disabled={isProcessing}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                      >
+                        {isProcessing ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                          />
+                        ) : (
+                          <>
+                            <CheckCircleIcon className="h-4 w-4" />
+                            <span>Mark Served</span>
+                          </>
+                        )}
+                      </motion.button>
                     )}
                   </div>
-                  <p className="text-gray-600 font-medium mb-2">
-                    {order.customer_name || 'Guest Customer'}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      🪑 Table {order.tables?.table_number || 'N/A'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      ⏰ {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-                
-                <motion.span 
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className={`px-3 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${getStatusColor(order.status)}`}
-                >
-                  {order.status === 'pending' && '🔔 New'}
-                  {order.status === 'assigned' && '👨‍🍳 Assigned'}
-                  {order.status === 'preparing' && '🔥 Cooking'}
-                  {order.status === 'ready' && '✅ Ready'}
-                  {order.status === 'delivered' && '🎉 Done'}
-                </motion.span>
-              </div>
-
-              {/* Mobile-First Order Items Preview */}
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-2">
-                  {order.order_items?.slice(0, 2).map((item, index) => (
-                    <motion.span 
-                      key={index} 
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="px-3 py-2 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium border border-orange-200"
-                    >
-                      {item.quantity}× {item.menu_items?.name}
-                    </motion.span>
-                  ))}
-                  {order.order_items?.length > 2 && (
-                    <motion.span 
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium border border-gray-200"
-                    >
-                      +{order.order_items.length - 2} more items
-                    </motion.span>
-                  )}
-                </div>
-              </div>
-
-              {/* Mobile-First Order Total & Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <span className="text-xl sm:text-2xl font-bold text-gray-900">
-                    ₹{Math.round(order.total_amount)}
-                  </span>
-                  {order.tip_amount > 0 && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="px-2 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-lg border border-green-200"
-                    >
-                      💰 +₹{Math.round(order.tip_amount)}
-                    </motion.span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedOrder(order)}
-                    className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors touch-manipulation"
-                  >
-                    <EyeIcon className="h-5 w-5" />
-                  </motion.button>
-
-                  {order.status === 'pending' && isOnline && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => acceptOrder(order.id)}
-                      className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-lg text-sm sm:text-base touch-manipulation"
-                    >
-                      Accept Order
-                    </motion.button>
-                  )}
-
-                  {order.assigned_staff_id === staffId && order.status === 'assigned' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => updateOrderStatus(order.id, 'preparing')}
-                      className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors text-sm sm:text-base touch-manipulation"
-                    >
-                      Start Cooking
-                    </motion.button>
-                  )}
-
-                  {order.assigned_staff_id === staffId && order.status === 'preparing' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => updateOrderStatus(order.id, 'ready')}
-                      className="px-4 sm:px-6 py-2 sm:py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors text-sm sm:text-base touch-manipulation"
-                    >
-                      Mark Ready
-                    </motion.button>
-                  )}
-
-                  {order.assigned_staff_id === staffId && order.status === 'ready' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => updateOrderStatus(order.id, 'delivered')}
-                      className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-colors text-sm sm:text-base touch-manipulation"
-                    >
-                      Delivered
-                    </motion.button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Order Details Modal */}
+      {/* Order Detail Modal */}
       <AnimatePresence>
         {selectedOrder && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4"
-            onClick={() => setSelectedOrder(null)}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             >
-              {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-100 p-6 pb-4">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">
-                      #{selectedOrder.order_number || selectedOrder.id.slice(-6)}
+                      Order #{selectedOrder.order_number || selectedOrder.id.slice(-6)}
                     </h2>
-                    <p className="text-gray-500 font-medium">
-                      {selectedOrder.customer_name || 'Guest Customer'}
+                    <p className="text-gray-600 mt-1">
+                      {selectedOrder.customer_name || 'Guest Customer'} • Table {selectedOrder.table_number || 'N/A'}
                     </p>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                  <button
                     onClick={() => setSelectedOrder(null)}
-                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <XCircleIcon className="h-6 w-6 text-gray-600" />
-                  </motion.button>
+                    <XCircleIcon className="h-6 w-6 text-gray-500" />
+                  </button>
                 </div>
               </div>
 
-              <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-                {/* Order Status & Info */}
-                <div className="p-6 space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Status</p>
-                      <span className={`px-3 py-1.5 rounded-xl text-sm font-bold ${getStatusColor(selectedOrder.status)}`}>
-                        {selectedOrder.status === 'pending' && '🔔 New Order'}
-                        {selectedOrder.status === 'assigned' && '👨‍🍳 Assigned'}
-                        {selectedOrder.status === 'preparing' && '🔥 Cooking'}
-                        {selectedOrder.status === 'ready' && '✅ Ready'}
-                        {selectedOrder.status === 'delivered' && '🎉 Delivered'}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600 mb-1">Table</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        🪑 {selectedOrder.tables?.table_number || 'N/A'}
-                      </p>
-                    </div>
+              {/* Modal Content */}
+              <div className="p-6">
+                {/* Order Status and Info */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <p className="text-xs text-blue-600 font-medium mb-1">STATUS</p>
+                    <p className="text-sm font-bold text-blue-900 capitalize">
+                      {selectedOrder.status}
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-blue-50 rounded-xl">
-                      <p className="text-xs text-blue-600 font-medium mb-1">ORDER TIME</p>
-                      <p className="text-sm font-bold text-blue-900">
-                        {new Date(selectedOrder.created_at).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-xl">
-                      <p className="text-xs text-green-600 font-medium mb-1">PAYMENT</p>
-                      <p className="text-sm font-bold text-green-900">
-                        💳 {selectedOrder.payment_method || 'Cash'}
-                      </p>
-                    </div>
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <p className="text-xs text-green-600 font-medium mb-1">TOTAL</p>
+                    <p className="text-sm font-bold text-green-900">
+                      ₹{Math.round(selectedOrder.total_amount)}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-xl">
+                    <p className="text-xs text-purple-600 font-medium mb-1">TIME</p>
+                    <p className="text-sm font-bold text-purple-900">
+                      {new Date(selectedOrder.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded-xl">
+                    <p className="text-xs text-orange-600 font-medium mb-1">PAYMENT</p>
+                    <p className="text-sm font-bold text-orange-900">
+                      {selectedOrder.payment_method === 'cash' ? '💵 Cash' : '💳 Online'}
+                    </p>
                   </div>
                 </div>
 
+                {/* Special Instructions */}
+                {selectedOrder.special_instructions && (
+                  <div className="mb-6 p-4 bg-yellow-50 rounded-xl border-l-4 border-yellow-400">
+                    <p className="text-xs text-yellow-600 font-medium mb-2">SPECIAL INSTRUCTIONS</p>
+                    <p className="text-sm text-yellow-800">{selectedOrder.special_instructions}</p>
+                  </div>
+                )}
+
                 {/* Order Items */}
-                <div className="px-6 pb-6">
+                <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Order Items</h3>
                   <div className="space-y-3">
                     {selectedOrder.order_items?.map((item, index) => (
@@ -575,10 +684,12 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl"
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                       >
                         <div className="flex-1">
-                          <h4 className="font-bold text-gray-900 mb-1">{item.menu_items?.name}</h4>
+                          <h4 className="font-bold text-gray-900 mb-1">
+                            {item.menu_items?.name || item.item_name}
+                          </h4>
                           <div className="flex items-center gap-3 text-sm text-gray-600">
                             <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg font-medium">
                               {item.quantity}×
@@ -600,28 +711,78 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                   </div>
                 </div>
 
-                {/* Order Total */}
-                <div className="sticky bottom-0 bg-white border-t border-gray-100 p-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium text-gray-700">Subtotal</span>
-                      <span className="text-lg font-bold text-gray-900">₹{Math.round(selectedOrder.total_amount)}</span>
-                    </div>
-                    {selectedOrder.tip_amount > 0 && (
-                      <div className="flex justify-between items-center text-green-600">
-                        <span className="font-medium">💰 Tip</span>
-                        <span className="font-bold">+₹{Math.round(selectedOrder.tip_amount)}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-gray-200 pt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xl font-bold text-gray-900">Total</span>
-                        <span className="text-2xl font-bold text-orange-600">
-                          ₹{Math.round(selectedOrder.total_amount + (selectedOrder.tip_amount || 0))}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {selectedOrder.status === 'pending' && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        acceptOrder(selectedOrder.id)
+                        setSelectedOrder(null)
+                      }}
+                      disabled={processingOrders.has(selectedOrder.id)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold transition-all duration-200 shadow-lg disabled:opacity-50"
+                    >
+                      <CheckCircleIcon className="h-5 w-5" />
+                      <span>Accept Order</span>
+                    </motion.button>
+                  )}
+                  
+                  {selectedOrder.status === 'assigned' && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        updateOrderStatus(selectedOrder.id, 'preparing')
+                        setSelectedOrder(null)
+                      }}
+                      disabled={processingOrders.has(selectedOrder.id)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold transition-all duration-200 shadow-lg disabled:opacity-50"
+                    >
+                      <PlayIcon className="h-5 w-5" />
+                      <span>Start Preparing</span>
+                    </motion.button>
+                  )}
+                  
+                  {selectedOrder.status === 'preparing' && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        updateOrderStatus(selectedOrder.id, 'ready')
+                        setSelectedOrder(null)
+                      }}
+                      disabled={processingOrders.has(selectedOrder.id)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-bold transition-all duration-200 shadow-lg disabled:opacity-50"
+                    >
+                      <BellIcon className="h-5 w-5" />
+                      <span>Mark Ready</span>
+                    </motion.button>
+                  )}
+                  
+                  {selectedOrder.status === 'ready' && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        updateOrderStatus(selectedOrder.id, 'served')
+                        setSelectedOrder(null)
+                      }}
+                      disabled={processingOrders.has(selectedOrder.id)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl font-bold transition-all duration-200 shadow-lg disabled:opacity-50"
+                    >
+                      <CheckCircleIcon className="h-5 w-5" />
+                      <span>Mark Served</span>
+                    </motion.button>
+                  )}
+                  
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </motion.div>

@@ -41,7 +41,7 @@ const RestaurantInfo = ({ restaurantId }) => {
 
       if (restaurantError) throw restaurantError
 
-      // Fetch menu categories
+      // Fetch menu categories - categories.restaurant_id references restaurants.id
       const { data: categoriesData } = await supabase
         .from('categories')
         .select('*')
@@ -49,7 +49,7 @@ const RestaurantInfo = ({ restaurantId }) => {
         .eq('is_active', true)
         .order('sort_order')
 
-      // Fetch popular menu items (based on order frequency)
+      // Fetch popular menu items - menu_items.restaurant_id references restaurants.id
       const { data: popularItemsData } = await supabase
         .from('menu_items')
         .select(`
@@ -87,10 +87,11 @@ const RestaurantInfo = ({ restaurantId }) => {
   }
 
   const getOperatingHours = () => {
-    if (!restaurant?.operating_hours) return 'Not specified'
+    if (!restaurant?.opening_hours) return 'Not specified'
     
     try {
-      const hours = JSON.parse(restaurant.operating_hours)
+      // opening_hours is already an object, no need to parse JSON
+      const hours = restaurant.opening_hours
       const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
       const todayHours = hours[today]
       
@@ -100,24 +101,50 @@ const RestaurantInfo = ({ restaurantId }) => {
       
       return `${todayHours.open} - ${todayHours.close}`
     } catch {
-      return restaurant.operating_hours
+      return 'Hours not available'
     }
   }
 
   const isCurrentlyOpen = () => {
-    if (!restaurant?.operating_hours) return false
+    if (!restaurant?.opening_hours) return false
     
     try {
-      const hours = JSON.parse(restaurant.operating_hours)
+      const hours = restaurant.opening_hours
+      
+      // Create IST time directly
       const now = new Date()
-      const today = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+      // Add 5:30 hours to UTC to get IST
+      const istOffset = 5.5 * 60 * 60 * 1000 // 5.5 hours in milliseconds
+      const istTime = new Date(now.getTime() + istOffset)
+      
+      // Get current day in IST
+      const today = istTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
       const todayHours = hours[today]
       
-      if (!todayHours || todayHours.closed) return false
+      // Get current time in HH:MM format
+      const currentHour = istTime.getUTCHours().toString().padStart(2, '0')
+      const currentMinute = istTime.getUTCMinutes().toString().padStart(2, '0')
+      const currentTime = `${currentHour}:${currentMinute}`
       
-      const currentTime = now.toTimeString().slice(0, 5)
-      return currentTime >= todayHours.open && currentTime <= todayHours.close
-    } catch {
+      if (!todayHours || todayHours.closed === true) {
+        return false
+      }
+      
+      const openTime = todayHours.open
+      const closeTime = todayHours.close
+      
+      // Convert time strings to minutes for comparison
+      const timeToMinutes = (timeStr) => {
+        const [hours, minutes] = timeStr.split(':').map(Number)
+        return hours * 60 + minutes
+      }
+      
+      const currentMinutes = timeToMinutes(currentTime)
+      const openMinutes = timeToMinutes(openTime)
+      const closeMinutes = timeToMinutes(closeTime)
+      
+      return currentMinutes >= openMinutes && currentMinutes <= closeMinutes
+    } catch (error) {
       return true // Default to open if can't parse
     }
   }

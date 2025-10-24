@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Query Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Restaurant Query Diagnostic</h1>
+    <button onclick="testRestaurantQuery()">Test Restaurant Query</button>
+    <div id="results"></div>
+
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://vehymqkyosjzdofpfimf.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlaHltcWt5b3NqemRvZnBmaW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MTE0MjQsImV4cCI6MjA3NDk4NzQyNH0.-KeJ1FpYzndX9iB1iDtBqxnXxF2JstDWJZRMH2RahTc'
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+
+        async function testRestaurantQuery() {
+            const resultsDiv = document.getElementById('results')
+            resultsDiv.innerHTML = '<p>Testing...</p>'
+            
+            const targetUserId = '4340aba7-e3f0-464a-b761-b45abc7761cf'
+            
+            try {
+                console.log('🔍 Testing restaurant query...')
+                
+                // Test 1: Using .maybeSingle() (should work)
+                console.log('Test 1: Using .maybeSingle()')
+                const { data: restaurant1, error: error1 } = await supabase
+                    .from('restaurants')
+                    .select('*')
+                    .eq('owner_id', targetUserId)
+                    .maybeSingle()
+                
+                console.log('Result 1:', { data: restaurant1, error: error1 })
+                
+                // Test 2: Using .single() (will cause PGRST116 if no results)
+                console.log('Test 2: Using .single()')
+                try {
+                    const { data: restaurant2, error: error2 } = await supabase
+                        .from('restaurants')
+                        .select('*')
+                        .eq('owner_id', targetUserId)
+                        .single()
+                    
+                    console.log('Result 2:', { data: restaurant2, error: error2 })
+                } catch (singleError) {
+                    console.log('Single query error (expected):', singleError)
+                }
+                
+                // Test 3: Check all restaurants
+                console.log('Test 3: Getting all restaurants')
+                const { data: allRestaurants, error: error3 } = await supabase
+                    .from('restaurants')
+                    .select('id, name, owner_id, is_active')
+                    .limit(5)
+                
+                console.log('All restaurants:', { data: allRestaurants, error: error3 })
+                
+                // Display results
+                resultsDiv.innerHTML = `
+                    <h2>Test Results:</h2>
+                    <h3>Test 1 (.maybeSingle()):</h3>
+                    <pre>${JSON.stringify({ data: restaurant1, error: error1 }, null, 2)}</pre>
+                    
+                    <h3>Test 3 (All restaurants sample):</h3>
+                    <pre>${JSON.stringify({ data: allRestaurants, error: error3 }, null, 2)}</pre>
+                    
+                    <h3>Diagnosis:</h3>
+                    <p>${restaurant1 ? '✅ Restaurant found for this owner_id' : '❌ No restaurant found for this owner_id'}</p>
+                    <p>${allRestaurants && allRestaurants.length > 0 ? `✅ Database has ${allRestaurants.length} restaurants` : '❌ No restaurants in database'}</p>
+                    
+                    <h3>Solution:</h3>
+                    <p>If no restaurant found, the user needs to complete restaurant onboarding.</p>
+                    <p>Always use .maybeSingle() instead of .single() when a record might not exist.</p>
+                `
+                
+            } catch (error) {
+                console.error('Test error:', error)
+                resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,8 +1,11 @@
 import { supabase } from '../config/supabase'
 
 /**
- * Real-time Service for WebSocket connections
- * Handles live order tracking, notifications, and updates
+ * Enhanced Real-time Service for Complete Restaurant Workflow
+ * Handles live order tracking, staff notifications, owner alerts, and customer updates
+ * - Customer: Order tracking, payment confirmations, status updates
+ * - Staff: New order notifications, assignment alerts, payment collection
+ * - Owner: Staff availability alerts, order monitoring, system notifications
  */
 class RealtimeService {
   constructor() {
@@ -258,6 +261,151 @@ class RealtimeService {
    */
   async notifyRestaurant(restaurantId, event, data) {
     return this.broadcast(`restaurant-${restaurantId}`, event, data)
+  }
+
+  /**
+   * Enhanced notification methods for complete workflow
+   */
+
+  /**
+   * Notify customer about order status changes
+   * @param {string} sessionId - Customer session ID
+   * @param {Object} order - Order object
+   * @param {string} status - New status
+   */
+  async notifyCustomerOrderUpdate(sessionId, order, status) {
+    const statusMessages = {
+      'pending': 'Your order has been placed and is waiting for confirmation',
+      'assigned': `Your order has been assigned to our staff`,
+      'preparing': 'Your order is being prepared',
+      'ready': 'Your order is ready for pickup/serving',
+      'served': 'Your order has been served. Enjoy your meal!',
+      'completed': 'Thank you for dining with us!',
+      'cancelled': 'Your order has been cancelled'
+    }
+
+    return this.notifyCustomer(sessionId, 'order_status_update', {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      status,
+      message: statusMessages[status] || 'Order status updated',
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  /**
+   * Notify staff about new order assignment
+   * @param {string} staffId - Staff ID
+   * @param {Object} order - Order object
+   */
+  async notifyStaffNewOrder(staffId, order) {
+    return this.notifyStaff(staffId, 'new_order_assigned', {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      tableNumber: order.table?.table_number || 'N/A',
+      totalAmount: order.total_amount,
+      itemCount: order.order_items?.length || 0,
+      specialInstructions: order.special_instructions,
+      estimatedTime: order.estimated_preparation_time,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  /**
+   * Notify owner about staff availability issues
+   * @param {string} restaurantId - Restaurant ID
+   * @param {Object} orderData - Order that couldn't be assigned
+   */
+  async notifyOwnerStaffUnavailable(restaurantId, orderData) {
+    return this.notifyRestaurant(restaurantId, 'staff_unavailable', {
+      orderId: orderData.id,
+      orderNumber: orderData.order_number,
+      message: 'New order received but no staff available for assignment',
+      totalAmount: orderData.total_amount,
+      timestamp: new Date().toISOString(),
+      action: 'assign_staff_manually'
+    })
+  }
+
+  /**
+   * Notify staff about payment collection
+   * @param {string} staffId - Staff ID
+   * @param {Object} order - Order object
+   * @param {string} paymentMethod - Payment method
+   */
+  async notifyStaffPaymentCollection(staffId, order, paymentMethod) {
+    return this.notifyStaff(staffId, 'payment_collection', {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      amount: order.total_amount,
+      paymentMethod,
+      message: paymentMethod === 'cash' ? 'Collect cash payment from customer' : 'Process card payment',
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  /**
+   * Subscribe to cart updates for customer
+   * @param {string} sessionId - Customer session ID
+   * @param {Object} handlers - Event handlers
+   */
+  subscribeToCartUpdates(sessionId, handlers = {}) {
+    const channelName = `cart-${sessionId}`
+    
+    this.unsubscribeFromChannel(channelName)
+
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'cart_items',
+        filter: `session_id=eq.${sessionId}`
+      }, (payload) => {
+        console.log('Cart update:', payload)
+        handlers.onCartUpdate?.(payload)
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`✅ Cart subscribed: ${sessionId}`)
+          handlers.onConnected?.()
+        }
+      })
+
+    this.channels.set(channelName, channel)
+    return channel
+  }
+
+  /**
+   * Subscribe to staff availability changes
+   * @param {string} restaurantId - Restaurant ID
+   * @param {Object} handlers - Event handlers
+   */
+  subscribeToStaffAvailability(restaurantId, handlers = {}) {
+    const channelName = `staff-availability-${restaurantId}`
+    
+    this.unsubscribeFromChannel(channelName)
+
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'staff',
+        filter: `restaurant_id=eq.${restaurantId}`
+      }, (payload) => {
+        console.log('Staff availability update:', payload)
+        handlers.onStaffAvailabilityChange?.(payload)
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`✅ Staff availability subscribed: ${restaurantId}`)
+          handlers.onConnected?.()
+        }
+      })
+
+    this.channels.set(channelName, channel)
+    return channel
   }
 
   /**

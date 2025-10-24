@@ -152,6 +152,41 @@ const useOrderStore = create((set, get) => ({
     return subscription
   },
 
+  /**
+   * Subscribe to customer order updates (direct access to OrderService method)
+   */
+  subscribeToCustomerOrders: (sessionId, callback) => {
+    try {
+      const subscription = OrderService.subscribeToCustomerOrders(sessionId, callback)
+      get().subscriptions.set(`customer-orders-${sessionId}`, subscription)
+      return subscription
+    } catch (error) {
+      console.error('Error subscribing to customer orders:', error)
+      // Return a mock subscription for compatibility
+      return {
+        unsubscribe: () => console.log('Mock unsubscribe called')
+      }
+    }
+  },
+
+  /**
+   * Get customer orders by session ID
+   */
+  getCustomerOrders: async (sessionId) => {
+    set({ loading: true, error: null })
+    try {
+      const orders = await OrderService.getCustomerOrders(sessionId)
+      set({ orders: orders || [] })
+      return { data: orders, error: null }
+    } catch (error) {
+      set({ error: error.message })
+      console.error('Error fetching customer orders:', error)
+      return { data: null, error }
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   // ==================== STAFF ORDER OPERATIONS ====================
 
   /**
@@ -326,12 +361,10 @@ const useOrderStore = create((set, get) => ({
       
       if (status === 'assigned' && staffId) {
         updates.assigned_staff_id = staffId
-        updates.assigned_at = new Date().toISOString()
-      } else if (status === 'ready') {
-        updates.prepared_at = new Date().toISOString()
-      } else if (status === 'delivered') {
-        updates.delivered_at = new Date().toISOString()
       }
+      
+      // Update the updated_at timestamp for all status changes
+      updates.updated_at = new Date().toISOString()
 
       const { data, error } = await supabase
         .from('orders')

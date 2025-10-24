@@ -12,8 +12,14 @@ import {
   CheckIcon,
   TableCellsIcon,
   ArrowPathIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  UserIcon,
+  ClockIcon,
+  PhoneIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
+import tableService from '../../services/tableService'
+import toast from 'react-hot-toast'
 
 const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDeleteTable }) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -25,9 +31,78 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
   const [editingTable, setEditingTable] = useState(null)
   const [newTable, setNewTable] = useState({ table_number: '', capacity: 2, location: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tablesWithStatus, setTablesWithStatus] = useState([])
+  const [showTableDetails, setShowTableDetails] = useState(false)
+  const [selectedTableDetails, setSelectedTableDetails] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
   const qrRef = useRef(null)
   
-  // Tables are managed by parent component (OwnerDashboard)
+  // Load tables with reservation status
+  useEffect(() => {
+    if (restaurant?.id) {
+      loadTablesWithStatus()
+      // Set up real-time updates every 30 seconds
+      const interval = setInterval(loadTablesWithStatus, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [restaurant?.id, tables])
+
+  const loadTablesWithStatus = async () => {
+    try {
+      if (!restaurant?.id) return
+      
+      const enrichedTables = await tableService.getRestaurantTables(restaurant.id)
+      setTablesWithStatus(enrichedTables)
+    } catch (error) {
+      console.error('Error loading table status:', error)
+    }
+  }
+
+  const handleRefreshTables = async () => {
+    setRefreshing(true)
+    try {
+      await loadTablesWithStatus()
+      toast.success('Table status updated')
+    } catch (error) {
+      toast.error('Failed to refresh table status')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const handleReleaseTable = async (tableId, sessionId) => {
+    try {
+      await tableService.releaseTable(tableId, sessionId)
+      await loadTablesWithStatus()
+      toast.success('Table released successfully')
+      setShowTableDetails(false)
+    } catch (error) {
+      toast.error('Failed to release table')
+      console.error('Error releasing table:', error)
+    }
+  }
+
+  const getTableStatusColor = (status) => {
+    switch (status) {
+      case 'available':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'reserved':
+        return 'bg-orange-100 text-orange-800 border-orange-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getTableStatusIcon = (status) => {
+    switch (status) {
+      case 'available':
+        return <CheckIcon className="h-4 w-4" />
+      case 'reserved':
+        return <UserIcon className="h-4 w-4" />
+      default:
+        return <ExclamationTriangleIcon className="h-4 w-4" />
+    }
+  }
 
   // Generate QR Code URL for table
   const generateQRValue = (tableId, tableNumber) => {
@@ -99,15 +174,25 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
         <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div className="flex-1">
             <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">Table Management</h2>
-            <p className="text-neutral-600 text-sm mt-1">Manage your restaurant tables and generate QR codes</p>
-            {tables.length > 0 && (
+            <p className="text-neutral-600 text-sm mt-1">Manage your restaurant tables and track reservations</p>
+            {tablesWithStatus.length > 0 && (
               <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500">
-                <span>{tables.length} total tables</span>
-                <span>{tables.filter(t => t.is_active).length} active</span>
+                <span>{tablesWithStatus.length} total tables</span>
+                <span>{tablesWithStatus.filter(t => t.is_active).length} active</span>
+                <span className="text-green-600">{tablesWithStatus.filter(t => t.reservation_status === 'available').length} available</span>
+                <span className="text-orange-600">{tablesWithStatus.filter(t => t.reservation_status === 'reserved').length} reserved</span>
               </div>
             )}
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleRefreshTables}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-2 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm disabled:opacity-50"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
             {error && (
               <button
                 onClick={() => window.location.reload()}
@@ -142,8 +227,29 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
         </div>
       )}
 
-      {/* Empty State */}
-      {!error && tables.length === 0 && (
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-neutral-200">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            <span className="ml-3 text-neutral-600">Loading tables...</span>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-neutral-200">
+          <div className="text-center">
+            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-neutral-900 mb-2">Error Loading Tables</h3>
+            <p className="text-neutral-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : tablesWithStatus.length === 0 ? (
         <div className="bg-white rounded-xl p-8 md:p-12 shadow-sm border border-neutral-200 text-center">
           <div className="max-w-md mx-auto">
             <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -160,13 +266,11 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
             </button>
           </div>
         </div>
-      )}
-
-      {/* Tables Grid */}
-      {!error && tables.length > 0 && (
+      ) : (
+        /* Tables Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <AnimatePresence>
-            {tables.map((table, index) => (
+            {tablesWithStatus.map((table, index) => (
               <motion.div
                 key={table.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -208,23 +312,63 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
                     <p className="text-sm text-neutral-700 mt-1 break-words">{table.location}</p>
                   </div>
                   
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                      table.is_active ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-600'
-                    }`}>
-                      {table.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                    
-                    <button
-                      onClick={() => handleUpdateTable(table.id, { is_active: !table.is_active })}
-                      className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
-                        table.is_active 
-                          ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200' 
-                          : 'bg-green-100 text-green-600 hover:bg-green-200'
-                      }`}
-                    >
-                      {table.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                  {/* Reservation Status */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${getTableStatusColor(table.reservation_status)}`}>
+                        {getTableStatusIcon(table.reservation_status)}
+                        {table.reservation_status === 'available' ? 'Available' : 'Reserved'}
+                      </span>
+                      
+                      <button
+                        onClick={() => handleUpdateTable(table.id, { is_active: !table.is_active })}
+                        className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
+                          table.is_active 
+                            ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200' 
+                            : 'bg-green-100 text-green-600 hover:bg-green-200'
+                        }`}
+                      >
+                        {table.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+
+                    {/* Customer Information for Reserved Tables */}
+                    {table.current_session && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-orange-800 uppercase tracking-wide">Current Customer</span>
+                          <button
+                            onClick={() => {
+                              setSelectedTableDetails(table)
+                              setShowTableDetails(true)
+                            }}
+                            className="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {table.current_session.customer_name && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <UserIcon className="h-3 w-3 text-orange-600" />
+                              <span className="text-orange-800">{table.current_session.customer_name}</span>
+                            </div>
+                          )}
+                          {table.current_session.customer_phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <PhoneIcon className="h-3 w-3 text-orange-600" />
+                              <span className="text-orange-800">{table.current_session.customer_phone}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-xs">
+                            <ClockIcon className="h-3 w-3 text-orange-600" />
+                            <span className="text-orange-700">
+                              Reserved {new Date(table.current_session.started_at).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -485,6 +629,163 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
                   className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                 >
                   Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Table Details Modal */}
+      {showTableDetails && selectedTableDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg sm:text-xl font-bold text-neutral-900">
+                  Table {selectedTableDetails.table_number} Details
+                </h3>
+                <button
+                  onClick={() => setShowTableDetails(false)}
+                  className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="space-y-6">
+                {/* Table Information */}
+                <div>
+                  <h4 className="text-sm font-medium text-neutral-900 mb-3">Table Information</h4>
+                  <div className="bg-neutral-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-neutral-600">Capacity:</span>
+                      <span className="text-sm font-medium text-neutral-900">
+                        {selectedTableDetails.capacity} seats
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-neutral-600">Location:</span>
+                      <span className="text-sm font-medium text-neutral-900">
+                        {selectedTableDetails.location}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-neutral-600">Status:</span>
+                      <span className={`text-sm font-medium px-2 py-1 rounded-full ${getTableStatusColor(selectedTableDetails.reservation_status)}`}>
+                        {selectedTableDetails.reservation_status === 'available' ? 'Available' : 'Reserved'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Reservation */}
+                {selectedTableDetails.current_session && (
+                  <div>
+                    <h4 className="text-sm font-medium text-neutral-900 mb-3">Current Reservation</h4>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
+                      {selectedTableDetails.current_session.customer_name && (
+                        <div className="flex items-center gap-3">
+                          <UserIcon className="h-5 w-5 text-orange-600" />
+                          <div>
+                            <span className="text-sm text-neutral-600">Customer Name:</span>
+                            <p className="font-medium text-neutral-900">
+                              {selectedTableDetails.current_session.customer_name}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedTableDetails.current_session.customer_phone && (
+                        <div className="flex items-center gap-3">
+                          <PhoneIcon className="h-5 w-5 text-orange-600" />
+                          <div>
+                            <span className="text-sm text-neutral-600">Phone:</span>
+                            <p className="font-medium text-neutral-900">
+                              {selectedTableDetails.current_session.customer_phone}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedTableDetails.current_session.customer_email && (
+                        <div className="flex items-center gap-3">
+                          <UserIcon className="h-5 w-5 text-orange-600" />
+                          <div>
+                            <span className="text-sm text-neutral-600">Email:</span>
+                            <p className="font-medium text-neutral-900">
+                              {selectedTableDetails.current_session.customer_email}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-3">
+                        <ClockIcon className="h-5 w-5 text-orange-600" />
+                        <div>
+                          <span className="text-sm text-neutral-600">Reserved At:</span>
+                          <p className="font-medium text-neutral-900">
+                            {new Date(selectedTableDetails.current_session.started_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <UserGroupIcon className="h-5 w-5 text-orange-600" />
+                        <div>
+                          <span className="text-sm text-neutral-600">Reservation Type:</span>
+                          <p className="font-medium text-neutral-900">
+                            {selectedTableDetails.current_session.session_id.startsWith('staff_') ? 'Staff Assisted' : 'Customer QR Scan'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* QR Code Section */}
+                <div>
+                  <h4 className="text-sm font-medium text-neutral-900 mb-3">QR Code</h4>
+                  <div className="bg-neutral-50 rounded-lg p-4 text-center">
+                    <div className="inline-block p-4 bg-white rounded-lg shadow-sm">
+                      <QRCodeSVG
+                        value={generateQRValue(selectedTableDetails.id, selectedTableDetails.table_number)}
+                        size={120}
+                        level="M"
+                        includeMargin={true}
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-600 mt-2">
+                      Customers can scan this QR code to access the menu
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTableDetails(false)}
+                  className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
+                >
+                  Close
+                </button>
+                {selectedTableDetails.current_session && (
+                  <button
+                    onClick={() => handleReleaseTable(selectedTableDetails.id, selectedTableDetails.current_session.session_id)}
+                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                  >
+                    Release Table
+                  </button>
+                )}
+                <button
+                  onClick={() => downloadQR(selectedTableDetails)}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                >
+                  Download QR
                 </button>
               </div>
             </div>

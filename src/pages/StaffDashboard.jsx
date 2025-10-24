@@ -20,7 +20,8 @@ import {
   BuildingStorefrontIcon,
   Cog6ToothIcon,
   HomeIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  TableCellsIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -31,6 +32,7 @@ import RestaurantInfo from '../components/staff/RestaurantInfo'
 import StaffRestaurantApplication from '../components/staff/StaffRestaurantApplication'
 import StaffOverview from '../components/staff/StaffOverview'
 import StaffMenuView from '../components/staff/StaffMenuView'
+import StaffTableSelection from '../components/staff/StaffTableSelection'
 
 const StaffDashboard = () => {
   const navigate = useNavigate()
@@ -162,34 +164,34 @@ const StaffDashboard = () => {
         const { data: staffData, error: staffError } = staffResult
         const { data: applicationData, error: appError } = applicationResult
 
-        if (!staffError && staffData?.data) {
+        if (!staffError && staffData) {
           console.log('✅ Staff approved, loading dashboard...')
-          setStaffData(staffData.data)
-          setRestaurant(staffData.data.restaurants)
+          setStaffData(staffData)
+          setRestaurant(staffData.restaurants)
           
           // Cache session for faster subsequent loads
           const sessionData = {
             user_id: user.id,
-            staff_id: staffData.data.id,
-            restaurant_id: staffData.data.restaurant_id,
-            restaurant_name: staffData.data.restaurants?.name,
+            staff_id: staffData.id,
+            restaurant_id: staffData.restaurant_id,
+            restaurant_name: staffData.restaurants?.name,
             full_name: user.user_metadata?.full_name,
             email: user.email,
-            position: staffData.data.position,
+            position: staffData.position,
             cached_at: Date.now()
           }
           
           localStorage.setItem('staff_session', JSON.stringify(sessionData))
           setStaffSession(sessionData)
           setRestaurantInfo({
-            id: staffData.data.restaurant_id,
-            name: staffData.data.restaurants?.name
+            id: staffData.restaurant_id,
+            name: staffData.restaurants?.name
           })
           
           // Load performance stats and notifications
-          await loadStaffStats(staffData.data.id)
-          await loadOrderNotifications(staffData.data.id)
-          await checkOnlineStatus(staffData.data.id)
+          await loadStaffStats(staffData.id)
+          await loadOrderNotifications(staffData.id)
+          await checkOnlineStatus(staffData.id)
         } else if (!appError && applicationData) {
           console.log(`📋 Application status: ${applicationData.status}`)
           setApplicationStatus(applicationData.status)
@@ -344,6 +346,7 @@ const StaffDashboard = () => {
   const tabs = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'orders', name: 'Orders', icon: ShoppingBagIcon },
+    { id: 'tables', name: 'Tables', icon: TableCellsIcon },
     { id: 'menu', name: 'Menu', icon: BookOpenIcon },
     { id: 'performance', name: 'Performance', icon: TrophyIcon },
     { id: 'restaurant', name: 'Restaurant', icon: BuildingStorefrontIcon }
@@ -451,6 +454,18 @@ switch (activeTab) {
             staffId={staffSession?.staff_id} 
             restaurantId={staffSession?.restaurant_id}
             isOnline={isOnline}
+          />
+        )
+
+      case 'tables':
+        return (
+          <StaffTableSelection 
+            restaurantId={staffSession?.restaurant_id}
+            staffId={staffSession?.staff_id}
+            onTableReserved={(data) => {
+              toast.success(`Table ${data.table.table_number} reserved for ${data.customer.name}`)
+              // You can add additional logic here if needed
+            }}
           />
         )
 
@@ -951,6 +966,7 @@ switch (activeTab) {
             <p className="text-gray-600">
               {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}`}
               {activeTab === 'orders' && 'Manage your assigned orders'}
+              {activeTab === 'tables' && 'Reserve tables for customers without mobile phones'}
               {activeTab === 'menu' && 'View restaurant menu items'}
               {activeTab === 'performance' && 'Track your performance metrics'}
               {activeTab === 'restaurant' && 'Restaurant information and details'}
@@ -971,23 +987,23 @@ switch (activeTab) {
 
       {/* Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="grid grid-cols-5 h-16">
+        <div className="grid grid-cols-6 h-16">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center gap-1 transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'text-orange-500 bg-orange-50'
                   : 'text-gray-500 hover:text-orange-400 hover:bg-gray-50'
               }`}
             >
-              <tab.icon className={`h-5 w-5 ${
+              <tab.icon className={`h-4 w-4 ${
                 activeTab === tab.id ? 'text-orange-500' : 'text-gray-400'
               }`} />
-              <span className="text-xs font-medium">{tab.name}</span>
+              <span className="text-[10px] font-medium leading-tight">{tab.name}</span>
             </motion.button>
           ))}
         </div>
