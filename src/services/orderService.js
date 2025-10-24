@@ -1,19 +1,27 @@
 import { supabase } from '../config/supabase'
 import StaffAssignmentService from './staffAssignmentService'
+import CartService from './cartService'
+import realtimeService from './realtimeService'
 
 /**
- * Comprehensive Order Management Service
- * Handles order creation, tracking, and status updates for all user roles
- * - Customers: QR ordering, cart management, real-time tracking
- * - Staff: Order assignment, status updates, earnings tracking
- * - Restaurant Owners: Order monitoring, staff assignment, analytics
- * - Super Admin: Platform-wide order analytics and management
+ * Enhanced Order Management Service for Complete Restaurant Workflow
+ * Handles end-to-end order processing with real-time notifications
+ * 
+ * COMPLETE WORKFLOW:
+ * 1. Customer adds items to cart (stored in database)
+ * 2. Customer places order from cart
+ * 3. System checks staff availability
+ * 4. If staff available: Auto-assign + notify staff
+ * 5. If no staff: Notify restaurant owner
+ * 6. Real-time updates for all parties
+ * 7. Payment handling (pay now or pay later)
+ * 8. Order completion and feedback
  */
 class OrderService {
   /**
-   * Create a new order from customer cart
+   * Create order from customer cart with complete workflow
    * @param {Object} orderData - Order details
-   * @returns {Promise<Object>} - Created order
+   * @returns {Promise<Object>} - Created order with workflow status
    */
   static async createOrder(orderData) {
     try {
@@ -21,30 +29,42 @@ class OrderService {
         restaurantId,
         tableId,
         sessionId,
-        customerId,
-        items,
         specialInstructions,
-        paymentMethod,
+        paymentMethod = 'cash',
         tipAmount = 0
       } = orderData
 
-      // Calculate order totals
-      const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const taxRate = 0.18 // 18% GST
-      const taxAmount = subtotal * taxRate
+      console.log('🛒 Starting order creation from cart...')
+
+      // Step 1: Get cart items from database
+      const cartSummary = await CartService.getCartSummary(sessionId)
+      if (cartSummary.isEmpty) {
+        throw new Error('Cart is empty. Please add items before placing order.')
+      }
+
+      // Step 2: Validate cart items availability
+      const validation = await CartService.validateCart(sessionId)
+      if (!validation.isValid) {
+        throw new Error(`Some items are no longer available: ${validation.unavailableItems.map(item => item.name).join(', ')}`)
+      }
+
+      console.log('✅ Cart validated:', cartSummary.itemCount, 'items')
+
+      // Step 3: Calculate order totals
+      const subtotal = cartSummary.subtotal
+      const taxAmount = cartSummary.taxAmount
       const totalAmount = subtotal + taxAmount + tipAmount
 
-      // Generate order number
+      // Step 4: Generate order number
       const orderNumber = await this.generateOrderNumber(restaurantId)
 
-      // Create the order
+      // Step 5: Create the order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           restaurant_id: restaurantId,
           table_id: tableId,
           session_id: sessionId,
-          customer_id: customerId,
           order_number: orderNumber,
           status: 'pending',
           order_type: 'dine_in',
@@ -55,21 +75,23 @@ class OrderService {
           payment_method: paymentMethod,
           payment_status: paymentMethod === 'cash' ? 'pending' : 'processing',
           special_instructions: specialInstructions,
-          estimated_preparation_time: await this.calculatePreparationTime(items)
+          estimated_preparation_time: await this.calculatePreparationTime(cartSummary.items)
         })
         .select()
         .single()
 
       if (orderError) throw orderError
 
-      // Create order items
-      const orderItems = items.map(item => ({
+      console.log('✅ Order created:', order.order_number)
+
+      // Step 6: Create order items from cart
+      const orderItems = cartSummary.items.map(item => ({
         order_id: order.id,
         menu_item_id: item.id,
         item_name: item.name,
         quantity: item.quantity,
         unit_price: item.price,
-        total_price: item.price * item.quantity,
+        total_price: item.totalPrice,
         special_instructions: item.specialInstructions
       }))
 
@@ -79,31 +101,83 @@ class OrderService {
 
       if (itemsError) throw itemsError
 
-      // Assign order to staff (optional - order can be created without staff)
+      // Step 7: Clear cart after successful order creation
+      await CartService.clearCart(sessionId)
+      console.log('✅ Cart cleared after order creation')
+
+      // Step 8: Check staff availability and assign
+      let staffAssignment = null
+      let workflowStatus = 'pending'
+
       try {
-        const assignment = await StaffAssignmentService.assignOrderToStaff(
+        staffAssignment = await StaffAssignmentService.assignOrderToStaff(
           restaurantId,
           order.id
         )
-        order.assigned_staff = assignment
-        console.log('✅ Order assigned to staff:', assignment)
+
+        if (staffAssignment) {
+          workflowStatus = 'assigned'
+          order.assigned_staff_id = staffAssignment.staffId
+          console.log('✅ Order assigned to staff:', staffAssignment.staffName)
+
+          // Notify staff about new order
+          await realtimeService.notifyStaffNewOrder(staffAssignment.staffId, {
+            ...order,
+            order_items: orderItems
+          })
+
+          // Notify customer about assignment
+          await realtimeService.notifyCustomerOrderUpdate(sessionId, order, 'assigned')
+
+        } else {
+          // No staff available - notify restaurant owner
+          console.warn('⚠️ No staff available for order assignment')
+          await realtimeService.notifyOwnerStaffUnavailable(restaurantId, order)
+          workflowStatus = 'awaiting_staff'
+        }
       } catch (assignmentError) {
-        console.warn('Staff assignment failed (order still created):', assignmentError)
-        // Order still created successfully, just not assigned to staff yet
-        order.assigned_staff = null
+        console.warn('Staff assignment failed:', assignmentError)
+        // Notify owner about the issue
+        await realtimeService.notifyOwnerStaffUnavailable(restaurantId, order)
+        workflowStatus = 'assignment_failed'
       }
 
-      // Process payment if online
+      // Step 9: Process payment if online
       if (paymentMethod !== 'cash') {
-        await this.processPayment(order.id, totalAmount, paymentMethod)
+        try {
+          await this.processPayment(order.id, totalAmount, paymentMethod)
+          console.log('✅ Online payment processed')
+        } catch (paymentError) {
+          console.error('Payment processing failed:', paymentError)
+          // Order still created, payment can be retried
+        }
+      } else {
+        // Notify staff about cash payment collection
+        if (staffAssignment) {
+          await realtimeService.notifyStaffPaymentCollection(
+            staffAssignment.staffId, 
+            order, 
+            'cash'
+          )
+        }
       }
 
-      // Send order confirmation
+      // Step 10: Send order confirmation to customer
       await this.sendOrderConfirmation(order)
+      await realtimeService.notifyCustomerOrderUpdate(sessionId, order, 'pending')
 
-      return order
+      // Return order with workflow information
+      return {
+        ...order,
+        order_items: orderItems,
+        workflow_status: workflowStatus,
+        staff_assignment: staffAssignment,
+        cart_cleared: true,
+        notifications_sent: true
+      }
+
     } catch (error) {
-      console.error('Error creating order:', error)
+      console.error('❌ Error creating order:', error)
       throw error
     }
   }
@@ -171,23 +245,12 @@ class OrderService {
         ...additionalData
       }
 
-      // Add timestamp based on status
+      // Update the updated_at timestamp for all status changes
+      updateData.updated_at = new Date().toISOString()
+      
+      // Note: Using updated_at for all status changes since specific timestamp columns
+      // (confirmed_at, prepared_at, served_at, etc.) don't exist in the actual database schema
       switch (status) {
-        case 'confirmed':
-          updateData.confirmed_at = new Date().toISOString()
-          break
-        case 'preparing':
-          updateData.prepared_at = new Date().toISOString()
-          break
-        case 'ready':
-          updateData.prepared_at = new Date().toISOString()
-          break
-        case 'served':
-          updateData.served_at = new Date().toISOString()
-          break
-        case 'completed':
-          updateData.completed_at = new Date().toISOString()
-          break
         case 'cancelled':
           updateData.cancelled_at = new Date().toISOString()
           break
@@ -257,13 +320,14 @@ class OrderService {
    */
   static async getRestaurantOrders(restaurantId, filters = {}) {
     try {
+      // First, get orders with basic relationships (avoiding problematic joins)
       let query = supabase
         .from('orders')
         .select(`
           *,
-          order_items(count),
-          table:tables(table_number),
-          staff:staff(name)
+          order_items(*,menu_items(name,price,image_url)),
+          tables(table_number,location),
+          payments(amount,payment_method,status,transaction_id)
         `)
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
@@ -292,11 +356,79 @@ class OrderService {
         query = query.eq('assigned_staff_id', filters.staffId)
       }
 
+      // Apply limit for performance
+      if (filters.limit) {
+        query = query.limit(filters.limit)
+      } else {
+        query = query.limit(50) // Default limit
+      }
+
       const { data: orders, error } = await query
 
       if (error) throw error
 
-      return orders
+      // Separately fetch staff and customer information to avoid foreign key issues
+      const ordersWithEnrichedData = await Promise.all(
+        orders.map(async (order) => {
+          let enrichedOrder = { ...order }
+
+          // Fetch staff information if assigned
+          if (order.assigned_staff_id) {
+            try {
+              const { data: staffData } = await supabase
+                .from('staff')
+                .select('id, position, user_id')
+                .eq('id', order.assigned_staff_id)
+                .single()
+
+              if (staffData) {
+                let staffName = 'Staff Member'
+                if (staffData.user_id) {
+                  try {
+                    const { data: userData } = await supabase.auth.admin.getUserById(staffData.user_id)
+                    staffName = userData?.user?.user_metadata?.full_name || userData?.user?.email || 'Staff Member'
+                  } catch (authError) {
+                    console.warn('Could not fetch staff user data:', authError)
+                  }
+                }
+
+                enrichedOrder.staff = {
+                  id: staffData.id,
+                  name: staffName,
+                  position: staffData.position
+                }
+              }
+            } catch (staffError) {
+              console.warn('Could not fetch staff data for order:', order.id, staffError)
+            }
+          }
+
+          // Fetch customer session information if session_id exists
+          if (order.session_id) {
+            try {
+              const { data: sessionData } = await supabase
+                .from('customer_sessions')
+                .select('customer_name, customer_phone, customer_email')
+                .eq('session_id', order.session_id)
+                .single()
+
+              if (sessionData) {
+                enrichedOrder.customer_sessions = [{
+                  customer_name: sessionData.customer_name,
+                  customer_phone: sessionData.customer_phone,
+                  customer_email: sessionData.customer_email
+                }]
+              }
+            } catch (sessionError) {
+              console.warn('Could not fetch customer session data for order:', order.id, sessionError)
+            }
+          }
+          
+          return enrichedOrder
+        })
+      )
+
+      return ordersWithEnrichedData
     } catch (error) {
       console.error('Error getting restaurant orders:', error)
       throw error
@@ -753,16 +885,9 @@ class OrderService {
         updated_at: new Date().toISOString()
       }
 
-      // Add status-specific timestamps
-      if (status === 'preparing') {
-        updates.preparation_started_at = new Date().toISOString()
-      } else if (status === 'ready') {
-        updates.prepared_at = new Date().toISOString()
-      } else if (status === 'served') {
-        updates.served_at = new Date().toISOString()
-      } else if (status === 'completed') {
-        updates.completed_at = new Date().toISOString()
-        
+      // Note: Status-specific timestamp columns don't exist in actual database schema
+      // Only using updated_at for all status changes
+      if (status === 'completed') {
         // Update staff statistics
         await supabase.rpc('increment_staff_orders', { 
           staff_id: staffId 
@@ -855,51 +980,8 @@ class OrderService {
    */
   static async getRestaurantOrdersWithAnalytics(restaurantId, filters = {}) {
     try {
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            menu_items (name, price, image_url)
-          ),
-          tables (table_number, location),
-          staff!orders_assigned_staff_id_fkey (
-            id,
-            user_id,
-            position,
-            users!staff_user_id_fkey (full_name)
-          ),
-          customer_sessions (customer_name, customer_phone),
-          payments (amount, payment_method, status, transaction_id)
-        `)
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false })
-
-      // Apply filters
-      if (filters.status) {
-        query = query.eq('status', filters.status)
-      }
-
-      if (filters.staff_id) {
-        query = query.eq('assigned_staff_id', filters.staff_id)
-      }
-
-      if (filters.date_from) {
-        query = query.gte('created_at', filters.date_from)
-      }
-
-      if (filters.date_to) {
-        query = query.lte('created_at', filters.date_to)
-      }
-
-      if (filters.limit) {
-        query = query.limit(filters.limit)
-      }
-
-      const { data: orders, error } = await query
-
-      if (error) throw error
+      // Use the fixed getRestaurantOrders method to avoid foreign key issues
+      const orders = await this.getRestaurantOrders(restaurantId, filters)
 
       // Calculate analytics
       const analytics = this.calculateOrderAnalytics(orders || [])
@@ -910,8 +992,21 @@ class OrderService {
       }
 
     } catch (error) {
-      console.error('Error fetching restaurant orders:', error)
-      throw error
+      console.error('Error fetching restaurant orders with analytics:', error)
+      
+      // Fallback: return empty data structure
+      return {
+        orders: [],
+        analytics: {
+          totalOrders: 0,
+          todaysOrders: 0,
+          totalRevenue: 0,
+          todaysRevenue: 0,
+          averageOrderValue: 0,
+          ordersByStatus: {},
+          completionRate: 0
+        }
+      }
     }
   }
 
@@ -1073,12 +1168,84 @@ class OrderService {
    * @returns {Object} - Subscription object
    */
   static subscribeToCustomerOrders(sessionId, callback) {
-    return supabase
-      .channel(`session-${sessionId}`)
-      .on('broadcast', { event: 'order_created' }, callback)
-      .on('broadcast', { event: 'order_status_updated' }, callback)
-      .on('broadcast', { event: 'order_assigned' }, callback)
-      .subscribe()
+    try {
+      console.log('🔄 Setting up customer order subscription for session:', sessionId)
+      
+      const subscription = supabase
+        .channel(`customer-orders-${sessionId}`, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: sessionId }
+          }
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            filter: `session_id=eq.${sessionId}`
+          },
+          async (payload) => {
+            console.log('📨 Customer order update received:', payload)
+            
+            // Transform the payload to match expected format
+            const orderUpdate = payload.new || payload.old
+            if (orderUpdate && callback) {
+              let staffName = null
+              
+              // If order has assigned staff, fetch staff name
+              if (orderUpdate.assigned_staff_id) {
+                try {
+                  const { data: staffData } = await supabase
+                    .from('staff')
+                    .select(`
+                      id,
+                      staff_name,
+                      users!staff_user_id_fkey (
+                        user_metadata
+                      )
+                    `)
+                    .eq('id', orderUpdate.assigned_staff_id)
+                    .single()
+                  
+                  if (staffData) {
+                    // Try to get name from staff_name field first, then from user metadata
+                    staffName = staffData.staff_name || 
+                               staffData.users?.user_metadata?.full_name || 
+                               'Staff Member'
+                  }
+                } catch (error) {
+                  console.warn('Could not fetch staff name:', error)
+                  staffName = 'Staff Member'
+                }
+              }
+              
+              callback({
+                ...orderUpdate,
+                assigned_staff_name: staffName
+              })
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          console.log('📡 Customer orders subscription status:', status)
+          if (err) {
+            console.error('❌ Customer orders subscription error:', err)
+          }
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Customer orders subscription active')
+          }
+        })
+
+      return subscription
+    } catch (error) {
+      console.error('Error subscribing to customer orders:', error)
+      // Return a mock subscription object for compatibility
+      return {
+        unsubscribe: () => console.log('Mock unsubscribe called')
+      }
+    }
   }
 
   /**
@@ -1089,8 +1256,15 @@ class OrderService {
    */
   static subscribeToStaffOrders(staffId, callback) {
     try {
+      console.log('🔄 Setting up staff order subscription for staff:', staffId)
+      
       const subscription = supabase
-        .channel(`staff-orders-${staffId}`)
+        .channel(`staff-orders-${staffId}`, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: staffId }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -1100,12 +1274,25 @@ class OrderService {
             filter: `assigned_staff_id=eq.${staffId}`
           },
           (payload) => {
-            console.log('Staff order update:', payload)
-            if (callback) callback(payload)
+            console.log('📨 Staff order update received:', payload)
+            if (callback) {
+              const orderData = payload.new || payload.old
+              callback({
+                ...payload,
+                order_number: orderData?.order_number,
+                status: orderData?.status
+              })
+            }
           }
         )
-        .subscribe((status) => {
-          console.log('Staff orders subscription status:', status)
+        .subscribe((status, err) => {
+          console.log('📡 Staff orders subscription status:', status)
+          if (err) {
+            console.error('❌ Staff orders subscription error:', err)
+          }
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Staff orders subscription active')
+          }
         })
 
       return subscription

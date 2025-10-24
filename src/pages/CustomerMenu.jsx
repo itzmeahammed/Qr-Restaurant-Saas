@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
 import OrderService from '../services/orderService'
 import realtimeService from '../services/realtimeService'
+import tableService from '../services/tableService'
 import toast from 'react-hot-toast'
 
 // Import new components
@@ -64,6 +65,30 @@ const CustomerMenu = () => {
         const sessionToken = initializeSession(restaurantId, finalTableId)
         setSessionId(sessionToken)
         console.log('✅ Customer session initialized:', sessionToken)
+        
+        // Reserve table if tableId is provided (QR scan)
+        if (finalTableId) {
+          try {
+            await tableService.reserveTableByCustomer(
+              finalTableId, 
+              restaurantId, 
+              sessionToken,
+              {} // Customer info will be added during checkout
+            )
+            toast.success(`Table ${tableNumber || 'reserved'} successfully!`, {
+              icon: '🪑',
+              duration: 3000
+            })
+          } catch (tableError) {
+            console.warn('Table reservation failed:', tableError)
+            // Don't block the customer experience if table reservation fails
+            if (tableError.message.includes('already reserved')) {
+              toast.error('This table is currently occupied. Please contact staff for assistance.', {
+                duration: 5000
+              })
+            }
+          }
+        }
         
         // Subscribe to real-time updates
         subscribeToOrderUpdates(sessionToken)
@@ -160,7 +185,7 @@ const CustomerMenu = () => {
         }
       }
 
-      // Fetch categories
+      // Fetch categories - categories.restaurant_id references restaurants.id
       try {
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
@@ -181,7 +206,7 @@ const CustomerMenu = () => {
         setCategories([])
       }
 
-      // Fetch menu items
+      // Fetch menu items - menu_items.restaurant_id references restaurants.id
       try {
         const { data: itemsData, error: itemsError } = await supabase
           .from('menu_items')
@@ -266,6 +291,24 @@ const CustomerMenu = () => {
         specialInstructions: checkoutData?.customerInfo?.specialInstructions || '',
         paymentMethod: checkoutData?.customerInfo?.paymentMethod || 'cash',
         tipAmount: checkoutData?.selectedTip || 0
+      }
+
+      // Update customer session with customer details from checkout
+      if (checkoutData?.customerInfo?.name && checkoutData?.customerInfo?.phone) {
+        try {
+          await supabase
+            .from('customer_sessions')
+            .update({
+              customer_name: checkoutData.customerInfo.name,
+              customer_phone: checkoutData.customerInfo.phone
+            })
+            .eq('session_id', sessionId)
+          
+          console.log('✅ Customer session updated with customer details')
+        } catch (sessionError) {
+          console.warn('Failed to update customer session:', sessionError)
+          // Continue with order creation even if session update fails
+        }
       }
 
       console.log('📝 Order data prepared:', orderData)
