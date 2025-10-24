@@ -208,30 +208,63 @@ const OwnerDashboard = () => {
         return
       }
       
-      // Restaurant setup is complete, create restaurant object from fresh user data
-      const restaurantData = {
-        id: userData.id, // Use user ID as restaurant ID in unified system
-        name: userData.restaurant_name,
-        description: userData.restaurant_description || '',
-        address: userData.restaurant_address,
-        phone: userData.restaurant_phone || userData.phone,
-        email: userData.restaurant_email || userData.email,
-        cuisine_type: userData.cuisine_type,
-        logo_url: userData.logo_url,
-        banner_url: userData.banner_url,
-        owner_id: userData.id
-      }
+      // Restaurant setup is complete, fetch actual restaurant record
+    // First try by owner_id, then fallback to finding by user's restaurant name
+    let restaurantData, restaurantError
+
+    // Try finding by owner_id first
+    const { data: restaurantByOwner, error: ownerError } = await supabase
+      .from('restaurants')
+      .select('*')
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
+    if (restaurantByOwner) {
+      restaurantData = restaurantByOwner
+      restaurantError = ownerError
+      console.log('✅ Restaurant found by owner_id:', restaurantByOwner.name)
+    } else {
+      // Fallback: Find restaurant by matching name with user's restaurant_name
+      console.log('No restaurant found by owner_id, trying by name:', userData.restaurant_name)
       
-      console.log('✅ Restaurant setup complete:', restaurantData.name)
+      const { data: restaurantByName, error: nameError } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('name', userData.restaurant_name)
+        .maybeSingle()
+        
+      restaurantData = restaurantByName
+      restaurantError = nameError
+      
+      if (restaurantByName) {
+        console.log('✅ Restaurant found by name:', restaurantByName.name)
+        console.log('Note: Restaurant owner_id mismatch detected but working around it')
+      }
+    }
+
+    if (restaurantError) {
+      console.error('Error fetching restaurant data:', restaurantError)
+      toast.error('Error loading restaurant data. Please try again.')
+      return
+    }
+
+    if (!restaurantData) {
+      console.log('No restaurant found for user, redirecting to onboarding')
+      toast.error('Restaurant not found. Please complete restaurant setup.')
+      navigate('/restaurant-setup')
+      return
+    }  
+      
+      console.log('✅ Restaurant found:', restaurantData.name)
       setRestaurant(restaurantData)
       
-      // Fetch all dashboard data using user ID as restaurant ID
+      // Fetch all dashboard data using actual restaurant ID
       await Promise.all([
-        fetchOrders(user.id),
-        fetchStaff(user.id),
-        fetchMenuItems(user.id),
-        fetchCategories(user.id),
-        fetchTables(user.id)
+        fetchOrders(restaurantData.id),
+        fetchStaff(restaurantData.id),
+        fetchMenuItems(restaurantData.id),
+        fetchCategories(restaurantData.id),
+        fetchTables(restaurantData.id)
       ])
       
       console.log('✅ Dashboard data loaded successfully')
@@ -589,6 +622,7 @@ const OwnerDashboard = () => {
     try {
       console.log('Fetching menu items for restaurant:', restaurantId)
       
+      // menu_items.restaurant_id references restaurants.id
       const { data, error } = await supabase
         .from('menu_items')
         .select('*, categories(*)')
@@ -613,6 +647,7 @@ const OwnerDashboard = () => {
     try {
       console.log('Fetching categories for restaurant:', restaurantId)
       
+      // categories.restaurant_id references restaurants.id
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -637,6 +672,7 @@ const OwnerDashboard = () => {
     try {
       console.log('Fetching tables for restaurant:', restaurantId)
       
+      // tables.restaurant_id references restaurants.id
       const { data, error } = await supabase
         .from('tables')
         .select('*')
@@ -692,7 +728,7 @@ const OwnerDashboard = () => {
         .from('restaurants')
         .select('id, name')
         .eq('owner_id', user.id)
-        .single()
+        .maybeSingle()
       
       if (restaurantError || !restaurantData) {
         toast.error('Restaurant not found. Please complete restaurant setup first.')
@@ -1140,19 +1176,32 @@ const OwnerDashboard = () => {
     }
   }
 
+  // Handle table deletion
   const handleDeleteTable = async (tableId) => {
+    if (!tableId) {
+      toast.error('Invalid table ID')
+      return
+    }
+
     try {
+      console.log('Deleting table:', tableId)
+      
       const { error } = await supabase
         .from('tables')
         .delete()
         .eq('id', tableId)
 
-      if (error) throw error
-      setTables(tables.filter(t => t.id !== tableId))
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+      
+      // Update local state
+      setTables(prevTables => prevTables.filter(t => t.id !== tableId))
       toast.success('Table deleted successfully')
     } catch (error) {
       console.error('Error deleting table:', error)
-      toast.error('Failed to delete table')
+      toast.error('Failed to delete table: ' + (error.message || 'Unknown error'))
     }
   }
 

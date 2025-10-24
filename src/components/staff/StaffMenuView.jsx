@@ -35,7 +35,7 @@ const StaffMenuView = ({ restaurantId }) => {
     try {
       setLoading(true)
       
-      // Fetch categories and menu items in parallel
+      // Fetch categories and menu items using restaurant ID directly
       const [categoriesResult, itemsResult] = await Promise.all([
         supabase
           .from('categories')

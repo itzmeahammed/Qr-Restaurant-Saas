@@ -92,10 +92,16 @@ const StaffRestaurantApplication = ({ user, onApplicationSubmitted }) => {
         .from('restaurants')
         .select('id, name')
         .eq('staff_signup_key', searchKey)
-        .single()
+        .maybeSingle()
 
-      if (restaurantError || !restaurant) {
+      if (restaurantError) {
         console.error('Restaurant key validation error:', restaurantError)
+        toast.error('Error validating restaurant key. Please try again.')
+        return
+      }
+
+      if (!restaurant) {
+        console.log('No restaurant found with key:', searchKey)
         toast.error('Invalid restaurant signup key. Please check with your manager.')
         return
       }
