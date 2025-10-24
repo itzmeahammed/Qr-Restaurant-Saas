@@ -208,52 +208,67 @@ const OwnerDashboard = () => {
         return
       }
       
-      // Restaurant setup is complete, fetch actual restaurant record
-    // First try by owner_id, then fallback to finding by user's restaurant name
-    let restaurantData, restaurantError
+      // Restaurant setup is complete, try to fetch actual restaurant record
+      // First try by owner_id, then fallback to finding by user's restaurant name
+      let restaurantData, restaurantError
 
-    // Try finding by owner_id first
-    const { data: restaurantByOwner, error: ownerError } = await supabase
-      .from('restaurants')
-      .select('*')
-      .eq('owner_id', user.id)
-      .maybeSingle()
-
-    if (restaurantByOwner) {
-      restaurantData = restaurantByOwner
-      restaurantError = ownerError
-      console.log('✅ Restaurant found by owner_id:', restaurantByOwner.name)
-    } else {
-      // Fallback: Find restaurant by matching name with user's restaurant_name
-      console.log('No restaurant found by owner_id, trying by name:', userData.restaurant_name)
-      
-      const { data: restaurantByName, error: nameError } = await supabase
+      // Try finding by owner_id first
+      const { data: restaurantByOwner, error: ownerError } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('name', userData.restaurant_name)
+        .eq('owner_id', user.id)
         .maybeSingle()
+
+      if (restaurantByOwner) {
+        restaurantData = restaurantByOwner
+        restaurantError = ownerError
+        console.log('✅ Restaurant found by owner_id:', restaurantByOwner.name)
+      } else {
+        // Fallback: Find restaurant by matching name with user's restaurant_name
+        console.log('No restaurant found by owner_id, trying by name:', userData.restaurant_name)
         
-      restaurantData = restaurantByName
-      restaurantError = nameError
-      
-      if (restaurantByName) {
-        console.log('✅ Restaurant found by name:', restaurantByName.name)
-        console.log('Note: Restaurant owner_id mismatch detected but working around it')
+        const { data: restaurantByName, error: nameError } = await supabase
+          .from('restaurants')
+          .select('*')
+          .eq('name', userData.restaurant_name)
+          .maybeSingle()
+          
+        restaurantData = restaurantByName
+        restaurantError = nameError
+        
+        if (restaurantByName) {
+          console.log('✅ Restaurant found by name:', restaurantByName.name)
+          console.log('Note: Restaurant owner_id mismatch detected but working around it')
+        }
       }
-    }
 
-    if (restaurantError) {
-      console.error('Error fetching restaurant data:', restaurantError)
-      toast.error('Error loading restaurant data. Please try again.')
-      return
-    }
+      if (restaurantError) {
+        console.error('Error fetching restaurant data:', restaurantError)
+        toast.error('Error loading restaurant data. Please try again.')
+        return
+      }
 
-    if (!restaurantData) {
-      console.log('No restaurant found for user, redirecting to onboarding')
-      toast.error('Restaurant not found. Please complete restaurant setup.')
-      navigate('/restaurant-setup')
-      return
-    }  
+      if (!restaurantData) {
+        // Final fallback: Use user profile data as restaurant data (RLS fallback approach)
+        console.log('No restaurant table record found, using user profile data as fallback')
+        restaurantData = {
+          id: user.id,
+          owner_id: user.id,
+          name: userData.restaurant_name,
+          description: userData.restaurant_description || '',
+          address: userData.restaurant_address,
+          phone: userData.restaurant_phone || userData.phone,
+          email: userData.restaurant_email || userData.email,
+          cuisine_type: userData.cuisine_type,
+          logo_url: userData.logo_url,
+          banner_url: userData.banner_url,
+          is_active: true,
+          created_at: userData.created_at,
+          updated_at: userData.updated_at
+        }
+        console.log('✅ Using user profile as restaurant data:', restaurantData.name)
+        toast.success('Restaurant data loaded from profile')
+      }  
       
       console.log('✅ Restaurant found:', restaurantData.name)
       setRestaurant(restaurantData)

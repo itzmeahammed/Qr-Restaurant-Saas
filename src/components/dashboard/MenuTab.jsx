@@ -12,7 +12,7 @@ import {
   DocumentIcon,
   ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline'
-import { uploadImageToStorage, deleteImageFromStorage } from '../../utils/storageUtils'
+import { uploadRestaurantImage, deleteRestaurantImage, compressRestaurantImage } from '../../utils/storageUtils'
 import toast from 'react-hot-toast'
 import { useConfirmation } from '../../contexts/ConfirmationContext'
 
