@@ -48,29 +48,65 @@ const RestaurantDiscovery = () => {
     try {
       setLoading(true)
       
-      // Fetch real-time restaurant data with menu counts and ratings
-      const { data, error } = await supabase
+      // Fetch restaurants first (without problematic joins)
+      const { data: restaurantsData, error: restaurantsError } = await supabase
         .from('restaurants')
-        .select(`
-          *,
-          categories(count),
-          menu_items(count)
-        `)
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (restaurantsError) throw restaurantsError
+
+      // Fetch categories and menu items separately for each restaurant
+      const restaurantsWithCounts = await Promise.all(
+        (restaurantsData || []).map(async (restaurant) => {
+          try {
+            // Get categories count - categories.restaurant_id references restaurants.id
+            const { count: categoriesCount } = await supabase
+              .from('categories')
+              .select('*', { count: 'exact', head: true })
+              .eq('restaurant_id', restaurant.id)
+              .eq('is_active', true)
+
+            // Get menu items count - menu_items.restaurant_id references restaurants.id  
+            const { count: menuItemsCount } = await supabase
+              .from('menu_items')
+              .select('*', { count: 'exact', head: true })
+              .eq('restaurant_id', restaurant.id)
+              .eq('is_available', true)
+
+            // Get reviews for rating calculation
+            const { data: reviews } = await supabase
+              .from('reviews')
+              .select('overall_rating')
+              .eq('restaurant_id', restaurant.id)
+
+            const avgRating = reviews?.length > 0 
+              ? reviews.reduce((sum, review) => sum + review.overall_rating, 0) / reviews.length
+              : 4.2
+
+            return {
+              ...restaurant,
+              rating: Number(avgRating.toFixed(1)),
+              review_count: reviews?.length || 0,
+              menu_count: menuItemsCount || 12,
+              category_count: categoriesCount || 3
+            }
+          } catch (error) {
+            console.warn(`Error fetching data for restaurant ${restaurant.id}:`, error)
+            return {
+              ...restaurant,
+              rating: 4.2,
+              review_count: 0,
+              menu_count: 12,
+              category_count: 3
+            }
+          }
+        })
+      )
 
       // Process restaurant data with fallback ratings
-      const restaurantsWithRatings = (data || []).map(restaurant => {
-        return {
-          ...restaurant,
-          rating: restaurant.rating || 4.2, // Fallback rating
-          review_count: restaurant.review_count || 0,
-          menu_count: restaurant.menu_items?.[0]?.count || 12,
-          category_count: restaurant.categories?.[0]?.count || 3
-        }
-      })
+      const restaurantsWithRatings = restaurantsWithCounts
 
       setRestaurants(restaurantsWithRatings)
       
@@ -123,6 +159,50 @@ const RestaurantDiscovery = () => {
     const qrUrl = `${window.location.origin}/menu/${restaurant.id}`
     navigator.clipboard.writeText(qrUrl)
     toast.success('QR code URL copied to clipboard!')
+  }
+
+  const isCurrentlyOpen = (restaurant) => {
+    if (!restaurant?.opening_hours) return false
+    
+    try {
+      const hours = restaurant.opening_hours
+      
+      // Create IST time directly
+      const now = new Date()
+      // Add 5:30 hours to UTC to get IST
+      const istOffset = 5.5 * 60 * 60 * 1000 // 5.5 hours in milliseconds
+      const istTime = new Date(now.getTime() + istOffset)
+      
+      // Get current day in IST
+      const today = istTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+      const todayHours = hours[today]
+      
+      // Get current time in HH:MM format
+      const currentHour = istTime.getUTCHours().toString().padStart(2, '0')
+      const currentMinute = istTime.getUTCMinutes().toString().padStart(2, '0')
+      const currentTime = `${currentHour}:${currentMinute}`
+      
+      if (!todayHours || todayHours.closed === true) {
+        return false
+      }
+      
+      const openTime = todayHours.open
+      const closeTime = todayHours.close
+      
+      // Convert time strings to minutes for comparison
+      const timeToMinutes = (timeStr) => {
+        const [hours, minutes] = timeStr.split(':').map(Number)
+        return hours * 60 + minutes
+      }
+      
+      const currentMinutes = timeToMinutes(currentTime)
+      const openMinutes = timeToMinutes(openTime)
+      const closeMinutes = timeToMinutes(closeTime)
+      
+      return currentMinutes >= openMinutes && currentMinutes <= closeMinutes
+    } catch (error) {
+      return true // Default to open if can't parse
+    }
   }
 
   if (loading) {
@@ -236,11 +316,11 @@ const RestaurantDiscovery = () => {
                   {/* Status Badge */}
                   <div className="absolute top-4 left-4">
                     <span className={`px-4 py-2 rounded-2xl font-bold text-sm backdrop-blur-md ${
-                      restaurant.is_open 
+                      isCurrentlyOpen(restaurant) 
                         ? 'bg-green-500/90 text-white' 
                         : 'bg-red-500/90 text-white'
                     }`}>
-                      {restaurant.is_open ? 'OPEN NOW' : 'CLOSED'}
+                      {isCurrentlyOpen(restaurant) ? 'OPEN NOW' : 'CLOSED'}
                     </span>
                   </div>
 

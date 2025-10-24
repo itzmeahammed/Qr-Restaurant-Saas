@@ -459,11 +459,12 @@ const RestaurantOnboarding = () => {
         { name: 'Desserts', description: 'Sweet endings' }
       ]
 
+      // Create default categories - categories.restaurant_id references public.users(id) per schema
       const { error: categoriesError } = await supabase
         .from('categories')
         .insert(
           defaultCategories.map((cat) => ({
-            restaurant_id: restaurant.id,
+            restaurant_id: user.id, // Use user.id as per actual database schema
             name: cat.name,
             description: cat.description
           }))

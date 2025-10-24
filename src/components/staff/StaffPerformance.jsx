@@ -162,14 +162,14 @@ const StaffPerformance = ({ staffId, restaurantId }) => {
 
     // Average order completion time
     const completedOrders = orders?.filter(order => 
-      order.assigned_at && order.delivered_at
+      order.created_at && order.updated_at && order.status === 'completed'
     ) || []
     
     const avgOrderTime = completedOrders.length > 0
       ? completedOrders.reduce((sum, order) => {
-          const assignedTime = new Date(order.assigned_at)
-          const deliveredTime = new Date(order.delivered_at)
-          return sum + (deliveredTime - assignedTime) / (1000 * 60) // minutes
+          const createdTime = new Date(order.created_at)
+          const completedTime = new Date(order.updated_at)
+          return sum + (completedTime - createdTime) / (1000 * 60) // minutes
         }, 0) / completedOrders.length
       : 0
 
