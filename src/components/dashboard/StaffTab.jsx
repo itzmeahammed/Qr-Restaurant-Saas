@@ -137,9 +137,10 @@ function StaffTab({
 
       const newKey = generateKey()
       const { error } = await supabase
-        .from('restaurants')
+        .from('users')
         .update({ staff_signup_key: newKey })
         .eq('id', restaurant.id)
+        .eq('role', 'restaurant_owner')
 
       if (error) throw error
 

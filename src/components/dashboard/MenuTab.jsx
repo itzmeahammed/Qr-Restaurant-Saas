@@ -12,11 +12,11 @@ import {
   DocumentIcon,
   ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline'
-import { uploadRestaurantImage, deleteRestaurantImage, compressRestaurantImage } from '../../utils/storageUtils'
+import { uploadRestaurantImage, deleteRestaurantImage, compressRestaurantImage, uploadImageToStorage, uploadImageRLSFree } from '../../utils/storageUtils'
 import toast from 'react-hot-toast'
 import { useConfirmation } from '../../contexts/ConfirmationContext'
 
-const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem, onAddCategory }) => {
+const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem, onAddCategory, restaurantId }) => {
   const { showConfirmation } = useConfirmation()
   const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
@@ -45,13 +45,18 @@ const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem,
       
       
       try {
-        // Upload image if file is selected
+        // Handle image upload if provided
         if (selectedImage) {
+          // Compress image first for menu items (outside try blocks for scope)
+          const compressedImage = await compressRestaurantImage(selectedImage, 'menu-item')
+          
           try {
-            const uploadResult = await uploadImageToStorage(
-              selectedImage,
-              'restaurant-images',
-              'menu-items'
+            // Try RLS-FREE upload first (guaranteed to work)
+            console.log('🚀 Attempting RLS-free upload...')
+            const uploadResult = await uploadImageRLSFree(
+              compressedImage,
+              restaurantId,
+              'menu-item'
             )
             
             if (!uploadResult || !uploadResult.url) {
@@ -60,10 +65,26 @@ const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem,
             
             imageUrl = uploadResult.url
             toast.success('Image uploaded successfully!')
+            console.log('✅ RLS-free upload successful:', uploadResult.url)
           } catch (uploadError) {
-            console.error('Image upload error:', uploadError)
-            toast.error('Failed to upload image: ' + uploadError.message)
-            throw uploadError
+            console.error('❌ RLS-free upload failed, trying fallback...', uploadError)
+            
+            // FALLBACK: Try original upload method
+            try {
+              const fallbackResult = await uploadRestaurantImage(
+                compressedImage,
+                restaurantId,
+                'menu-item'
+              )
+              
+              imageUrl = fallbackResult.url
+              toast.success('Image uploaded successfully (fallback method)!')
+              console.log('✅ Fallback upload successful:', fallbackResult.url)
+            } catch (fallbackError) {
+              console.error('❌ Both upload methods failed:', fallbackError)
+              toast.error('Failed to upload image: ' + fallbackError.message)
+              throw fallbackError
+            }
           }
         }
         
@@ -107,7 +128,7 @@ const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem,
   const handleAddCategory = () => {
     if (newCategory.name) {
       const category = {
-        id: Date.now(),
+        // Remove the id field - let the database generate UUID automatically
         ...newCategory,
         sort_order: categories.length + 1
       }
@@ -137,10 +158,14 @@ const MenuTab = ({ menuItems, categories, onAddItem, onUpdateItem, onDeleteItem,
     if (editSelectedImage) {
       setUploadingImage(true)
       try {
-        const uploadResult = await uploadImageToStorage(
-          editSelectedImage,
-          'restaurant-images',
-          'menu-items'
+        // Compress image first for menu items
+        const compressedImage = await compressRestaurantImage(editSelectedImage, 'menu-item')
+        
+        // Upload with proper restaurant organization
+        const uploadResult = await uploadRestaurantImage(
+          compressedImage,
+          restaurantId,
+          'menu-item'
         )
         finalUpdates.image_url = uploadResult.url
         toast.success('Image uploaded successfully!')

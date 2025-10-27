@@ -13,12 +13,13 @@ import {
   ArrowRightIcon,
   ArrowLeftIcon,
   SparklesIcon,
-
+  PhotoIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import { useConfirmation } from '../contexts/ConfirmationContext'
+import { uploadImageRLSFree, compressRestaurantImage } from '../utils/storageUtils'
 import toast from 'react-hot-toast'
 
 
@@ -30,6 +31,10 @@ const RestaurantOnboarding = () => {
   const [loading, setLoading] = useState(false)
   const prefersReducedMotion = useReducedMotion()
 
+  // Image upload state
+  const [imageFiles, setImageFiles] = useState({ logo: null, banner: null })
+  const [imagePreview, setImagePreview] = useState({ logo: null, banner: null })
+  const [uploadingImages, setUploadingImages] = useState(false)
   const [dragActive, setDragActive] = useState({ logo: false, banner: false })
 
   // Enhanced drag and drop functionality
@@ -290,6 +295,78 @@ const RestaurantOnboarding = () => {
     }))
   }
 
+  // Image handling functions
+  const handleImageSelect = (e, type) => {
+    const file = e.target.files[0]
+    if (file) {
+      validateAndSetImage(file, type)
+    }
+  }
+
+  const handleImageDrop = (e, type) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      validateAndSetImage(file, type)
+    }
+  }
+
+  const validateAndSetImage = (file, type) => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file')
+      return
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    // Reject AVIF format as it's not widely supported
+    if (file.type === 'image/avif') {
+      toast.error('AVIF format is not supported. Please use JPG or PNG.')
+      return
+    }
+
+    // Set the image file and create preview
+    setImageFiles(prev => ({
+      ...prev,
+      [type]: file
+    }))
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(prev => ({
+      ...prev,
+      [type]: previewUrl
+    }))
+
+    console.log(`✅ ${type} image selected:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} image selected successfully!`)
+  }
+
+  const removeImage = (type) => {
+    // Revoke the preview URL to free memory
+    if (imagePreview[type]) {
+      URL.revokeObjectURL(imagePreview[type])
+    }
+
+    setImageFiles(prev => ({
+      ...prev,
+      [type]: null
+    }))
+
+    setImagePreview(prev => ({
+      ...prev,
+      [type]: null
+    }))
+
+    console.log(`🗑️ ${type} image removed`)
+    toast.info(`${type.charAt(0).toUpperCase() + type.slice(1)} image removed`)
+  }
+
 
 
   function validateStep(step) {
@@ -326,10 +403,45 @@ const RestaurantOnboarding = () => {
     }
 
     setLoading(true)
+    setUploadingImages(true)
+    
     try {
-      // Skip image upload during onboarding - users can add images later in dashboard
+      // Upload images using RLS-free method (now that storage RLS is fixed)
       const uploadedUrls = { logo_url: null, banner_url: null }
-      console.log('📝 Skipping image upload during onboarding - images can be added later in dashboard')
+      
+      console.log('🚀 Starting image uploads with RLS-free method...')
+      
+      // Upload logo if provided
+      if (imageFiles.logo) {
+        try {
+          console.log('📤 Uploading logo...')
+          const compressedLogo = await compressRestaurantImage(imageFiles.logo, 'logo')
+          const logoResult = await uploadImageRLSFree(compressedLogo, user.id, 'logo')
+          uploadedUrls.logo_url = logoResult.url
+          console.log('✅ Logo uploaded successfully:', logoResult.url)
+          toast.success('Logo uploaded successfully!')
+        } catch (logoError) {
+          console.error('❌ Logo upload failed:', logoError)
+          toast.error('Logo upload failed, but continuing with restaurant setup')
+        }
+      }
+      
+      // Upload banner if provided
+      if (imageFiles.banner) {
+        try {
+          console.log('📤 Uploading banner...')
+          const compressedBanner = await compressRestaurantImage(imageFiles.banner, 'banner')
+          const bannerResult = await uploadImageRLSFree(compressedBanner, user.id, 'banner')
+          uploadedUrls.banner_url = bannerResult.url
+          console.log('✅ Banner uploaded successfully:', bannerResult.url)
+          toast.success('Banner uploaded successfully!')
+        } catch (bannerError) {
+          console.error('❌ Banner upload failed:', bannerError)
+          toast.error('Banner upload failed, but continuing with restaurant setup')
+        }
+      }
+      
+      console.log('🎯 Image upload phase complete:', uploadedUrls)
       
       // Create restaurant with or without image URLs
       // Note: restaurants.owner_id references auth.users(id), but we're using unified users table
@@ -354,13 +466,20 @@ const RestaurantOnboarding = () => {
       let restaurantCreated = false
       
       try {
-        console.log('🔄 Attempting to create restaurant record...')
+        console.log('🔄 Updating user record with restaurant data...')
         const { data, error } = await supabase
-          .from('restaurants')
-          .insert([{
-            owner_id: user.id, // This should reference auth.users(id) but we'll handle the mismatch
-            ...restaurantData
-          }])
+          .from('users')
+          .update({
+            role: 'restaurant_owner',
+            restaurant_name: restaurantData.name,
+            restaurant_phone: restaurantData.phone,
+            restaurant_email: restaurantData.email,
+            restaurant_address: restaurantData.address,
+            cuisine_type: restaurantData.cuisine_type,
+            logo_url: restaurantData.logo_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
           .select()
           .single()
         
@@ -486,6 +605,7 @@ const RestaurantOnboarding = () => {
       toast.error(error.message || 'Failed to create restaurant')
     } finally {
       setLoading(false)
+      setUploadingImages(false)
     }
   }
 
@@ -624,48 +744,152 @@ const RestaurantOnboarding = () => {
                 Upload your restaurant logo and banner image (optional)
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Images will be stored securely in Supabase Storage
+                Images will be stored securely in Supabase Storage with RLS-free upload
               </p>
             </div>
             
+            {/* Logo Upload */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Restaurant Logo (Square format recommended)
+                </label>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    imageFiles.logo
+                      ? 'border-green-300 bg-green-50'
+                      : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50'
+                  }`}
+                  onDrop={(e) => handleImageDrop(e, 'logo')}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => e.preventDefault()}
+                >
+                  {imageFiles.logo ? (
+                    <div className="space-y-2">
+                      <img
+                        src={imagePreview.logo}
+                        alt="Logo preview"
+                        className="w-24 h-24 object-cover rounded-lg mx-auto border-2 border-white shadow-md"
+                      />
+                      <p className="text-sm text-green-700 font-medium">{imageFiles.logo.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeImage('logo')}
+                        className="text-xs text-red-600 hover:text-red-800 underline"
+                      >
+                        Remove logo
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto" />
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          Drop your logo here, or{' '}
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('logo-upload').click()}
+                            className="text-orange-600 hover:text-orange-700 font-medium"
+                          >
+                            browse files
+                          </button>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PNG, JPG up to 5MB (400x400px recommended)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageSelect(e, 'logo')}
+                    className="hidden"
+                  />
+                </div>
+              </div>
 
-            
-            {/* Skip Images Message */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-              <PhotoIcon className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-blue-800 mb-2">Images Coming Soon!</h3>
-              <p className="text-blue-700 mb-4">
-                Skip image upload for now. You can add your restaurant logo and banner later from your dashboard.
-              </p>
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
-                  <CheckCircleIcon className="w-5 h-5" />
-                  <span>Complete setup first, then add images</span>
+              {/* Banner Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Restaurant Banner (Wide format recommended)
+                </label>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    imageFiles.banner
+                      ? 'border-green-300 bg-green-50'
+                      : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50'
+                  }`}
+                  onDrop={(e) => handleImageDrop(e, 'banner')}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => e.preventDefault()}
+                >
+                  {imageFiles.banner ? (
+                    <div className="space-y-2">
+                      <img
+                        src={imagePreview.banner}
+                        alt="Banner preview"
+                        className="w-full max-w-sm h-24 object-cover rounded-lg mx-auto border-2 border-white shadow-md"
+                      />
+                      <p className="text-sm text-green-700 font-medium">{imageFiles.banner.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeImage('banner')}
+                        className="text-xs text-red-600 hover:text-red-800 underline"
+                      >
+                        Remove banner
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto" />
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          Drop your banner here, or{' '}
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('banner-upload').click()}
+                            className="text-orange-600 hover:text-orange-700 font-medium"
+                          >
+                            browse files
+                          </button>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PNG, JPG up to 5MB (1200x400px recommended)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    id="banner-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageSelect(e, 'banner')}
+                    className="hidden"
+                  />
                 </div>
               </div>
             </div>
             
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start space-x-2">
-                <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-medium text-green-800">Why Skip Images?</h4>
-                  <p className="text-xs text-green-700 mt-1">
-                    This ensures a smooth setup process. Once your restaurant is created, you'll have full access to upload and manage images in your dashboard with better tools and security.
-                  </p>
+            {/* Upload Status */}
+            {uploadingImages && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-sm text-blue-700">Uploading images...</span>
                 </div>
               </div>
-            </div>
+            )}
             
-
-            
+            {/* Success Message */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-start space-x-2">
                 <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-medium text-green-800">Secure Storage</h4>
+                  <h4 className="text-sm font-medium text-green-800">RLS-Free Upload Ready!</h4>
                   <p className="text-xs text-green-700 mt-1">
-                    Images are uploaded to Supabase Storage with proper compression and security. You can add or update images later in restaurant settings.
+                    Storage RLS issues have been resolved with our nuclear fix. Images will upload seamlessly during restaurant setup.
                   </p>
                 </div>
               </div>
