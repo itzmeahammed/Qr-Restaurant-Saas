@@ -48,10 +48,11 @@ const RestaurantDiscovery = () => {
     try {
       setLoading(true)
       
-      // Fetch restaurants first (without problematic joins)
+      // Fetch restaurants from users table (consistent foreign key)
       const { data: restaurantsData, error: restaurantsError } = await supabase
-        .from('restaurants')
+        .from('users')
         .select('*')
+        .eq('role', 'restaurant_owner')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 
@@ -134,9 +135,9 @@ const RestaurantDiscovery = () => {
   }
 
   const filteredRestaurants = restaurants.filter(restaurant => {
-    const matchesSearch = restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         restaurant.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         restaurant.cuisine_type.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = (restaurant.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (restaurant.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (restaurant.cuisine_type || '').toLowerCase().includes(searchQuery.toLowerCase())
     
     const matchesCuisine = selectedCuisine === 'all' || restaurant.cuisine_type === selectedCuisine
     
