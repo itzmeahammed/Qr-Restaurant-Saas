@@ -14,6 +14,7 @@ import Auth from './pages/Auth'
 import CustomerMenu from './pages/CustomerMenu'
 import StaffDashboard from './pages/StaffDashboard'
 import OwnerDashboard from './pages/OwnerDashboard'
+import OwnerSettings from './pages/OwnerSettings'
 import SuperAdminPanel from './pages/SuperAdminPanel'
 import EmailVerification from './components/EmailVerification'
 import RestaurantOnboarding from './pages/RestaurantOnboarding'
@@ -227,6 +228,22 @@ function App() {
                 </ConfirmationProvider>
               </ProtectedRoute>
             )
+          } />
+
+          <Route path="/owner" element={
+            <ProtectedRoute allowedRoles={['restaurant_owner']}>
+              <ConfirmationProvider>
+                <OwnerDashboard />
+              </ConfirmationProvider>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/owner/settings" element={
+            <ProtectedRoute allowedRoles={['restaurant_owner']}>
+              <ConfirmationProvider>
+                <OwnerSettings />
+              </ConfirmationProvider>
+            </ProtectedRoute>
           } />
           
           <Route path="/admin" element={

@@ -20,6 +20,35 @@ class StaffAssignmentService {
     try {
       console.log('🔍 Checking staff availability for restaurant:', restaurantId)
 
+      // Handle restaurant_id conversion for database schema compatibility
+      let actualRestaurantId = restaurantId
+      
+      // Check if we need to convert from owner_id to restaurant_id for staff table
+      // Staff table references restaurants(id), not users(id)
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('id, owner_id')
+        .eq('owner_id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.id) {
+        // If restaurantId is actually owner_id, use restaurant.id for staff queries
+        actualRestaurantId = restaurantData.id
+      } else {
+        // Check if restaurantId is already a restaurant.id
+        const { data: directRestaurant } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('id', restaurantId)
+          .maybeSingle()
+        
+        if (directRestaurant?.id) {
+          actualRestaurantId = restaurantId // It's already a restaurant.id
+        }
+      }
+      
+      console.log('🔄 Using restaurant_id for staff query:', actualRestaurantId)
+
       // Get available staff members with enhanced selection criteria
       const { data: staffMembers, error: staffError } = await supabase
         .from('staff')
@@ -31,7 +60,7 @@ class StaffAssignmentService {
             phone
           )
         `)
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', actualRestaurantId)
         .eq('is_available', true)
         .order('total_orders_completed', { ascending: true })
         .order('performance_rating', { ascending: false })

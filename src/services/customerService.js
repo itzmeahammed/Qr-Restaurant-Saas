@@ -28,10 +28,40 @@ export const customerService = {
       
       console.log('🔗 Creating customer session for QR ordering...')
       
+      // Handle restaurant_id conversion for database schema compatibility
+      // customer_sessions.restaurant_id references restaurants(id), not users(id)
+      let actualRestaurantId = restaurantId
+      
+      // Check if restaurantId is owner_id, convert to restaurant.id
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('id, owner_id')
+        .eq('owner_id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.id) {
+        // If restaurantId is actually owner_id, use restaurant.id
+        actualRestaurantId = restaurantData.id
+        console.log('🔄 Converted owner_id to restaurant_id for customer session:', actualRestaurantId)
+      } else {
+        // Check if restaurantId is already a restaurant.id
+        const { data: directRestaurant } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('id', restaurantId)
+          .maybeSingle()
+        
+        if (directRestaurant?.id) {
+          actualRestaurantId = restaurantId // It's already a restaurant.id
+        } else {
+          console.warn('⚠️ Restaurant not found for ID:', restaurantId)
+        }
+      }
+      
       const { data: session, error } = await supabase
         .from('customer_sessions')
         .insert({
-          restaurant_id: restaurantId,
+          restaurant_id: actualRestaurantId, // Use correct restaurant.id
           table_id: tableId,
           customer_name: customerName,
           customer_phone: customerPhone,

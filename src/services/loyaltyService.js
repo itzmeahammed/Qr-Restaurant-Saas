@@ -25,14 +25,40 @@ class LoyaltyService {
    * @param {string} restaurantId - Restaurant UUID
    * @returns {Promise<Object>} - Loyalty account
    */
-  static async initializeLoyaltyAccount(customerId, restaurantId) {
+  static async createLoyaltyAccount(customerId, restaurantId) {
     try {
+      // Handle restaurant_id conversion for database schema compatibility
+      // loyalty_points.restaurant_id references restaurants(id), not users(id)
+      let actualRestaurantId = restaurantId
+      
+      // Check if restaurantId is owner_id, convert to restaurant.id
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('id, owner_id')
+        .eq('owner_id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.id) {
+        actualRestaurantId = restaurantData.id
+      } else {
+        // Check if restaurantId is already a restaurant.id
+        const { data: directRestaurant } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('id', restaurantId)
+          .maybeSingle()
+        
+        if (directRestaurant?.id) {
+          actualRestaurantId = restaurantId
+        }
+      }
+
       // Check if account already exists
       const { data: existing } = await supabase
         .from('loyalty_points')
         .select('*')
         .eq('customer_id', customerId)
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', actualRestaurantId)
         .single()
 
       if (existing) return existing
@@ -42,7 +68,7 @@ class LoyaltyService {
         .from('loyalty_points')
         .insert({
           customer_id: customerId,
-          restaurant_id: restaurantId,
+          restaurant_id: actualRestaurantId, // Use correct restaurant.id
           points_earned: this.SIGNUP_BONUS,
           current_balance: this.SIGNUP_BONUS,
           tier: 'bronze'

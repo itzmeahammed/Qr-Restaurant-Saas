@@ -33,7 +33,14 @@ const Auth = () => {
     email: '',
     password: '',
     fullName: '',
-    phone: ''
+    phone: '',
+    // Restaurant owner specific fields
+    restaurantName: '',
+    restaurantDescription: '',
+    restaurantAddress: '',
+    restaurantPhone: '',
+    restaurantEmail: '',
+    cuisineType: ''
   })
 
   // This will be handled by the unified login logic
@@ -132,20 +139,50 @@ const Auth = () => {
           await handleStaffSignup()
         } else {
           // Regular signup for restaurant_owner and super_admin
-          const { data, error } = await signUp(formData.email, formData.password, {
+          const userData = {
             full_name: formData.fullName,
             phone: formData.phone,
             role: selectedRole
-          })
+          }
+
+          // For restaurant owners, include restaurant information
+          if (selectedRole === 'restaurant_owner') {
+            userData.restaurant_info = {
+              name: formData.restaurantName,
+              description: formData.restaurantDescription,
+              address: formData.restaurantAddress,
+              phone: formData.restaurantPhone,
+              email: formData.restaurantEmail,
+              cuisine_type: formData.cuisineType,
+              opening_hours: {} // Default empty opening hours
+            }
+          }
+
+          const { data, error } = await signUp(formData.email, formData.password, userData)
 
           if (error) {
             toast.error(error.message || 'Signup failed')
             return
           }
 
-          toast.success('Account created successfully! You can now login.')
+          if (selectedRole === 'restaurant_owner') {
+            toast.success('Restaurant account created successfully! You can now login and access your dashboard.')
+          } else {
+            toast.success('Account created successfully! You can now login.')
+          }
           setIsLogin(true)
-          setFormData({ email: formData.email, password: '', fullName: '', phone: '' })
+          setFormData({ 
+            email: formData.email, 
+            password: '', 
+            fullName: '', 
+            phone: '',
+            restaurantName: '',
+            restaurantDescription: '',
+            restaurantAddress: '',
+            restaurantPhone: '',
+            restaurantEmail: '',
+            cuisineType: ''
+          })
         }
       }
     } catch (error) {
@@ -432,7 +469,148 @@ const Auth = () => {
             </motion.div>
           )}
 
+          {/* Restaurant Information Fields (restaurant_owner signup only) */}
+          {!isLogin && selectedRole === 'restaurant_owner' && (
+            <>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Restaurant Name *
+                </label>
+                <div className="relative">
+                  <BuildingStorefrontIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    name="restaurantName"
+                    value={formData.restaurantName}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Enter restaurant name"
+                    required
+                  />
+                </div>
+              </motion.div>
 
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.55 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Restaurant Description
+                </label>
+                <div className="relative">
+                  <textarea
+                    name="restaurantDescription"
+                    value={formData.restaurantDescription}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                    placeholder="Brief description of your restaurant"
+                  />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Restaurant Address *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="restaurantAddress"
+                    value={formData.restaurantAddress}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Full restaurant address"
+                    required
+                  />
+                </div>
+              </motion.div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.65 }}
+                >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Restaurant Phone
+                  </label>
+                  <div className="relative">
+                    <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="tel"
+                      name="restaurantPhone"
+                      value={formData.restaurantPhone}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Restaurant phone"
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Restaurant Email
+                  </label>
+                  <div className="relative">
+                    <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      name="restaurantEmail"
+                      value={formData.restaurantEmail}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Restaurant email"
+                    />
+                  </div>
+                </motion.div>
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.75 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cuisine Type
+                </label>
+                <div className="relative">
+                  <select
+                    name="cuisineType"
+                    value={formData.cuisineType}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
+                  >
+                    <option value="">Select cuisine type</option>
+                    <option value="indian">Indian</option>
+                    <option value="chinese">Chinese</option>
+                    <option value="italian">Italian</option>
+                    <option value="mexican">Mexican</option>
+                    <option value="thai">Thai</option>
+                    <option value="american">American</option>
+                    <option value="continental">Continental</option>
+                    <option value="fast_food">Fast Food</option>
+                    <option value="cafe">Cafe</option>
+                    <option value="bakery">Bakery</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </motion.div>
+            </>
+          )}
 
           {/* Password */}
           <motion.div
@@ -497,7 +675,13 @@ const Auth = () => {
                   email: '', 
                   password: '', 
                   fullName: '', 
-                  phone: ''
+                  phone: '',
+                  restaurantName: '',
+                  restaurantDescription: '',
+                  restaurantAddress: '',
+                  restaurantPhone: '',
+                  restaurantEmail: '',
+                  cuisineType: ''
                 })
               }}
               className="ml-2 text-orange-600 hover:text-orange-700 font-medium"

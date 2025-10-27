@@ -95,13 +95,28 @@ class QRService {
    * @param {string} restaurantId - Restaurant UUID
    * @returns {Promise<Array>} - Array of QR codes for all tables
    */
-  static async generateAllTableQRs(restaurantId) {
+  static async generateRestaurantQRCodes(restaurantId) {
     try {
+      // Handle restaurant_id conversion for database schema compatibility
+      // tables.restaurant_id references users(id), not restaurants(id)
+      let actualRestaurantId = restaurantId
+      
+      // Check if restaurantId is from restaurants table, get owner_id instead
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('id, owner_id')
+        .eq('id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.owner_id) {
+        actualRestaurantId = restaurantData.owner_id
+      }
+
       // Fetch all tables for the restaurant
       const { data: tables, error } = await supabase
         .from('tables')
         .select('*')
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', actualRestaurantId)
         .eq('is_active', true)
         .order('table_number')
 

@@ -272,7 +272,7 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Sign up using unified users table
+  // Sign up using unified users table with restaurant_id support
   signUp: async (email, password, userData = {}) => {
     set({ loading: true })
     try {
@@ -307,6 +307,21 @@ const useAuthStore = create((set, get) => ({
         updated_at: new Date().toISOString()
       }
 
+      // For restaurant owners, add restaurant information directly to users table
+      if (userData.role === 'restaurant_owner' && userData.restaurant_info) {
+        const restaurantInfo = userData.restaurant_info
+        newUser.restaurant_name = restaurantInfo.name
+        newUser.restaurant_description = restaurantInfo.description
+        newUser.restaurant_address = restaurantInfo.address
+        newUser.restaurant_phone = restaurantInfo.phone
+        newUser.restaurant_email = restaurantInfo.email
+        newUser.cuisine_type = restaurantInfo.cuisine_type
+        newUser.logo_url = restaurantInfo.logo_url || null
+        newUser.banner_url = restaurantInfo.banner_url || null
+        // Set restaurant_id to the user's own ID (self-reference)
+        newUser.restaurant_id = null // Will be updated after user creation
+      }
+
       console.log('📝 Creating user with data:', { ...newUser, password_hash: '[HIDDEN]' })
 
       const { data: createdUser, error: insertError } = await supabase
@@ -321,6 +336,52 @@ const useAuthStore = create((set, get) => ({
       }
 
       console.log('✅ User created successfully:', createdUser)
+
+      // For restaurant owners, update restaurant_id to point to themselves
+      if (userData.role === 'restaurant_owner') {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ restaurant_id: createdUser.id })
+          .eq('id', createdUser.id)
+
+        if (updateError) {
+          console.error('❌ Error updating restaurant_id:', updateError)
+          // Don't fail the signup for this, just log the error
+        } else {
+          console.log('✅ Restaurant ID updated successfully')
+          createdUser.restaurant_id = createdUser.id
+        }
+
+        // Generate unique staff signup key
+        const staffSignupKey = `${Math.random().toString(36).substr(2, 4).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`
+        
+        // Create restaurant record for backward compatibility
+        const restaurantData = {
+          name: userData.restaurant_info?.name || '',
+          description: userData.restaurant_info?.description || '',
+          address: userData.restaurant_info?.address || '',
+          phone: userData.restaurant_info?.phone || '',
+          email: userData.restaurant_info?.email || '',
+          owner_id: createdUser.id, // This points to auth.users for backward compatibility
+          logo_url: userData.restaurant_info?.logo_url || null,
+          banner_url: userData.restaurant_info?.banner_url || null,
+          cuisine_type: userData.restaurant_info?.cuisine_type || '',
+          opening_hours: userData.restaurant_info?.opening_hours || {},
+          staff_signup_key: staffSignupKey,
+          is_active: true
+        }
+
+        const { error: restaurantError } = await supabase
+          .from('restaurants')
+          .insert([restaurantData])
+
+        if (restaurantError) {
+          console.error('❌ Error creating restaurant record:', restaurantError)
+          // Don't fail signup for this
+        } else {
+          console.log('✅ Restaurant record created for backward compatibility')
+        }
+      }
 
       // For signup, don't automatically log in the user
       // They should login separately after signup

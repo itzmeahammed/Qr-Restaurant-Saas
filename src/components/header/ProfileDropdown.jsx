@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { 
   UserCircleIcon, 
   ChevronDownIcon,
@@ -17,6 +18,7 @@ const ProfileDropdown = ({
   setActiveTab,
   handleLogout 
 }) => {
+  const navigate = useNavigate()
   const userName = profile?.full_name || user?.email?.split('@')[0] || 'Owner'
   const userEmail = user?.email || 'owner@restaurant.com'
 
@@ -122,7 +124,7 @@ const ProfileDropdown = ({
                 <button 
                   onClick={() => {
                     setShowProfileMenu(false)
-                    // Add settings functionality here
+                    navigate('/owner/settings')
                   }}
                   className="w-full text-left px-6 py-3 text-sm font-medium text-gray-700 hover:text-purple-700 hover:bg-purple-50 flex items-center space-x-4 transition-colors duration-200"
                 >

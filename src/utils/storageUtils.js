@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase'
 
 /**
  * Upload image to Supabase storage bucket with restaurant-specific organization
+ * Enhanced with retry logic and better error handling
  * @param {File} file - The image file to upload
  * @param {string} restaurantId - The restaurant ID for organization
  * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category')
@@ -10,73 +11,133 @@ import { supabase } from '../config/supabase'
  * @returns {Promise<{url: string, path: string, bucket: string}>} - The public URL, storage path, and bucket
  */
 export const uploadRestaurantImage = async (file, restaurantId, imageType, bucket = 'restaurant-images', fileName = null) => {
-  try {
-    if (!file) {
-      throw new Error('No file provided')
+  const MAX_RETRIES = 3
+  const RETRY_DELAY = 1000 // 1 second
+  
+  // Helper function to wait
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+  
+  // Helper function for retry logic
+  const uploadWithRetry = async (attempt = 1) => {
+    try {
+      if (!file) {
+        throw new Error('No file provided')
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error('File must be an image')
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        throw new Error('File size must be less than 5MB')
+      }
+
+      // Validate restaurant ID and image type
+      if (!restaurantId) {
+        throw new Error('Restaurant ID is required')
+      }
+      
+      if (!['logo', 'banner', 'menu-item', 'category'].includes(imageType)) {
+        throw new Error('Invalid image type. Must be: logo, banner, menu-item, or category')
+      }
+
+      // Generate unique filename if not provided
+      const timestamp = Date.now()
+      const randomString = Math.random().toString(36).substring(2, 15)
+      const fileExtension = file.name.split('.').pop()
+      const finalFileName = fileName || `${timestamp}_${randomString}.${fileExtension}`
+      
+      // Construct restaurant-specific folder structure
+      const folder = `restaurants/${restaurantId}/${imageType}s`
+      const filePath = `${folder}/${finalFileName}`
+
+      console.log(`Upload attempt ${attempt}/${MAX_RETRIES}: ${filePath}`)
+
+      // Upload file to Supabase storage with enhanced options
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true, // Allow overwriting to handle retry scenarios
+          contentType: file.type,
+          duplex: 'half' // Add duplex option for better network handling
+        })
+
+      if (error) {
+        console.error(`Storage upload error (attempt ${attempt}):`, error)
+        
+        // Check if it's a network-related error that we can retry
+        const retryableErrors = [
+          'Failed to fetch',
+          'NetworkError',
+          'ERR_NETWORK_CHANGED',
+          'ERR_INTERNET_DISCONNECTED',
+          'ERR_CONNECTION_RESET',
+          'timeout'
+        ]
+        
+        const isRetryable = retryableErrors.some(errorType => 
+          error.message?.toLowerCase().includes(errorType.toLowerCase()) ||
+          error.toString().toLowerCase().includes(errorType.toLowerCase())
+        )
+        
+        if (isRetryable && attempt < MAX_RETRIES) {
+          console.log(`Retrying upload in ${RETRY_DELAY}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`)
+          await wait(RETRY_DELAY * attempt) // Exponential backoff
+          return uploadWithRetry(attempt + 1)
+        }
+        
+        throw new Error(`Upload failed after ${attempt} attempts: ${error.message}`)
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath)
+
+      console.log(`Upload successful on attempt ${attempt}: ${publicUrl}`)
+
+      return {
+        url: publicUrl,
+        path: filePath,
+        bucket: bucket,
+        folder: folder,
+        fileName: finalFileName,
+        imageType: imageType,
+        restaurantId: restaurantId,
+        attempts: attempt
+      }
+    } catch (error) {
+      if (attempt < MAX_RETRIES) {
+        // Check if it's a validation error (don't retry these)
+        const validationErrors = [
+          'No file provided',
+          'File must be an image',
+          'File size must be less than 5MB',
+          'Restaurant ID is required',
+          'Invalid image type'
+        ]
+        
+        const isValidationError = validationErrors.some(validationError => 
+          error.message?.includes(validationError)
+        )
+        
+        if (!isValidationError) {
+          console.log(`Retrying upload due to error: ${error.message}`)
+          await wait(RETRY_DELAY * attempt)
+          return uploadWithRetry(attempt + 1)
+        }
+      }
+      
+      console.error(`Error uploading image after ${attempt} attempts:`, error)
+      throw error
     }
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      throw new Error('File must be an image')
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
-    if (file.size > maxSize) {
-      throw new Error('File size must be less than 5MB')
-    }
-
-    // Validate restaurant ID and image type
-    if (!restaurantId) {
-      throw new Error('Restaurant ID is required')
-    }
-    
-    if (!['logo', 'banner', 'menu-item', 'category'].includes(imageType)) {
-      throw new Error('Invalid image type. Must be: logo, banner, menu-item, or category')
-    }
-
-    // Generate unique filename if not provided
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const fileExtension = file.name.split('.').pop()
-    const finalFileName = fileName || `${timestamp}_${randomString}.${fileExtension}`
-    
-    // Construct restaurant-specific folder structure
-    const folder = `restaurants/${restaurantId}/${imageType}s`
-    const filePath = `${folder}/${finalFileName}`
-
-    // Upload file to Supabase storage
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type
-      })
-
-    if (error) {
-      console.error('Storage upload error:', error)
-      throw new Error(`Upload failed: ${error.message}`)
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath)
-
-    return {
-      url: publicUrl,
-      path: filePath,
-      bucket: bucket,
-      folder: folder,
-      fileName: finalFileName,
-      imageType: imageType,
-      restaurantId: restaurantId
-    }
-  } catch (error) {
-    console.error('Error uploading image:', error)
-    throw error
   }
+  
+  return uploadWithRetry()
 }
 
 /**

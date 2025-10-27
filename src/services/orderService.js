@@ -29,54 +29,93 @@ class OrderService {
         restaurantId,
         tableId,
         sessionId,
-        specialInstructions,
+        cartItems,
         paymentMethod = 'cash',
+        specialInstructions = '',
         tipAmount = 0
       } = orderData
 
-      console.log('🛒 Starting order creation from cart...')
+      console.log('🛒 Creating order with data:', {
+        restaurantId,
+        tableId,
+        sessionId,
+        itemCount: cartItems?.length,
+        paymentMethod
+      })
 
-      // Step 1: Get cart items from database
+      // Step 1: Validate required data
+      if (!restaurantId || !sessionId || !cartItems || cartItems.length === 0) {
+        throw new Error('Missing required order data')
+      }
+
+      // Step 1.5: Get restaurant owner's user ID (restaurant_id in users table)
+      const { data: restaurantOwner, error: ownerError } = await supabase
+        .from('users')
+        .select('id, restaurant_name')
+        .eq('restaurant_id', restaurantId)
+        .eq('role', 'restaurant_owner')
+        .single()
+
+      if (ownerError || !restaurantOwner) {
+        console.error('❌ Restaurant owner not found:', ownerError)
+        throw new Error('Restaurant not found')
+      }
+
+      console.log('✅ Found restaurant owner:', restaurantOwner.id)
+
+      // Step 2: Get the correct owner_id for restaurant_id (database schema fix)
+      let actualRestaurantId = restaurantId
+      
+      // Check if restaurantId is from restaurants table, get owner_id instead
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('id, owner_id')
+        .eq('id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.owner_id) {
+        console.log('🔄 Converting restaurant ID to owner ID for database compatibility')
+        actualRestaurantId = restaurantData.owner_id
+      } else {
+        // If not found in restaurants table, assume it's already a user ID
+        console.log('📝 Using provided ID as user ID (owner_id)')
+      }
+
+      // Step 3: Get cart summary
       const cartSummary = await CartService.getCartSummary(sessionId)
-      if (cartSummary.isEmpty) {
-        throw new Error('Cart is empty. Please add items before placing order.')
+      if (!cartSummary || cartSummary.items.length === 0) {
+        throw new Error('Cart is empty')
       }
 
-      // Step 2: Validate cart items availability
-      const validation = await CartService.validateCart(sessionId)
-      if (!validation.isValid) {
-        throw new Error(`Some items are no longer available: ${validation.unavailableItems.map(item => item.name).join(', ')}`)
-      }
-
-      console.log('✅ Cart validated:', cartSummary.itemCount, 'items')
-
-      // Step 3: Calculate order totals
+      // Step 4: Calculate totals
       const subtotal = cartSummary.subtotal
-      const taxAmount = cartSummary.taxAmount
+      const taxAmount = subtotal * 0.18 // 18% tax
       const totalAmount = subtotal + taxAmount + tipAmount
 
-      // Step 4: Generate order number
-      const orderNumber = await this.generateOrderNumber(restaurantId)
+      // Step 5: Generate order number
+      const orderNumber = await this.generateOrderNumber(actualRestaurantId)
 
-      // Step 5: Create the order
+      // Step 6: Create the order with correct restaurant_id (owner_id)
+      const orderRecord = {
+        restaurant_id: restaurantOwner.id, // Use restaurant owner's user ID
+        table_id: tableId,
+        session_id: sessionId,
+        order_number: orderNumber,
+        status: 'pending',
+        order_type: 'dine_in',
+        subtotal: subtotal,
+        tax_amount: taxAmount,
+        tip_amount: tipAmount,
+        total_amount: totalAmount,
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === 'cash' ? 'pending' : 'paid',
+        special_instructions: specialInstructions,
+        estimated_preparation_time: 20
+      }
+
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert({
-          restaurant_id: restaurantId,
-          table_id: tableId,
-          session_id: sessionId,
-          order_number: orderNumber,
-          status: 'pending',
-          order_type: 'dine_in',
-          subtotal,
-          tax_amount: taxAmount,
-          tip_amount: tipAmount,
-          total_amount: totalAmount,
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === 'cash' ? 'pending' : 'processing',
-          special_instructions: specialInstructions,
-          estimated_preparation_time: await this.calculatePreparationTime(cartSummary.items)
-        })
+        .insert(orderRecord)
         .select()
         .single()
 
@@ -191,11 +230,23 @@ class OrderService {
     const date = new Date()
     const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
     
+    // Ensure we're using the correct restaurant_id (owner_id)
+    let actualRestaurantId = restaurantId
+    const { data: restaurantData } = await supabase
+      .from('restaurants')
+      .select('owner_id')
+      .eq('id', restaurantId)
+      .maybeSingle()
+    
+    if (restaurantData?.owner_id) {
+      actualRestaurantId = restaurantData.owner_id
+    }
+    
     // Get today's order count
     const { count } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId)
+      .eq('restaurant_id', actualRestaurantId)
       .gte('created_at', new Date(date.setHours(0, 0, 0, 0)).toISOString())
 
     const orderSequence = String((count || 0) + 1).padStart(4, '0')
@@ -320,6 +371,19 @@ class OrderService {
    */
   static async getRestaurantOrders(restaurantId, filters = {}) {
     try {
+      // Get the correct owner_id for restaurant_id (database schema fix)
+      let actualRestaurantId = restaurantId
+      
+      const { data: restaurantData } = await supabase
+        .from('restaurants')
+        .select('owner_id')
+        .eq('id', restaurantId)
+        .maybeSingle()
+      
+      if (restaurantData?.owner_id) {
+        actualRestaurantId = restaurantData.owner_id
+      }
+
       // First, get orders with basic relationships (avoiding problematic joins)
       let query = supabase
         .from('orders')
@@ -329,7 +393,7 @@ class OrderService {
           tables(table_number,location),
           payments(amount,payment_method,status,transaction_id)
         `)
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', actualRestaurantId)
         .order('created_at', { ascending: false })
 
       // Apply filters

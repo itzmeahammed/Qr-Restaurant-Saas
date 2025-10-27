@@ -687,11 +687,12 @@ const OwnerDashboard = () => {
     try {
       console.log('Fetching tables for restaurant:', restaurantId)
       
-      // tables.restaurant_id references restaurants.id
+      // tables.restaurant_id references public.users(id) according to schema
+      // Use user.id instead of restaurant.id for table queries
       const { data, error } = await supabase
         .from('tables')
         .select('*')
-        .eq('restaurant_id', restaurantId)
+        .eq('restaurant_id', user.id)
         .order('table_number')
 
       if (error) {
@@ -1158,18 +1159,67 @@ const OwnerDashboard = () => {
 
   const handleAddTable = async (tableData) => {
     try {
+      console.log('🔍 Creating table with restaurant data:', restaurant)
+      console.log('📊 Table data:', tableData)
+      console.log('👤 Current user:', user)
+      
+      // Use current user from unified auth system
+      if (!user || !user.id) {
+        throw new Error('User not authenticated')
+      }
+      
+      console.log('🔐 Current user ID:', user.id)
+      
+      // Use the current user's ID for restaurant_id as per new database schema
+      // (tables.restaurant_id -> users.id, which should be the restaurant owner's user ID)
+      const tableInsertData = { 
+        ...tableData, 
+        restaurant_id: user.id, // Use current user ID from unified auth
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      console.log('📝 Final table insert data:', tableInsertData)
+      
       const { data, error } = await supabase
         .from('tables')
-        .insert([{ ...tableData, restaurant_id: restaurant.id }])
+        .insert([tableInsertData])
         .select()
         .single()
 
-      if (error) throw error
-      setTables([...tables, data])
+      if (error) {
+        console.error('❌ Table creation error:', error)
+        
+        // Handle foreign key constraint errors
+        if (error.code === '23503') {
+          console.error('🔗 Foreign key constraint violation - user ID not found in users table')
+          throw new Error('Unable to create table: User not found in system')
+        }
+        
+        // Handle RLS policy errors
+        if (error.code === '42501') {
+          console.error('🔒 RLS policy violation - insufficient permissions')
+          throw new Error('Database permission error: Row Level Security policies are blocking table creation. Please contact support to disable RLS on the tables table.')
+        }
+        
+        throw new Error(error.message || 'Failed to create table')
+      }
+      
+      console.log('✅ Table created successfully:', data)
+      setTables(prevTables => [...prevTables, data])
       toast.success('Table added successfully')
+      
     } catch (error) {
       console.error('Error adding table:', error)
-      toast.error('Failed to add table')
+      
+      if (error.message.includes('permission') || error.message.includes('Permission')) {
+        toast.error(error.message)
+      } else if (error.message.includes('already exists')) {
+        toast.error(error.message)
+      } else {
+        toast.error('Failed to add table: ' + error.message)
+      }
     }
   }
 
