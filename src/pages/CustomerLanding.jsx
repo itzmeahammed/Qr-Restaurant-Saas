@@ -11,13 +11,20 @@ import {
   UserIcon,
   MagnifyingGlassIcon,
   PhoneIcon,
-  XMarkIcon
+  XMarkIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 import toast from 'react-hot-toast'
 import FloatingActionButton from '../components/common/FloatingActionButton'
 import AppInstallPrompt from '../components/common/AppInstallPrompt'
 import NetworkStatus from '../components/common/NetworkStatus'
+import ordyrrLogo from '../assets/logo.png'
+
+// Brand palette from Ordyrr logo
+const BRAND_LIME = '#C6FF3D'
+const BRAND_BLACK = '#2D2D2D'
+const BRAND_WHITE = '#ffffff'
 
 const CustomerLanding = () => {
   const navigate = useNavigate()
@@ -158,153 +165,429 @@ const CustomerLanding = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white border-b border-black/10 sticky top-0 z-40 backdrop-blur-md bg-white/95">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
+      {/* Header - Unique Floating Design */}
+      <header className="relative z-40" style={{ backgroundColor: BRAND_LIME }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center shadow-lg">
-                <QrCodeIcon className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-black tracking-tight">QR Restaurant</h1>
-                <p className="text-sm text-gray-600 font-medium">Scan. Order. Enjoy.</p>
-              </div>
-            </div>
-            
-            <Link
-              to="/customer-auth"
-              className="px-8 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+            {/* Logo with unique card design */}
+            <motion.div 
+              className="relative"
+              whileHover={{ y: -2 }}
+              transition={{ type: "spring", stiffness: 400 }}
             >
-              Sign In
-            </Link>
+              <div className="bg-white rounded-2xl px-4 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all">
+                <img 
+                  src={ordyrrLogo} 
+                  alt="Ordyrr - Dine In" 
+                  className="h-10 sm:h-12 w-auto"
+                />
+              </div>
+            </motion.div>
+            
+            {/* Navigation with unique pill design */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link
+                  to="/customer-auth"
+                  className="px-6 py-2.5 sm:px-8 sm:py-3 bg-black rounded-full font-black text-sm sm:text-base transition-all shadow-[4px_4px_0_0_rgba(0,0,0,0.4)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,0.6)] active:shadow-[2px_2px_0_0_rgba(0,0,0,0.4)] border-2 border-black"
+                  style={{ color: BRAND_LIME }}
+                >
+                  Sign In
+                </Link>
+              </motion.div>
+            </div>
           </div>
         </div>
+        {/* Bottom border accent */}
+        <div className="h-1 bg-black"></div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white">
-        {/* Enhanced Background Pattern */}
+      <section className="relative overflow-hidden" style={{ backgroundColor: BRAND_LIME }}>
+        {/* Playful Background Elements */}
         <div className="absolute inset-0">
-          {/* Grid Pattern */}
-          <div className="absolute inset-0 opacity-[0.02]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000'%3E%3Cpath d='M0 0h1v60H0V0zm60 0v1H0V0h60zM0 60h60v1H0v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
+          {/* Floating circles */}
+          <motion.div 
+            className="absolute top-20 right-10 w-24 h-24 rounded-full border-4 border-black/10"
+            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 left-16 w-16 h-16 rounded-full bg-black/5"
+            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute top-1/2 left-10 w-12 h-12 rotate-45 border-4 border-black/10"
+            animate={{ rotate: [45, 225, 45] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
           
           {/* Dot Pattern */}
-          <div className="absolute inset-0 opacity-[0.015]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000'%3E%3Ccircle cx='10' cy='10' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
           }} />
-          
-          {/* Geometric Accent */}
-          <div className="absolute top-20 right-20 w-32 h-32 border-4 border-black/5 rounded-full"></div>
-          <div className="absolute bottom-32 left-16 w-24 h-24 border-4 border-black/5 rotate-45"></div>
         </div>
 
-        <div className="relative z-10 px-4 py-16 sm:py-24">
-          <div className="max-w-4xl mx-auto text-center">
-            {/* Hero Text */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="mb-8"
-            >
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-black mb-4 leading-[0.9] tracking-tighter">
-                SCAN
-              </h1>
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-gray-400 mb-4 leading-[0.9] tracking-tighter">
-                ORDER
-              </h1>
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-black leading-[0.9] tracking-tighter">
-                ENJOY
-              </h1>
-            </motion.div>
+        <div className="relative z-10 px-4 py-12 sm:py-16 lg:py-24 pb-32">
+          <div className="max-w-6xl mx-auto">
+            {/* Hero Content - Asymmetric Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center relative">
+              
+              {/* Left Side - Text Content */}
+              <div className="text-center lg:text-left space-y-6 sm:space-y-8">
+                {/* Main Headline - Stacked Words */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.8 }}
+                  className="space-y-1 sm:space-y-2"
+                >
+                  <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-black leading-[0.85] tracking-tighter">
+                    SCAN.
+                  </h1>
+                  <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-black leading-[0.85] tracking-tighter">
+                    ORDER.
+                  </h1>
+                  <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-black leading-[0.85] tracking-tighter">
+                    ENJOY.
+                  </h1>
+                </motion.div>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-              className="text-lg sm:text-xl text-gray-700 mb-12 max-w-2xl mx-auto leading-relaxed font-medium"
-            >
-              The future of dining is here. No apps, no waiting, no complications.
-            </motion.p>
+                {/* Speed Highlight */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.6 }}
+                  className="space-y-1"
+                >
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-black text-black">
+                    30 seconds to order.
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-black text-black">
+                    10 minutes to eat.
+                  </p>
+                </motion.div>
 
-            {/* CTA Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.6 }}
-              className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto"
-            >
-              <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={startQRScanner}
-                className="flex-1 px-8 py-4 bg-black text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-black/20 transition-all flex items-center justify-center gap-3 group"
-              >
-                <CameraIcon className="w-6 h-6 group-hover:rotate-6 transition-transform" />
-                <span>SCAN QR</span>
-              </motion.button>
+                {/* Tagline - Hidden on mobile, shown on desktop */}
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                  className="hidden lg:block text-lg sm:text-xl lg:text-2xl font-black text-black max-w-lg"
+                >
+                  Welcome to India's fastest dine-in app.
+                </motion.p>
 
-              <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowLocationSearch(true)}
-                className="flex-1 px-8 py-4 bg-white text-black rounded-2xl font-bold text-lg shadow-xl hover:shadow-black/10 transition-all border-2 border-black hover:bg-black hover:text-white flex items-center justify-center gap-3 group"
-              >
-                <MapPinIcon className="w-6 h-6 group-hover:rotate-6 transition-transform" />
-                <span>FIND FOOD</span>
-              </motion.button>
-            </motion.div>
+                {/* Mobile Compact Design - Visible only on mobile */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                  className="lg:hidden mt-6 space-y-6"
+                >
+                  {/* Compact Feature Pills */}
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-white rounded-full px-5 py-2.5 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                    >
+                      <span className="text-2xl">⚡</span>
+                      <span className="font-black text-sm text-black">FAST</span>
+                    </motion.div>
+                    
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-white rounded-full px-5 py-2.5 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                    >
+                      <span className="text-2xl">🔒</span>
+                      <span className="font-black text-sm text-black">SECURE</span>
+                    </motion.div>
+                    
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-white rounded-full px-5 py-2.5 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                    >
+                      <span className="text-2xl">😋</span>
+                      <span className="font-black text-sm text-black">EASY</span>
+                    </motion.div>
+                  </div>
+
+                  {/* Animated Food Icons */}
+                  <div className="flex justify-center gap-4">
+                    <motion.div
+                      animate={{ y: [0, -8, 0], rotate: [0, 5, 0] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="text-4xl"
+                    >
+                      🍕
+                    </motion.div>
+                    <motion.div
+                      animate={{ y: [0, -10, 0], rotate: [0, -5, 0] }}
+                      transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                      className="text-4xl"
+                    >
+                      🍔
+                    </motion.div>
+                    <motion.div
+                      animate={{ y: [0, -12, 0], rotate: [0, 8, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
+                      className="text-4xl"
+                    >
+                      🍜
+                    </motion.div>
+                    <motion.div
+                      animate={{ y: [0, -9, 0], rotate: [0, -8, 0] }}
+                      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
+                      className="text-4xl"
+                    >
+                      🍰
+                    </motion.div>
+                  </div>
+
+                  {/* Mobile Tagline */}
+                  <p className="text-base font-black text-black/90 max-w-sm mx-auto">
+                    India's fastest dine-in app 🇮🇳
+                  </p>
+                </motion.div>
+              </div>
+
+              {/* Right Side - Phone Mockup with Food Animation - Desktop Only */}
+              <div className="hidden lg:flex items-center justify-center">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.8, type: "spring", bounce: 0.3 }}
+                  className="relative"
+                >
+                  {/* Phone Mockup */}
+                  <div className="relative">
+                    {/* Phone Frame */}
+                    <div className="relative bg-black rounded-[3rem] p-3 border-4 border-black shadow-[12px_12px_0_0_rgba(0,0,0,1)]">
+                      {/* Phone Screen */}
+                      <div className="bg-white rounded-[2.5rem] overflow-hidden w-[280px] h-[560px] relative">
+                        {/* Status Bar */}
+                        <div className="absolute top-0 left-0 right-0 h-10 bg-white z-10 flex items-center justify-between px-6">
+                          <span className="text-xs font-bold text-black">9:41</span>
+                          <div className="flex gap-1">
+                            <div className="w-4 h-3 border border-black rounded-sm"></div>
+                            <div className="w-4 h-3 border border-black rounded-sm"></div>
+                            <div className="w-4 h-3 border border-black rounded-sm"></div>
+                          </div>
+                        </div>
+
+                        {/* Screen Content */}
+                        <div className="pt-12 px-6 pb-6 h-full flex flex-col items-center justify-center" style={{ backgroundColor: BRAND_LIME }}>
+                          {/* App Header */}
+                          <div className="mb-6">
+                            <img 
+                              src={ordyrrLogo} 
+                              alt="Ordyrr" 
+                              className="h-12 w-auto mx-auto"
+                            />
+                          </div>
+
+                          {/* Main Content */}
+                          <div className="text-center mb-6">
+                            <h3 className="text-2xl font-black text-black mb-2">SCAN & ORDER</h3>
+                            <p className="text-sm font-bold text-black/80">Skip the wait, skip the menu</p>
+                          </div>
+
+                          {/* QR Code Placeholder */}
+                          <motion.div 
+                            className="bg-white rounded-2xl p-6 mb-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+                            animate={{ scale: [1, 1.02, 1] }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          >
+                            <div className="w-32 h-32 bg-black/10 rounded-xl flex items-center justify-center">
+                              <QrCodeIcon className="w-20 h-20 text-black/30" />
+                            </div>
+                          </motion.div>
+
+                          {/* CTA Button */}
+                          <div className="bg-black rounded-full px-8 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,0.3)]">
+                            <span className="font-black text-sm" style={{ color: BRAND_LIME }}>SCAN QR CODE</span>
+                          </div>
+
+                          <p className="text-xs font-bold text-black/60 mt-4">Fast • Secure • Easy</p>
+                        </div>
+                      </div>
+
+                      {/* Phone Notch */}
+                      <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-24 h-6 bg-black rounded-b-2xl"></div>
+                    </div>
+                  </div>
+
+                  {/* Floating Food Emojis */}
+                  <motion.div
+                    className="absolute -top-8 -left-8 text-5xl"
+                    animate={{ 
+                      y: [0, -15, 0],
+                      rotate: [0, 10, 0]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    🍕
+                  </motion.div>
+
+                  <motion.div
+                    className="absolute -top-4 -right-12 text-4xl"
+                    animate={{ 
+                      y: [0, -20, 0],
+                      rotate: [0, -15, 0]
+                    }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                  >
+                    🍔
+                  </motion.div>
+
+                  <motion.div
+                    className="absolute -bottom-8 -left-12 text-4xl"
+                    animate={{ 
+                      y: [0, 15, 0],
+                      rotate: [0, 15, 0]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                  >
+                    🍜
+                  </motion.div>
+
+                  <motion.div
+                    className="absolute -bottom-4 -right-8 text-5xl"
+                    animate={{ 
+                      y: [0, -10, 0],
+                      rotate: [0, -10, 0]
+                    }}
+                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+                  >
+                    🍰
+                  </motion.div>
+
+                  <motion.div
+                    className="absolute top-1/2 -left-16 text-3xl"
+                    animate={{ 
+                      y: [0, 20, 0],
+                      x: [0, -5, 0]
+                    }}
+                    transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                  >
+                    🥗
+                  </motion.div>
+
+                  <motion.div
+                    className="absolute top-1/3 -right-12 text-4xl"
+                    animate={{ 
+                      y: [0, -18, 0],
+                      rotate: [0, 20, 0]
+                    }}
+                    transition={{ duration: 3.3, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                  >
+                    🍱
+                  </motion.div>
+                </motion.div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-black relative">
-        {/* Grid Background */}
-        <div className="absolute inset-0 opacity-[0.05]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff'%3E%3Cpath d='M0 0h1v40H0V0zm40 0v1H0V0h40zM0 40h40v1H0v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      {/* Fixed Floating CTA Buttons - Bottom Center (Mobile & Desktop) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7, duration: 0.6, type: "spring", bounce: 0.4 }}
+        className="fixed bottom-6 sm:bottom-8 left-0 right-0 z-50 flex flex-row gap-3 sm:gap-4 justify-center items-center px-4"
+        style={{ transform: 'none' }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: 3 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={startQRScanner}
+          className="px-5 py-3 sm:px-6 sm:py-4 bg-black rounded-full font-black text-sm sm:text-base shadow-[0_6px_0_0_rgba(0,0,0,0.4)] hover:shadow-[0_8px_0_0_rgba(0,0,0,0.6)] active:shadow-[0_3px_0_0_rgba(0,0,0,0.4)] active:translate-y-1 transition-all flex items-center justify-center gap-2 group border-4 border-black"
+          style={{ color: BRAND_LIME }}
+        >
+          <CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" />
+          <span>SCAN QR</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: -3 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowLocationSearch(true)}
+          className="px-5 py-3 sm:px-6 sm:py-4 bg-white text-black rounded-full font-black text-sm sm:text-base shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)] active:shadow-[0_3px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all border-4 border-black flex items-center justify-center gap-2 group"
+        >
+          <MapPinIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" />
+          <span>FIND FOOD</span>
+        </motion.button>
+      </motion.div>
+
+      {/* Features Section - WHY ORDYRR? */}
+      <section className="py-16 sm:py-20 bg-black relative overflow-hidden">
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-10 left-20 w-20 h-20 rounded-full"
+            style={{ backgroundColor: BRAND_LIME, opacity: 0.1 }}
+            animate={{ scale: [1, 1.3, 1], rotate: [0, 90, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-20 right-16 w-16 h-16 rotate-45"
+            style={{ backgroundColor: BRAND_LIME, opacity: 0.1 }}
+            animate={{ rotate: [45, 135, 45] }}
+            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23C6FF3D'/%3E%3C/svg%3E")`,
           }} />
         </div>
         
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-4xl sm:text-6xl font-black text-white mb-6 tracking-tighter">
-              WHY QR?
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black mb-4 sm:mb-6 tracking-tighter" style={{ color: BRAND_LIME }}>
+              WHY ORDYRR?
             </h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto font-light">
-              Experience the revolution in dining
+            <p className="text-lg sm:text-xl lg:text-2xl max-w-2xl mx-auto font-bold" style={{ color: BRAND_LIME, opacity: 0.8 }}>
+              Experience the revolution in dining ⚡
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {/* Features Grid - Mobile: Stack, Desktop: 2 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 max-w-5xl mx-auto">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
-                whileHover={{ scale: 1.01, y: -2 }}
-                className="bg-white rounded-2xl p-8 shadow-xl hover:shadow-white/10 transition-all group"
+                whileHover={{ scale: 1.02, y: -4 }}
+                className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-[0_6px_0_0_rgba(198,255,61,0.3)] hover:shadow-[0_8px_0_0_rgba(198,255,61,0.5)] transition-all group border-4 border-black"
+                style={{ backgroundColor: BRAND_LIME }}
               >
-                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6 group-hover:rotate-3 transition-transform">
-                  <feature.icon className="w-8 h-8 text-white" />
+                <div className="flex items-start gap-4 sm:gap-0 sm:block">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-black rounded-2xl sm:rounded-3xl flex items-center justify-center mb-0 sm:mb-6 group-hover:rotate-6 transition-transform shadow-[0_4px_0_0_rgba(0,0,0,0.3)] flex-shrink-0">
+                    <feature.icon className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: BRAND_LIME }} />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-black mb-2 sm:mb-4 tracking-tight">
+                      {feature.title}
+                    </h3>
+                    <p className="text-black/90 leading-relaxed text-base sm:text-lg font-bold">
+                      {feature.description}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-black text-black mb-4 tracking-tight">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-700 leading-relaxed text-lg font-medium">
-                  {feature.description}
-                </p>
               </motion.div>
             ))}
           </div>
@@ -312,82 +595,85 @@ const CustomerLanding = () => {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-white relative">
-        {/* Enhanced Background */}
+      <section className="py-16 sm:py-20 relative overflow-hidden" style={{ backgroundColor: BRAND_LIME }}>
+        {/* Playful Background */}
         <div className="absolute inset-0">
-          {/* Diagonal Lines Pattern */}
-          <div className="absolute inset-0 opacity-[0.015]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%23000000' stroke-width='1'%3E%3Cpath d='M0 40L40 0M-10 10L10-10M30 50L50 30'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          <motion.div 
+            className="absolute top-20 right-20 w-24 h-24 rounded-full border-4 border-black/10"
+            animate={{ y: [0, -15, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-16 left-16 w-16 h-16 rotate-45 border-4 border-black/10"
+            animate={{ rotate: [45, 225, 45], scale: [1, 1.2, 1] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
           }} />
-          
-          {/* Subtle Grid */}
-          <div className="absolute inset-0 opacity-[0.01]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000'%3E%3Cpath d='M0 0h1v80H0V0zm80 0v1H0V0h80zM0 80h80v1H0v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-          
-          {/* Floating Elements */}
-          <div className="absolute top-16 left-10 w-16 h-16 border-2 border-black/5 rounded-full"></div>
-          <div className="absolute bottom-20 right-12 w-12 h-12 border-2 border-black/5 rotate-12"></div>
         </div>
         
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-4xl sm:text-6xl font-black text-black mb-6 tracking-tighter">
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black text-black mb-4 sm:mb-6 tracking-tighter">
               HOW IT WORKS
             </h2>
-            <p className="text-xl text-gray-600 font-light">
-              Four steps to food heaven
+            <p className="text-lg sm:text-xl lg:text-2xl text-black/90 font-bold">
+              Four steps to food heaven 🍔
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Steps Grid - Mobile: 2x2, Desktop: 4 columns */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-5xl mx-auto">
             {steps.map((step, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
-                whileHover={{ y: -4, scale: 1.01 }}
+                whileHover={{ y: -4, scale: 1.02 }}
                 className="text-center group"
               >
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mx-auto shadow-xl group-hover:shadow-black/20 transition-all group-hover:rotate-3">
-                    <step.icon className="w-10 h-10 text-white" />
+                <div className="relative mb-4 sm:mb-6">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-black rounded-full flex items-center justify-center mx-auto shadow-[0_4px_0_0_rgba(0,0,0,0.3)] sm:shadow-[0_6px_0_0_rgba(0,0,0,0.3)] group-hover:shadow-[0_6px_0_0_rgba(0,0,0,0.3)] sm:group-hover:shadow-[0_8px_0_0_rgba(0,0,0,0.3)] transition-all group-hover:rotate-6 border-4 border-black">
+                    <step.icon className="w-10 h-10 sm:w-12 sm:h-12" style={{ color: BRAND_LIME }} />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-8 h-8 bg-white text-black rounded-full flex items-center justify-center text-sm font-black border-2 border-black shadow-md">
+                  <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-black border-3 sm:border-4 border-black shadow-[0_3px_0_0_rgba(0,0,0,1)] sm:shadow-[0_4px_0_0_rgba(0,0,0,1)]" style={{ backgroundColor: BRAND_LIME, color: BRAND_BLACK }}>
                     {step.step}
                   </div>
                 </div>
                 
-                <h3 className="text-xl font-black text-black mb-3 tracking-tight">
+                <h3 className="text-base sm:text-xl lg:text-2xl font-black text-black mb-2 sm:mb-3 tracking-tight">
                   {step.title}
                 </h3>
-                <p className="text-gray-700 leading-relaxed text-base font-medium">
+                <p className="text-black/90 leading-relaxed text-sm sm:text-base font-bold">
                   {step.description}
                 </p>
               </motion.div>
             ))}
           </div>
 
-          {/* Call to Action */}
+          {/* Call to Action - Hidden on mobile (buttons are fixed at bottom) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="text-center mt-16"
+            className="hidden sm:flex justify-center mt-12 sm:mt-16"
           >
             <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               onClick={startQRScanner}
-              className="px-12 py-4 bg-black text-white rounded-full font-black text-xl shadow-xl hover:shadow-black/20 transition-all"
+              className="px-10 py-4 sm:px-12 sm:py-5 bg-black rounded-full font-black text-xl sm:text-2xl shadow-[0_6px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_0_0_rgba(0,0,0,0.3)] active:shadow-[0_3px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 transition-all border-4 border-black"
+              style={{ color: BRAND_LIME }}
             >
-              START NOW
+              START NOW ⚡
             </motion.button>
           </motion.div>
         </div>
@@ -400,28 +686,31 @@ const CustomerLanding = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl border-4 border-black"
+              className="rounded-[2rem] p-8 max-w-md w-full shadow-[0_8px_0_0_rgba(0,0,0,1)] border-4 border-black"
+              style={{ backgroundColor: BRAND_LIME }}
             >
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-3xl font-black text-black tracking-tight">SCAN QR</h3>
+                <h3 className="text-3xl font-black text-black tracking-tight">SCAN QR 📸</h3>
                 <button
                   onClick={stopQRScanner}
-                  className="p-3 hover:bg-black hover:text-white rounded-2xl transition-all border-2 border-black"
+                  className="p-3 bg-black rounded-2xl transition-all hover:scale-110 active:scale-95 shadow-[0_4px_0_0_rgba(0,0,0,0.3)]"
+                  style={{ color: BRAND_LIME }}
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
               
-              <div id="qr-reader" className="mb-8 rounded-3xl overflow-hidden border-4 border-black shadow-xl"></div>
+              <div id="qr-reader" className="mb-8 rounded-3xl overflow-hidden border-4 border-black shadow-[0_6px_0_0_rgba(0,0,0,1)]"></div>
               
-              <p className="text-black text-center font-medium text-lg">
-                Point your camera at the table QR code
+              <p className="text-black text-center font-black text-lg">
+                Point your camera at the table QR code 🎯
               </p>
             </motion.div>
           </motion.div>
@@ -434,35 +723,38 @@ const CustomerLanding = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl border-4 border-black"
+              className="rounded-[2rem] p-8 max-w-md w-full shadow-[0_8px_0_0_rgba(0,0,0,1)] border-4 border-black"
+              style={{ backgroundColor: BRAND_LIME }}
             >
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-3xl font-black text-black tracking-tight">FIND FOOD</h3>
+                <h3 className="text-3xl font-black text-black tracking-tight">FIND FOOD 🍕</h3>
                 <button
                   onClick={() => setShowLocationSearch(false)}
-                  className="p-3 hover:bg-black hover:text-white rounded-2xl transition-all border-2 border-black"
+                  className="p-3 bg-black rounded-2xl transition-all hover:scale-110 active:scale-95 shadow-[0_4px_0_0_rgba(0,0,0,0.3)]"
+                  style={{ color: BRAND_LIME }}
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
               
               <div className="mb-8">
-                <label className="block text-lg font-bold text-black mb-4">
-                  Enter Location
+                <label className="block text-xl font-black text-black mb-4">
+                  Enter Location 📍
                 </label>
                 <div className="relative">
-                  <MapPinIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-500" />
+                  <MapPinIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-black/60" />
                   <input
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="w-full pl-14 pr-4 py-4 border-4 border-black rounded-2xl focus:ring-4 focus:ring-black/20 focus:border-black text-lg font-medium"
+                    className="w-full pl-14 pr-4 py-4 border-4 border-black rounded-2xl focus:ring-4 focus:ring-black/30 focus:border-black text-lg font-bold bg-white shadow-[0_4px_0_0_rgba(0,0,0,1)]"
                     placeholder="City, area, or restaurant name"
                   />
                 </div>
@@ -471,13 +763,14 @@ const CustomerLanding = () => {
               <div className="flex gap-4">
                 <button
                   onClick={() => setShowLocationSearch(false)}
-                  className="flex-1 px-6 py-4 border-4 border-black text-black rounded-2xl hover:bg-black hover:text-white transition-all font-bold text-lg"
+                  className="flex-1 px-6 py-4 border-4 border-black text-black rounded-3xl bg-white hover:scale-105 active:scale-95 transition-all font-black text-lg shadow-[0_4px_0_0_rgba(0,0,0,1)]"
                 >
                   CANCEL
                 </button>
                 <button
                   onClick={searchByLocation}
-                  className="flex-1 px-6 py-4 bg-black text-white rounded-2xl hover:bg-gray-800 transition-all font-bold text-lg shadow-xl"
+                  className="flex-1 px-6 py-4 bg-black rounded-3xl hover:scale-105 active:scale-95 transition-all font-black text-lg shadow-[0_4px_0_0_rgba(0,0,0,0.3)] border-4 border-black"
+                  style={{ color: BRAND_LIME }}
                 >
                   SEARCH
                 </button>
@@ -488,11 +781,23 @@ const CustomerLanding = () => {
       </AnimatePresence>
 
       {/* Footer CTA */}
-      <section className="py-16 bg-black relative">
-        {/* Grid Background */}
-        <div className="absolute inset-0 opacity-[0.05]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff'%3E%3Cpath d='M0 0h1v40H0V0zm40 0v1H0V0h40zM0 40h40v1H0v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      <section className="py-16 sm:py-20 pb-24 sm:pb-28 bg-black relative overflow-hidden">
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-10 left-10 w-20 h-20 rounded-full"
+            style={{ backgroundColor: BRAND_LIME, opacity: 0.1 }}
+            animate={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-10 right-20 w-16 h-16 rotate-45"
+            style={{ backgroundColor: BRAND_LIME, opacity: 0.1 }}
+            animate={{ rotate: [45, 225, 45] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23C6FF3D'/%3E%3C/svg%3E")`,
           }} />
         </div>
         
@@ -502,34 +807,49 @@ const CustomerLanding = () => {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-4xl sm:text-6xl font-black text-white mb-6 tracking-tighter">
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black mb-4 sm:mb-6 tracking-tighter" style={{ color: BRAND_LIME }}>
               READY TO EAT?
             </h2>
-            <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto font-light">
-              Join the food revolution. No downloads, no waiting, just pure convenience.
+            <p className="text-lg sm:text-xl lg:text-2xl mb-10 sm:mb-12 max-w-2xl mx-auto font-bold" style={{ color: BRAND_LIME, opacity: 0.9 }}>
+              Join the food revolution. No downloads, no waiting, just pure convenience. 🚀
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto">
+            {/* Desktop Only Buttons */}
+            <div className="hidden sm:flex flex-col sm:flex-row gap-4 sm:gap-5 justify-center max-w-xl mx-auto">
               <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={startQRScanner}
-                className="flex-1 px-8 py-4 bg-white text-black rounded-2xl font-black text-lg shadow-xl hover:shadow-white/10 transition-all flex items-center justify-center gap-3 group"
+                className="flex-1 px-8 py-4 sm:py-5 rounded-3xl font-black text-lg sm:text-xl shadow-[0_6px_0_0_rgba(198,255,61,0.3)] hover:shadow-[0_8px_0_0_rgba(198,255,61,0.5)] active:shadow-[0_3px_0_0_rgba(198,255,61,0.3)] active:translate-y-1 transition-all flex items-center justify-center gap-3 group border-4 border-black"
+                style={{ backgroundColor: BRAND_LIME, color: BRAND_BLACK }}
               >
-                <QrCodeIcon className="w-6 h-6 group-hover:rotate-6 transition-transform" />
+                <QrCodeIcon className="w-6 h-6 sm:w-7 sm:h-7 group-hover:rotate-12 transition-transform" />
                 <span>SCAN NOW</span>
               </motion.button>
               
               <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/customer-auth')}
-                className="flex-1 px-8 py-4 bg-transparent text-white rounded-2xl font-black text-lg border-2 border-white hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3 group"
+                className="flex-1 px-8 py-4 sm:py-5 bg-transparent rounded-3xl font-black text-lg sm:text-xl border-4 hover:shadow-[0_6px_0_0_rgba(198,255,61,0.3)] active:translate-y-1 transition-all flex items-center justify-center gap-3 group"
+                style={{ borderColor: BRAND_LIME, color: BRAND_LIME }}
               >
-                <UserIcon className="w-6 h-6 group-hover:rotate-6 transition-transform" />
+                <UserIcon className="w-6 h-6 sm:w-7 sm:h-7 group-hover:rotate-12 transition-transform" />
                 <span>SIGN UP</span>
               </motion.button>
             </div>
+
+            {/* Mobile Message - Pointing to fixed buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="sm:hidden mt-8"
+            >
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border-2 border-lime-400/30">
+                <span className="text-lime-400 font-bold text-sm">👇 Use buttons below to get started</span>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
