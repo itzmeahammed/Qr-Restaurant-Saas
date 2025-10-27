@@ -104,7 +104,7 @@ const Auth = () => {
       setFormData({ email: formData.email, password: '', fullName: '', phone: '' })
     } catch (error) {
       console.error('Staff signup error:', error)
-      toast.error('An unexpected error occurred. Please try again.')
+      toast.error(error.message || 'An unexpected error occurred. Please try again.')
     }
   }
 
@@ -150,7 +150,7 @@ const Auth = () => {
       }
     } catch (error) {
       console.error('Auth error:', error)
-      toast.error('An unexpected error occurred')
+      toast.error(error.message || 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }
