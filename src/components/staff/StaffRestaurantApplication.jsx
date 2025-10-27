@@ -89,9 +89,10 @@ const StaffRestaurantApplication = ({ user, onApplicationSubmitted }) => {
       console.log('🔍 Looking for restaurant with key:', searchKey)
       
       const { data: restaurant, error: restaurantError } = await supabase
-        .from('restaurants')
-        .select('id, name')
+        .from('users')
+        .select('id, restaurant_name')
         .eq('staff_signup_key', searchKey)
+        .eq('role', 'restaurant_owner')
         .maybeSingle()
 
       if (restaurantError) {

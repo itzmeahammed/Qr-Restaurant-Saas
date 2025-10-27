@@ -84,7 +84,7 @@ const Header = ({
                   animate={{ opacity: 1, x: 0 }}
                   className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate"
                 >
-                  {restaurant?.name || 'Restaurant Dashboard'}
+                  {restaurant?.restaurant_name || restaurant?.name || 'Restaurant Dashboard'}
                 </motion.h1>
                 <motion.p 
                   initial={{ opacity: 0, x: -20 }}
@@ -92,7 +92,7 @@ const Header = ({
                   transition={{ delay: 0.1 }}
                   className="text-xs sm:text-sm text-orange-100 truncate hidden sm:block"
                 >
-                  {restaurant?.address || 'Manage your restaurant operations'}
+                  {restaurant?.restaurant_address || restaurant?.address || 'Manage your restaurant operations'}
                 </motion.p>
               </div>
             </div>

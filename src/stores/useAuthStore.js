@@ -167,9 +167,10 @@ const useAuthStore = create((set, get) => ({
         try {
           // Check if this user owns a restaurant with timeout
           const restaurantPromise = supabase
-            .from('restaurants')
+            .from('users')
             .select('id')
-            .eq('owner_id', user.id)
+            .eq('id', user.id)
+            .eq('role', 'restaurant_owner')
             .maybeSingle()
 
           const timeoutPromise = new Promise((_, reject) => 

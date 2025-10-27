@@ -212,11 +212,12 @@ const OwnerDashboard = () => {
       // First try by owner_id, then fallback to finding by user's restaurant name
       let restaurantData, restaurantError
 
-      // Try finding by owner_id first
+      // Get restaurant data from users table (consistent foreign key)
       const { data: restaurantByOwner, error: ownerError } = await supabase
-        .from('restaurants')
+        .from('users')
         .select('*')
-        .eq('owner_id', user.id)
+        .eq('id', user.id)
+        .eq('role', 'restaurant_owner')
         .maybeSingle()
 
       if (restaurantByOwner) {
@@ -228,9 +229,10 @@ const OwnerDashboard = () => {
         console.log('No restaurant found by owner_id, trying by name:', userData.restaurant_name)
         
         const { data: restaurantByName, error: nameError } = await supabase
-          .from('restaurants')
+          .from('users')
           .select('*')
-          .eq('name', userData.restaurant_name)
+          .eq('restaurant_name', userData.restaurant_name)
+          .eq('role', 'restaurant_owner')
           .maybeSingle()
           
         restaurantData = restaurantByName
@@ -738,11 +740,12 @@ const OwnerDashboard = () => {
         return
       }
       
-      // Find restaurant in the existing restaurants table
+      // Find restaurant data from users table (consistent foreign key)
       const { data: restaurantData, error: restaurantError } = await supabase
-        .from('restaurants')
-        .select('id, name')
-        .eq('owner_id', user.id)
+        .from('users')
+        .select('id, restaurant_name')
+        .eq('id', user.id)
+        .eq('role', 'restaurant_owner')
         .maybeSingle()
       
       if (restaurantError || !restaurantData) {
@@ -1429,9 +1432,10 @@ const OwnerDashboard = () => {
       }
       
       const { data, error } = await supabase
-        .from('restaurants')
+        .from('users')
         .update(updatedData)
         .eq('id', restaurant.id)
+        .eq('role', 'restaurant_owner')
         .select('*')
         .single()
 
@@ -1597,6 +1601,7 @@ const OwnerDashboard = () => {
             onUpdateItem={handleUpdateMenuItem}
             onDeleteItem={handleDeleteMenuItem}
             onAddCategory={handleAddCategory}
+            restaurantId={user?.id}
           />
         )}
 
