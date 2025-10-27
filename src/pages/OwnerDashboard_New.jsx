@@ -141,9 +141,10 @@ const OwnerDashboard = () => {
       // Check if user has a restaurant
       console.log('Checking for existing restaurant...')
       const { data: restaurantData, error: restaurantError } = await supabase
-        .from('restaurants')
+        .from('users')
         .select('*')
-        .eq('owner_id', user.id)
+        .eq('id', user.id)
+        .eq('role', 'restaurant_owner')
         .single()
 
       if (restaurantError && restaurantError.code !== 'PGRST116') {

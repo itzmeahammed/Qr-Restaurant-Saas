@@ -65,11 +65,12 @@ function StaffApplicationsTab({ restaurant }) {
 
       const newKey = generateKey()
 
-      // Update restaurant with new key
+      // Update restaurant with new key in users table (consistent foreign key)
       const { error } = await supabase
-        .from('restaurants')
+        .from('users')
         .update({ staff_signup_key: newKey })
         .eq('id', restaurant.id)
+        .eq('role', 'restaurant_owner')
 
       if (error) throw error
 
@@ -144,9 +145,10 @@ function StaffApplicationsTab({ restaurant }) {
       // Get restaurant info
       console.log('🔄 Step 1: Getting restaurant info...')
       const { data: restaurant, error: restaurantError } = await supabase
-        .from('restaurants')
-        .select('id, name, owner_id')
+        .from('users')
+        .select('id, restaurant_name, id as owner_id')
         .eq('id', application.restaurant_id)
+        .eq('role', 'restaurant_owner')
         .single()
 
       if (restaurantError || !restaurant) {

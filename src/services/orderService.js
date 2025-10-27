@@ -291,14 +291,12 @@ class OrderService {
         .from('orders')
         .select(`
           *,
-          order_items(
-            *,
-            menu_item:menu_items(*)
+          order_items(*),
+          restaurant:restaurant_id(
+            id, full_name, restaurant_name, restaurant_phone, restaurant_email,
+            restaurant_address, cuisine_type, logo_url
           ),
-          restaurant:restaurants(*),
-          table:tables(*),
-          staff:staff(*),
-          customer:auth.users(*)
+          table:tables(*)
         `)
         .eq('id', orderId)
         .single()
@@ -723,7 +721,7 @@ class OrderService {
             *,
             menu_items (name, price, image_url)
           ),
-          restaurants (name, phone),
+          restaurant:restaurant_id (restaurant_name, restaurant_phone),
           staff!orders_assigned_staff_id_fkey (
             id,
             user_id,
@@ -798,7 +796,7 @@ class OrderService {
               const { data: sessionData } = await supabase
                 .from('customer_sessions')
                 .select('customer_name, customer_phone')
-                .eq('id', order.session_id)
+                .eq('session_id', order.session_id)
                 .single()
               
               if (sessionData) {
@@ -809,30 +807,18 @@ class OrderService {
               }
             }
 
-            // Get restaurant info by finding the restaurant that owns this staff member
-            const { data: staffData } = await supabase
-              .from('staff')
-              .select('restaurant_id')
-              .eq('user_id', staffId)
+            // Get restaurant info using users table (consistent foreign key)
+            const { data: restaurantInfo } = await supabase
+              .from('users')
+              .select('restaurant_name')
+              .eq('id', order.restaurant_id)
+              .eq('role', 'restaurant_owner')
               .single()
-
-            let restaurantInfo = null
-            if (staffData?.restaurant_id) {
-              const { data: restaurant } = await supabase
-                .from('restaurants')
-                .select('name')
-                .eq('id', staffData.restaurant_id)
-                .single()
-
-              if (restaurant) {
-                restaurantInfo = { name: restaurant.name }
-              }
-            }
 
             return {
               ...order,
               customer_sessions: customerInfo,
-              restaurants: restaurantInfo
+              restaurants: restaurantInfo ? { name: restaurantInfo.restaurant_name } : null
             }
           } catch (err) {
             console.warn('Error enriching order data for order:', order.id, err)
@@ -851,6 +837,7 @@ class OrderService {
       throw error
     }
   }
+
   static async updateOrderStatusByStaff(orderId, status, staffId) {
     try {
       // Validate staff has access to this order
@@ -1030,14 +1017,8 @@ class OrderService {
         throw new Error('Order not found')
       }
 
-      // Validate restaurant ownership separately
-      const { data: restaurant } = await supabase
-        .from('restaurants')
-        .select('owner_id')
-        .eq('id', order.restaurant_id)
-        .single()
-
-      if (!restaurant || restaurant.owner_id !== ownerId) {
+      // Validate restaurant ownership using users table (consistent foreign key)
+      if (order.restaurant_id !== ownerId) {
         throw new Error('Unauthorized: Not restaurant owner')
       }
 
@@ -1130,15 +1111,16 @@ class OrderService {
           (analytics.ordersByStatus[order.status] || 0) + 1
       })
 
-      // Get restaurant names separately to avoid foreign key issues
+      // Get restaurant names using users table (consistent foreign key)
       const restaurantIds = [...new Set(orders.map(order => order.restaurant_id))]
       const { data: restaurants } = await supabase
-        .from('restaurants')
-        .select('id, name')
+        .from('users')
+        .select('id, restaurant_name')
+        .eq('role', 'restaurant_owner')
         .in('id', restaurantIds)
 
       const restaurantMap = restaurants?.reduce((acc, restaurant) => {
-        acc[restaurant.id] = restaurant.name
+        acc[restaurant.id] = restaurant.restaurant_name
         return acc
       }, {}) || {}
 
@@ -1384,12 +1366,13 @@ class OrderService {
     // Get restaurant names for the orders
     const restaurantIds = [...new Set(orders.map(order => order.restaurant_id))]
     const { data: restaurants } = await supabase
-      .from('restaurants')
-      .select('id, name')
+      .from('users')
+      .select('id, restaurant_name')
+      .eq('role', 'restaurant_owner')
       .in('id', restaurantIds)
 
     const restaurantMap = restaurants?.reduce((acc, restaurant) => {
-      acc[restaurant.id] = restaurant.name
+      acc[restaurant.id] = restaurant.restaurant_name
       return acc
     }, {}) || {}
 

@@ -138,11 +138,12 @@ const CustomerMenu = () => {
 
   const fetchRestaurantData = async () => {
     try {
-      // Fetch restaurant info
+      // Fetch restaurant info from users table (consistent foreign key)
       const { data: restaurantData, error: restaurantError } = await supabase
-        .from('restaurants')
+        .from('users')
         .select('*')
         .eq('id', restaurantId)
+        .eq('role', 'restaurant_owner')
         .single()
 
       if (restaurantError) throw restaurantError

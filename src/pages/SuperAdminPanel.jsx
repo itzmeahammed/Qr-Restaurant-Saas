@@ -115,10 +115,11 @@ const SuperAdminPanel = () => {
 
   const fetchStats = async () => {
     try {
-      // Fetch restaurants
+      // Fetch restaurants from users table (consistent foreign key)
       const { data: restaurantsData } = await supabase
-        .from('restaurants')
+        .from('users')
         .select('id, is_active')
+        .eq('role', 'restaurant_owner')
 
       // Fetch orders using enhanced service for better analytics
       let ordersData = []
@@ -198,7 +199,8 @@ const SuperAdminPanel = () => {
   const fetchRestaurants = async () => {
     try {
       const { data } = await supabase
-        .from('restaurants')
+        .from('users')
+        .eq('role', 'restaurant_owner')
         .select(`
           *,
           orders(total_amount, status, created_at),
@@ -240,10 +242,11 @@ const SuperAdminPanel = () => {
 
   const fetchUsers = async () => {
     try {
-      // Fetch restaurant owners
+      // Fetch restaurant owners from users table (consistent foreign key)
       const { data: restaurantsData } = await supabase
-        .from('restaurants')
-        .select('id, name, owner_id, email, phone, created_at')
+        .from('users')
+        .select('id, restaurant_name, id as owner_id, email, phone, created_at')
+        .eq('role', 'restaurant_owner')
       
       // Fetch staff with restaurant info
       const { data: staffData } = await supabase
@@ -445,8 +448,9 @@ const SuperAdminPanel = () => {
   const toggleRestaurantStatus = async (restaurantId, currentStatus) => {
     try {
       const { error } = await supabase
-        .from('restaurants')
+        .from('users')
         .update({ is_active: !currentStatus })
+        .eq('role', 'restaurant_owner')
         .eq('id', restaurantId)
 
       if (error) throw error
