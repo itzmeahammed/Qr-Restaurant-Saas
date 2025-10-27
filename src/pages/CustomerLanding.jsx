@@ -351,7 +351,7 @@ const CustomerLanding = () => {
 
                   {/* Mobile Tagline */}
                   <p className="text-base font-black text-black/90 max-w-sm mx-auto">
-                    India's fastest dine-in app 🇮🇳
+                    India's fastest dine-in app
                   </p>
                 </motion.div>
               </div>
