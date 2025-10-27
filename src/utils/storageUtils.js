@@ -1,14 +1,91 @@
 import { supabase } from '../config/supabase'
 
 /**
- * Upload image to Supabase storage bucket
+ * Upload image to Supabase storage bucket with restaurant-specific organization
  * @param {File} file - The image file to upload
+ * @param {string} restaurantId - The restaurant ID for organization
+ * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category')
  * @param {string} bucket - The storage bucket name
- * @param {string} folder - The folder path within the bucket
  * @param {string} fileName - The file name (optional, will generate if not provided)
- * @returns {Promise<{url: string, path: string}>} - The public URL and storage path
+ * @returns {Promise<{url: string, path: string, bucket: string}>} - The public URL, storage path, and bucket
+ */
+export const uploadRestaurantImage = async (file, restaurantId, imageType, bucket = 'restaurant-images', fileName = null) => {
+  try {
+    if (!file) {
+      throw new Error('No file provided')
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      throw new Error('File must be an image')
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size must be less than 5MB')
+    }
+
+    // Validate restaurant ID and image type
+    if (!restaurantId) {
+      throw new Error('Restaurant ID is required')
+    }
+    
+    if (!['logo', 'banner', 'menu-item', 'category'].includes(imageType)) {
+      throw new Error('Invalid image type. Must be: logo, banner, menu-item, or category')
+    }
+
+    // Generate unique filename if not provided
+    const timestamp = Date.now()
+    const randomString = Math.random().toString(36).substring(2, 15)
+    const fileExtension = file.name.split('.').pop()
+    const finalFileName = fileName || `${timestamp}_${randomString}.${fileExtension}`
+    
+    // Construct restaurant-specific folder structure
+    const folder = `restaurants/${restaurantId}/${imageType}s`
+    const filePath = `${folder}/${finalFileName}`
+
+    // Upload file to Supabase storage
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      })
+
+    if (error) {
+      console.error('Storage upload error:', error)
+      throw new Error(`Upload failed: ${error.message}`)
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath)
+
+    return {
+      url: publicUrl,
+      path: filePath,
+      bucket: bucket,
+      folder: folder,
+      fileName: finalFileName,
+      imageType: imageType,
+      restaurantId: restaurantId
+    }
+  } catch (error) {
+    console.error('Error uploading image:', error)
+    throw error
+  }
+}
+
+/**
+ * Legacy upload function for backward compatibility
+ * @deprecated Use uploadRestaurantImage instead
  */
 export const uploadImageToStorage = async (file, bucket = 'restaurant-images', folder = '', fileName = null) => {
+  console.warn('uploadImageToStorage is deprecated. Use uploadRestaurantImage instead.')
+  
   try {
     if (!file) {
       throw new Error('No file provided')
@@ -118,14 +195,12 @@ export const getSignedUrl = async (bucket = 'restaurant-images', filePath, expir
 }
 
 /**
- * Compress image before upload
- * @param {File} file - The image file to compress
- * @param {number} maxWidth - Maximum width (default: 1200)
- * @param {number} maxHeight - Maximum height (default: 800)
- * @param {number} quality - Compression quality (0-1, default: 0.8)
- * @returns {Promise<File>} - The compressed image file
+ * Legacy compress function for backward compatibility
+ * @deprecated Use compressRestaurantImage instead
  */
 export const compressImage = (file, maxWidth = 1200, maxHeight = 800, quality = 0.8) => {
+  console.warn('compressImage is deprecated. Use compressRestaurantImage instead.')
+  
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -180,6 +255,114 @@ export const compressImage = (file, maxWidth = 1200, maxHeight = 800, quality = 
 }
 
 /**
+ * Delete restaurant image with proper path handling
+ * @param {string} restaurantId - The restaurant ID
+ * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category')
+ * @param {string} fileName - The file name to delete
+ * @param {string} bucket - The storage bucket name
+ * @returns {Promise<boolean>} - Success status
+ */
+export const deleteRestaurantImage = async (restaurantId, imageType, fileName, bucket = 'restaurant-images') => {
+  try {
+    if (!restaurantId || !imageType || !fileName) {
+      throw new Error('Restaurant ID, image type, and file name are required')
+    }
+
+    const filePath = `restaurants/${restaurantId}/${imageType}s/${fileName}`
+    
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([filePath])
+
+    if (error) {
+      console.error('Storage delete error:', error)
+      throw new Error(`Delete failed: ${error.message}`)
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting restaurant image:', error)
+    throw error
+  }
+}
+
+/**
+ * List all images for a restaurant
+ * @param {string} restaurantId - The restaurant ID
+ * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category') or 'all'
+ * @param {string} bucket - The storage bucket name
+ * @returns {Promise<Array>} - Array of file objects
+ */
+export const listRestaurantImages = async (restaurantId, imageType = 'all', bucket = 'restaurant-images') => {
+  try {
+    if (!restaurantId) {
+      throw new Error('Restaurant ID is required')
+    }
+
+    let folderPath
+    if (imageType === 'all') {
+      folderPath = `restaurants/${restaurantId}`
+    } else {
+      folderPath = `restaurants/${restaurantId}/${imageType}s`
+    }
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .list(folderPath, {
+        limit: 100,
+        offset: 0
+      })
+
+    if (error) {
+      console.error('Storage list error:', error)
+      throw new Error(`List failed: ${error.message}`)
+    }
+
+    // Add public URLs to each file
+    const filesWithUrls = data.map(file => {
+      const filePath = `${folderPath}/${file.name}`
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath)
+      
+      return {
+        ...file,
+        path: filePath,
+        url: publicUrl,
+        restaurantId,
+        imageType: imageType === 'all' ? 'mixed' : imageType
+      }
+    })
+
+    return filesWithUrls
+  } catch (error) {
+    console.error('Error listing restaurant images:', error)
+    throw error
+  }
+}
+
+/**
+ * Get restaurant image URL by type and filename
+ * @param {string} restaurantId - The restaurant ID
+ * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category')
+ * @param {string} fileName - The file name
+ * @param {string} bucket - The storage bucket name
+ * @returns {string} - The public URL
+ */
+export const getRestaurantImageUrl = (restaurantId, imageType, fileName, bucket = 'restaurant-images') => {
+  if (!restaurantId || !imageType || !fileName) {
+    throw new Error('Restaurant ID, image type, and file name are required')
+  }
+
+  const filePath = `restaurants/${restaurantId}/${imageType}s/${fileName}`
+  const { data: { publicUrl } } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(filePath)
+
+  return publicUrl
+}
+
+/**
  * Create storage bucket if it doesn't exist
  * @param {string} bucketName - The bucket name to create
  * @param {boolean} isPublic - Whether the bucket should be public (default: true)
@@ -220,6 +403,95 @@ export const createStorageBucket = async (bucketName = 'restaurant-images', isPu
     console.error('Error in createStorageBucket:', error)
     throw error
   }
+}
+
+/**
+ * Compress image with specific dimensions for different image types
+ * @param {File} file - The image file to compress
+ * @param {string} imageType - Type of image ('logo', 'banner', 'menu-item', 'category')
+ * @param {number} quality - Compression quality (0-1, default: 0.8)
+ * @returns {Promise<File>} - The compressed image file
+ */
+export const compressRestaurantImage = (file, imageType, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+
+    // Define dimensions for different image types
+    const dimensions = {
+      'logo': { width: 400, height: 400 },
+      'banner': { width: 1200, height: 400 },
+      'menu-item': { width: 800, height: 600 },
+      'category': { width: 600, height: 400 }
+    }
+
+    const targetDimensions = dimensions[imageType] || { width: 800, height: 600 }
+
+    img.onload = () => {
+      const { width: targetWidth, height: targetHeight } = targetDimensions
+      
+      // For logos, maintain aspect ratio within square
+      if (imageType === 'logo') {
+        const size = Math.min(img.width, img.height)
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        
+        // Center the image
+        const x = (targetWidth - size) / 2
+        const y = (targetHeight - size) / 2
+        
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, targetWidth, targetHeight)
+        ctx.drawImage(img, x, y, size, size)
+      } else {
+        // For other types, fit to dimensions maintaining aspect ratio
+        const aspectRatio = img.width / img.height
+        const targetAspectRatio = targetWidth / targetHeight
+        
+        let drawWidth, drawHeight, x = 0, y = 0
+        
+        if (aspectRatio > targetAspectRatio) {
+          drawWidth = targetWidth
+          drawHeight = targetWidth / aspectRatio
+          y = (targetHeight - drawHeight) / 2
+        } else {
+          drawHeight = targetHeight
+          drawWidth = targetHeight * aspectRatio
+          x = (targetWidth - drawWidth) / 2
+        }
+        
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, targetWidth, targetHeight)
+        ctx.drawImage(img, x, y, drawWidth, drawHeight)
+      }
+      
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now()
+            })
+            resolve(compressedFile)
+          } else {
+            reject(new Error('Failed to compress image'))
+          }
+        },
+        file.type,
+        quality
+      )
+    }
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image for compression'))
+    }
+
+    img.src = URL.createObjectURL(file)
+  })
 }
 
 /**

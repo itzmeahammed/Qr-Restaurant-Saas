@@ -283,7 +283,7 @@ const useAuthStore = create((set, get) => ({
         .from('users')
         .select('id, email')
         .eq('email', email)
-        .single()
+        .maybeSingle()
 
       if (existingUser) {
         throw new Error('An account with this email already exists')
