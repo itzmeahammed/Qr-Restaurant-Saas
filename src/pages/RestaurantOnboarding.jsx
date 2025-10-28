@@ -21,6 +21,11 @@ import useAuthStore from '../stores/useAuthStore'
 import { useConfirmation } from '../contexts/ConfirmationContext'
 import { uploadImageRLSFree, compressRestaurantImage } from '../utils/storageUtils'
 import toast from 'react-hot-toast'
+import restaurantLogo from '../assets/restaurant-logo.png'
+
+// Brand colors
+const BRAND_ORANGE = '#F59E0B'
+const BRAND_BLACK = '#1F2937'
 
 
 const RestaurantOnboarding = () => {
@@ -977,240 +982,194 @@ const RestaurantOnboarding = () => {
   }, [currentStep, formData, imagePreview, imageFiles, dragActive, loading])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-pink-50 relative">
+    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: BRAND_ORANGE }}>
       {/* Enhanced Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Floating Orbs */}
-        <motion.div
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-orange-300/30 to-pink-300/30 rounded-full blur-xl"
+        <motion.div 
+          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/10"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
-          animate={{
-            x: [0, -80, 0],
-            y: [0, 60, 0],
-            scale: [1.2, 1, 1.2],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="absolute bottom-32 right-32 w-40 h-40 bg-gradient-to-r from-purple-300/30 to-blue-300/30 rounded-full blur-xl"
+        <motion.div 
+          className="absolute bottom-32 left-16 w-24 h-24 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         />
         
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 opacity-[0.02]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-        </div>
-        
-        {/* Floating Elements */}
-        {[...Array(window.innerWidth < 768 ? 6 : 10)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute bg-gradient-to-r from-orange-200/20 to-purple-200/20 backdrop-blur-sm rounded-xl"
-            style={{
-              width: Math.random() * 60 + 30,
-              height: Math.random() * 60 + 30,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, -15, 0],
-              x: [0, 8, 0],
-              rotate: [0, 180, 360],
-            }}
-            transition={{
-              duration: Math.random() * 3 + 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
+        }} />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-2 sm:p-4 md:p-6">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 sm:py-8 lg:py-12">
+        {/* Enhanced Header */}
         <motion.div
-          {...(prefersReducedMotion ? {} : animations.container)}
-          className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-3xl border border-white/20"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8 sm:mb-12"
         >
-          {/* Enhanced Header */}
-          <div className="text-center mb-6 sm:mb-8">
-            <motion.div
-              className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-orange-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4"
-              {...(prefersReducedMotion ? {} : {
-                initial: { scale: 0, rotate: -180 },
-                animate: { scale: 1, rotate: 0 },
-                transition: { delay: 0.3, duration: 0.8, type: "spring", bounce: 0.4 }
-              })}
-            >
-              <BuildingStorefrontIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-            </motion.div>
-
-            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-600 to-purple-600 bg-clip-text text-transparent mb-2">
-              Restaurant Setup
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600">
-              Let's get your restaurant ready for customers
-            </p>
-          </div>
-
-          {/* Enhanced Progress Steps - Fully Visible and Clear */}
-          <div className="mb-8 sm:mb-10">
-            {/* Mobile Progress Bar */}
-            <div className="block sm:hidden mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Step {currentStep} of {steps.length}</span>
-                <span className="text-sm text-gray-500">{Math.round((currentStep / steps.length) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-orange-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(currentStep / steps.length) * 100}%` }}
-                />
-              </div>
-              <div className="mt-3 text-center">
-                <div className="flex items-center justify-center space-x-2">
-                  {React.createElement(steps[currentStep - 1].icon, { className: "w-5 h-5 text-orange-600" })}
-                  <span className="font-medium text-gray-900">{steps[currentStep - 1].title}</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-1">{steps[currentStep - 1].description}</p>
-              </div>
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
+            className="mb-6"
+          >
+            <div className="bg-white rounded-2xl px-6 py-4 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] inline-block">
+              <img src={restaurantLogo} alt="Ordyrr Restaurant" className="h-16 w-auto" />
             </div>
+          </motion.div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-black mb-3 tracking-tight">
+            RESTAURANT SETUP
+          </h1>
+          <p className="text-base sm:text-lg font-bold text-black/80 max-w-2xl mx-auto px-4">
+            Let's get your restaurant up and running! 
+          </p>
+        </motion.div>
 
-            {/* Desktop Progress Steps */}
-            <div className="hidden sm:block">
-              <div className="flex items-center justify-between">
-                {steps.map((step, index) => (
-                  <div key={step.id} className="flex flex-col items-center flex-1 relative">
-                    {/* Step Circle */}
-                    <motion.div
-                      className={`w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center mb-3 cursor-pointer transition-all duration-300 ${
-                        currentStep > step.id
-                          ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
-                          : currentStep === step.id
-                          ? 'bg-gradient-to-r from-orange-500 to-purple-600 text-white shadow-lg ring-4 ring-orange-200'
-                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                      }`}
-                      {...(prefersReducedMotion ? {} : {
-                        whileHover: { scale: 1.05 },
-                        whileTap: { scale: 0.95 }
-                      })}
-                      onClick={() => {
-                        if (currentStep > step.id) {
-                          setCurrentStep(step.id)
-                        }
-                      }}
-                    >
-                      {currentStep > step.id ? (
-                        <CheckCircleIcon className="w-6 h-6 lg:w-7 lg:h-7" />
-                      ) : (
-                        <step.icon className="w-6 h-6 lg:w-7 lg:h-7" />
-                      )}
-                    </motion.div>
-
-                    {/* Step Title and Description */}
-                    <div className="text-center max-w-[120px]">
-                      <h3 className={`text-sm lg:text-base font-semibold mb-1 ${
-                        currentStep >= step.id ? 'text-gray-900' : 'text-gray-500'
-                      }`}>
-                        {step.title}
-                      </h3>
-                      <p className={`text-xs lg:text-sm ${
-                        currentStep >= step.id ? 'text-gray-600' : 'text-gray-400'
-                      }`}>
-                        {step.description}
-                      </p>
-                    </div>
-
-                    {/* Connection Line */}
-                    {index < steps.length - 1 && (
-                      <div className="absolute top-6 left-1/2 w-full h-1 -z-10">
-                        <div className={`h-full transition-all duration-500 ${
-                          currentStep > step.id 
-                            ? 'bg-gradient-to-r from-green-500 to-green-600' 
-                            : 'bg-gray-200'
-                        }`} />
-                      </div>
-                    )}
+        {/* Progress Steps - Redesigned */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-8 sm:mb-12"
+        >
+          <div className="bg-white rounded-2xl p-4 sm:p-6 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)]">
+            {/* Mobile: Vertical Steps */}
+            <div className="sm:hidden space-y-3">
+              {steps.map((step) => (
+                <div key={step.id} className="flex items-start space-x-3">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-black text-sm border-3 border-black transition-all ${
+                    currentStep > step.id
+                      ? 'bg-green-500 text-white'
+                      : currentStep === step.id
+                      ? 'text-white shadow-[3px_3px_0_0_rgba(0,0,0,1)]'
+                      : 'bg-gray-200 text-gray-500'
+                  }`} style={currentStep === step.id ? { backgroundColor: BRAND_ORANGE } : {}}>
+                    {currentStep > step.id ? '✓' : step.id}
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1">
+                    <h3 className={`text-sm font-black mb-1 ${
+                      currentStep >= step.id ? 'text-black' : 'text-gray-400'
+                    }`}>
+                      {step.title.toUpperCase()}
+                    </h3>
+                    <p className={`text-xs font-bold ${
+                      currentStep >= step.id ? 'text-black/70' : 'text-gray-400'
+                    }`}>
+                      {step.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: Horizontal Steps */}
+            <div className="hidden sm:flex items-start justify-between gap-2">
+              {steps.map((step, index) => (
+                <div key={step.id} className="flex-1 relative">
+                  <div className="flex flex-col items-center text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center font-black text-lg mb-3 border-4 border-black transition-all ${
+                        currentStep > step.id
+                          ? 'bg-green-500 text-white shadow-[4px_4px_0_0_rgba(0,0,0,1)]'
+                          : currentStep === step.id
+                          ? 'text-white shadow-[4px_4px_0_0_rgba(0,0,0,1)]'
+                          : 'bg-gray-200 text-gray-500'
+                      }`}
+                      style={currentStep === step.id ? { backgroundColor: BRAND_ORANGE } : {}}
+                    >
+                      {currentStep > step.id ? '✓' : step.id}
+                    </motion.div>
+                    <h3 className={`text-xs font-black mb-1 ${
+                      currentStep >= step.id ? 'text-black' : 'text-gray-400'
+                    }`}>
+                      {step.title.toUpperCase()}
+                    </h3>
+                    <p className={`text-xs font-bold ${
+                      currentStep >= step.id ? 'text-black/70' : 'text-gray-400'
+                    }`}>
+                      {step.description}
+                    </p>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="absolute top-7 left-1/2 w-full h-1 -z-10">
+                      <div className={`h-full transition-all border-2 border-black ${
+                        currentStep > step.id ? 'bg-green-500' : 'bg-gray-200'
+                      }`} />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        </motion.div>
 
-          {/* Enhanced Step Content */}
-          <div className="mb-6 sm:mb-8">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStep}
-                {...(prefersReducedMotion ? {} : animations.step)}
-                className="min-h-[200px] sm:min-h-[300px] bg-white rounded-xl p-6 shadow-sm border border-gray-100"
-              >
-                {memoizedRenderStep}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+        {/* Step Content */}
+        <div className="mb-6 sm:mb-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              {...(prefersReducedMotion ? {} : animations.step)}
+              className="min-h-[200px] sm:min-h-[300px] bg-white rounded-2xl p-6 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)]"
+            >
+              {memoizedRenderStep}
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
-          {/* Enhanced Navigation - Mobile Optimized */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
-            <button
+        {/* Navigation Buttons */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={prevStep}
               disabled={currentStep === 1}
-              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[48px]"
+              className="flex items-center justify-center space-x-2 px-6 py-4 bg-white text-black rounded-full font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px]"
             >
-              <ArrowLeftIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Previous</span>
-              <span className="sm:hidden">Back</span>
-            </button>
+              <ArrowLeftIcon className="w-5 h-5" />
+              <span>BACK</span>
+            </motion.button>
 
             {currentStep < 5 ? (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={nextStep}
-                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl font-medium hover:from-orange-600 hover:to-purple-700 transition-all duration-200 touch-manipulation min-h-[48px] shadow-lg hover:shadow-xl"
+                className="flex items-center justify-center space-x-2 px-6 py-4 text-white rounded-full font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all min-h-[56px]"
+                style={{ backgroundColor: BRAND_ORANGE }}
               >
-                <span className="hidden sm:inline">Next</span>
-                <span className="sm:hidden">Continue</span>
-                <ArrowRightIcon className="w-4 h-4" />
-              </button>
+                <span>CONTINUE</span>
+                <ArrowRightIcon className="w-5 h-5" />
+              </motion.button>
             ) : (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleSubmit}
                 disabled={loading || uploadingImages}
-                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[48px] shadow-lg hover:shadow-xl"
+                className="flex items-center justify-center space-x-2 px-6 py-4 bg-green-500 text-white rounded-full font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px]"
               >
                 {loading || uploadingImages ? (
                   <>
                     <motion.div
-                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                      className="w-5 h-5 border-3 border-white border-t-transparent rounded-full"
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                     />
-                    <span>{uploadingImages ? 'Uploading...' : 'Creating...'}</span>
+                    <span>{uploadingImages ? 'UPLOADING...' : 'CREATING...'}</span>
                   </>
                 ) : (
                   <>
-                    <span>Complete Setup</span>
-                    <CheckCircleIcon className="w-4 h-4" />
+                    <span>COMPLETE SETUP</span>
+                    <CheckCircleIcon className="w-5 h-5" />
                   </>
                 )}
-              </button>
+              </motion.button>
             )}
           </div>
-
-        </motion.div>
       </div>
     </div>
   )
