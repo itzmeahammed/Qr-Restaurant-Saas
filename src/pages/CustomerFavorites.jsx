@@ -6,7 +6,10 @@ import {
   MapPinIcon,
   EyeIcon,
   QrCodeIcon,
-  ClockIcon
+  ClockIcon,
+  ArrowLeftIcon,
+  Bars3Icon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import CustomerNavHeader from '../components/customer/CustomerNavHeader'
@@ -15,6 +18,11 @@ import { useCustomerNavigation } from '../contexts/CustomerNavigationContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../config/supabase'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
+
+// Brand colors
+const BRAND_LIME = '#C6FF3D'
+const BRAND_BLACK = '#2D2D2D'
 
 const CustomerFavorites = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(false)
@@ -129,29 +137,84 @@ const CustomerFavorites = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <CustomerNavHeader 
-        title="My Favorites" 
-        showBackButton={true}
-        showMenu={true}
-        onMenuClick={() => setShowMobileMenu(true)}
-      />
+    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
+      {/* Playful Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <motion.div 
+          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
+        }} />
+      </div>
 
-      {/* User Info */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">
-              {currentUser?.name?.charAt(0) || 'A'}
-            </span>
-          </div>
-          <div>
-            <h2 className="font-bold text-gray-900">{currentUser?.name || 'Ahammed S'}</h2>
-            <p className="text-sm text-gray-600">
-              {favorites.length} favorite restaurant{favorites.length !== 1 ? 's' : ''}
-            </p>
+      {/* Header */}
+      <motion.div 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className="sticky top-0 z-50 bg-black border-b-4 border-black"
+      >
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: -10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate('/customer')}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+            >
+              <ArrowLeftIcon className="w-5 h-5 text-black" />
+            </motion.button>
+            
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
+            >
+              <img src={logo} alt="Ordyrr" className="h-10 w-auto" />
+            </motion.div>
+            
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowMobileMenu(true)}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+            >
+              <Bars3Icon className="w-5 h-5 text-black" />
+            </motion.button>
           </div>
         </div>
+      </motion.div>
+
+      {/* Page Title & User Info */}
+      <div className="relative z-10 p-4 max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-6 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] mb-4"
+        >
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              className="w-20 h-20 rounded-full flex items-center justify-center border-4 border-black"
+              style={{ backgroundColor: BRAND_LIME }}
+            >
+              <HeartSolidIcon className="w-10 h-10 text-red-500" />
+            </motion.div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-black text-black tracking-tight mb-1">MY FAVORITES</h2>
+              <p className="text-black/70 font-bold text-sm">{favorites.length} favorite restaurants</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Favorites List */}

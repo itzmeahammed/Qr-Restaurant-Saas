@@ -214,7 +214,91 @@ const RestaurantDiscovery = () => {
   }
 
   if (loading) {
-    return <CustomerLoader message="Finding restaurants near you..." />
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: BRAND_LIME }}>
+        {/* Playful Background - Matching Landing Page */}
+        <div className="fixed inset-0 pointer-events-none">
+          <motion.div 
+            className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
+            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
+            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          
+          {/* Dot Pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        {/* Loading Content */}
+        <div className="relative z-10 text-center px-4">
+          {/* Logo Container - Matching Landing Page Style */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ duration: 0.8, type: "spring", bounce: 0.5 }}
+            className="mb-8"
+          >
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="bg-white rounded-2xl px-8 py-6 border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] inline-block"
+            >
+              <img src={logo} alt="Ordyrr" className="h-20 w-auto" />
+            </motion.div>
+          </motion.div>
+
+          {/* Loading Text */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h2 className="text-2xl sm:text-3xl font-black text-black mb-3 tracking-tight">
+              FINDING RESTAURANTS
+            </h2>
+            <p className="text-base font-bold text-black/70 mb-6">
+              Discovering amazing food near you... 🍽️
+            </p>
+            
+            {/* Animated Food Emojis */}
+            <div className="flex items-center justify-center gap-4">
+              {['🍕', '🍔', '🍜', '🍰'].map((emoji, i) => (
+                <motion.div
+                  key={i}
+                  className="text-4xl"
+                  animate={{
+                    y: [0, -15, 0],
+                    rotate: [0, 10, -10, 0],
+                    scale: [1, 1.2, 1]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: i * 0.3,
+                    ease: "easeInOut"
+                  }}
+                >
+                  {emoji}
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -238,20 +322,20 @@ const RestaurantDiscovery = () => {
         }} />
       </div>
 
-      {/* Professional Navbar */}
+      {/* Sleek Mobile-Friendly Navbar */}
       <motion.div 
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="sticky top-0 z-50 bg-black border-b-4 border-black"
+        className="sticky top-0 z-50 bg-black border-b-2 border-black"
       >
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Back Button */}
             <motion.button
-              whileHover={{ scale: 1.1, rotate: -10 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/customer')}
-              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+              className="w-11 h-11 rounded-full bg-white border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_rgba(198,255,61,1)] hover:shadow-[3px_3px_0_0_rgba(198,255,61,1)] transition-all"
             >
               <ArrowLeftIcon className="w-5 h-5 text-black" />
             </motion.button>
@@ -263,15 +347,15 @@ const RestaurantDiscovery = () => {
               transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
               className="flex items-center"
             >
-              <img src={logo} alt="Ordyrr" className="h-10 w-auto" />
+              <img src={logo} alt="Ordyrr" className="h-9 w-auto" />
             </motion.div>
             
             {/* Filter Button */}
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 10 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setShowMobileMenu(true)}
-              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+              className="w-11 h-11 rounded-full bg-white border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_rgba(198,255,61,1)] hover:shadow-[3px_3px_0_0_rgba(198,255,61,1)] transition-all"
             >
               <FunnelIcon className="w-5 h-5 text-black" />
             </motion.button>
@@ -279,35 +363,35 @@ const RestaurantDiscovery = () => {
         </div>
       </motion.div>
 
-      {/* Search and Filters */}
+      {/* Mobile-Friendly Search and Filters */}
       <div className="px-4 py-4">
-        {/* Search Bar */}
+        {/* Sleeker Search Bar */}
         <div className="relative mb-4">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search restaurants..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent shadow-sm"
+            className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-lime-400 focus:border-transparent shadow-sm text-base"
           />
         </div>
 
-        {/* Cuisine Filter Chips - Mobile Optimized */}
+        {/* Sleeker Cuisine Filter Chips */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mb-6 overflow-x-auto scrollbar-hide"
+          className="mb-5 overflow-x-auto scrollbar-hide"
         >
           <div className="flex gap-2 pb-2">
             {cuisineTypes.map((cuisine) => (
               <motion.button
                 key={cuisine.id}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => setSelectedCuisine(cuisine.id)}
-                className={`px-4 py-2 rounded-full font-black text-sm whitespace-nowrap border-4 border-black transition-all shadow-[3px_3px_0_0_rgba(0,0,0,1)] ${
+                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap border-2 border-black transition-all shadow-[2px_2px_0_0_rgba(0,0,0,1)] ${
                   selectedCuisine === cuisine.id
                     ? 'bg-black text-lime-400'
                     : 'bg-white text-black hover:bg-gray-50'
@@ -321,43 +405,53 @@ const RestaurantDiscovery = () => {
         </motion.div>
 
         {/* Results Count */}
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-3">
           {filteredRestaurants.length} restaurants found
           {searchQuery && ` for "${searchQuery}"`}
         </p>
       </div>
 
-      {/* Restaurant Cards Grid - Mobile First */}
+      {/* Sleek Mobile-Friendly Restaurant Cards */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 pb-8">
         {loading ? (
           <CustomerLoader />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredRestaurants.map((restaurant, index) => (
             <motion.div
               key={restaurant.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               onClick={() => handleRestaurantClick(restaurant)}
-              className="bg-white rounded-2xl overflow-hidden border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] transition-all cursor-pointer"
+              className="bg-white rounded-2xl overflow-hidden border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[5px_5px_0_0_rgba(0,0,0,1)] transition-all cursor-pointer"
             >
               {/* Restaurant Image */}
-              <div className="relative h-48 sm:h-56 overflow-hidden">
-                <img
-                  src={restaurant.image_url || `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop`}
-                  alt={restaurant.name}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                {restaurant.banner_url || restaurant.image_url || restaurant.logo_url ? (
+                  <img
+                    src={restaurant.banner_url || restaurant.image_url || restaurant.logo_url}
+                    alt={restaurant.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-lime-400 to-lime-500"><span class="text-6xl">🍽️</span></div>'
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-lime-400 to-lime-500">
+                    <span className="text-6xl">🍽️</span>
+                  </div>
+                )}
                 
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
                 {/* Status Badge */}
                 <div className="absolute top-3 left-3">
-                  <span className={`px-3 py-1.5 rounded-full text-xs font-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] ${
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border border-black shadow-[1px_1px_0_0_rgba(0,0,0,1)] ${
                     isCurrentlyOpen(restaurant)
                       ? 'bg-lime-400 text-black'
                       : 'bg-red-500 text-white'
@@ -369,13 +463,13 @@ const RestaurantDiscovery = () => {
                 {/* Favorite Button */}
                 <div className="absolute top-3 right-3">
                   <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={(e) => {
                       e.stopPropagation()
                       toast.success('Added to favorites!')
                     }}
-                    className="p-2 bg-white rounded-full border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all"
+                    className="p-2 bg-white rounded-full border border-black shadow-[1px_1px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] transition-all"
                   >
                     <HeartIcon className="w-5 h-5 text-red-500" />
                   </motion.button>
@@ -383,17 +477,17 @@ const RestaurantDiscovery = () => {
 
                 {/* Restaurant Name Overlay */}
                 <div className="absolute bottom-3 left-3 right-3">
-                  <h3 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight leading-tight">
-                    {restaurant.name?.toUpperCase()}
+                  <h3 className="text-lg sm:text-xl font-black text-white mb-2 tracking-tight leading-tight drop-shadow-lg">
+                    {(restaurant.restaurant_name || restaurant.name || restaurant.business_name || 'Restaurant')?.toUpperCase()}
                   </h3>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1 rounded-full px-2 py-1 border-2 border-black" style={{ backgroundColor: BRAND_LIME }}>
+                    <div className="flex items-center gap-1 rounded-full px-2.5 py-1 border border-black" style={{ backgroundColor: BRAND_LIME }}>
                       <StarSolidIcon className="w-4 h-4 text-black" />
-                      <span className="text-black font-black text-xs">{restaurant.rating}</span>
+                      <span className="text-black font-bold text-xs">{restaurant.rating || '4.2'}</span>
                     </div>
-                    <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 border-2 border-black">
+                    <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 border border-black">
                       <ClockIcon className="w-4 h-4 text-black" />
-                      <span className="text-black font-black text-xs">{restaurant.estimated_delivery_time || '25-30'}m</span>
+                      <span className="text-black font-bold text-xs">{restaurant.estimated_delivery_time || restaurant.delivery_time || '25-30'}m</span>
                     </div>
                   </div>
                 </div>
@@ -401,28 +495,28 @@ const RestaurantDiscovery = () => {
 
               {/* Restaurant Details */}
               <div className="p-4">
-                  <p className="text-black/70 text-xs sm:text-sm mb-3 line-clamp-2 leading-relaxed font-bold">
-                    {restaurant.description || 'Delicious food awaits you at this amazing restaurant.'}
+                  <p className="text-gray-700 text-sm mb-3 line-clamp-2 leading-relaxed">
+                    {restaurant.description || restaurant.bio || restaurant.about || 'Delicious food awaits you at this amazing restaurant.'}
                   </p>
 
                   <div className="flex items-center gap-2 mb-3">
-                    <MapPinIcon className="w-4 h-4 text-black/60 flex-shrink-0" />
-                    <span className="text-black/70 text-xs font-bold truncate">{restaurant.address}</span>
+                    <MapPinIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                    <span className="text-gray-600 text-sm truncate">{restaurant.address || restaurant.location || restaurant.full_address || 'Location not available'}</span>
                   </div>
 
                   {/* Bottom Actions */}
                   <div className="flex items-center gap-2">
                     {/* Cuisine Badge */}
-                    <span className="px-3 py-1.5 bg-black text-xs font-black rounded-full capitalize border-2 border-black" style={{ color: BRAND_LIME }}>
+                    <span className="px-3 py-1.5 bg-black text-xs font-bold rounded-full capitalize border border-black" style={{ color: BRAND_LIME }}>
                       {restaurant.cuisine_type}
                     </span>
 
                     {/* View Menu Button */}
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={(e) => handleViewMenu(restaurant, e)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-black text-xs sm:text-sm border-4 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all text-black"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all text-black"
                       style={{ backgroundColor: BRAND_LIME }}
                     >
                       <EyeIcon className="w-4 h-4" />
