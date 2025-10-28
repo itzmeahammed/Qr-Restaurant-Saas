@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
+import enhancedAuthService from '../services/enhancedAuthService'
 import toast from 'react-hot-toast'
 import restaurantLogo from '../assets/restaurant-logo.png'
 
@@ -93,22 +94,83 @@ const Auth = () => {
 
   const handleStaffSignup = async () => {
     try {
-      const { data, error } = await signUp(formData.email, formData.password, {
+      const result = await signUp(formData.email, formData.password, {
         full_name: formData.fullName,
         phone: formData.phone,
         role: 'staff'
       })
 
-      if (error) {
-        toast.error(error.message || 'Signup failed')
+      if (result.success) {
+        toast.success('Staff account created successfully! Please login with your credentials.')
+        setIsLogin(true) // Switch to login mode
+      } else {
+        console.error('Staff signup error:', result.error)
+        toast.error(result.error || 'Failed to create staff account')
+      }
+    } catch (error) {
+      console.error('Staff signup error:', error)
+      toast.error(error.message || 'An unexpected error occurred. Please try again.')
+    }
+  }
+
+  const handleRestaurantOwnerSignup = async () => {
+    try {
+      const result = await signUp(formData.email, formData.password, {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        role: 'restaurant_owner'
+      })
+
+      if (result.success) {
+        toast.success('Restaurant owner account created successfully! Please login to continue.')
+        setIsLogin(true) // Switch to login mode
+      } else {
+        console.error('Restaurant owner signup error:', result.error)
+        toast.error(result.error || 'Failed to create restaurant owner account')
+      }
+    } catch (error) {
+      console.error('Restaurant owner signup error:', error)
+      toast.error(error.message || 'An unexpected error occurred. Please try again.')
+    }
+  }
+
+  const handleSuperAdminSignup = async () => {
+    try {
+      const result = await signUp(formData.email, formData.password, {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        role: 'super_admin'
+      })
+
+      if (result.success) {
+        toast.success('Super admin account created successfully! Please login to continue.')
+        setIsLogin(true) // Switch to login mode
+      } else {
+        console.error('Super admin signup error:', result.error)
+        toast.error(result.error || 'Failed to create super admin account')
+      }
+    } catch (error) {
+      console.error('Super admin signup error:', error)
+      toast.error(error.message || 'An unexpected error occurred. Please try again.')
+    }
+  }
+
+  const handleLogin = async () => {
+    try {
+      const result = await signIn(formData.email, formData.password)
+
+      if (result.error) {
+        console.error('Login error:', result.error)
+        toast.error(result.error.message || 'Login failed')
         return
       }
 
-      toast.success('Account created successfully! You can now login.')
-      setIsLogin(true)
-      setFormData({ email: formData.email, password: '', fullName: '', phone: '' })
+      if (result.data && result.data.user) {
+        toast.success('Login successful!')
+        redirectToRoleDashboard(result.data.user.role)
+      }
     } catch (error) {
-      console.error('Staff signup error:', error)
+      console.error('Login error:', error)
       toast.error(error.message || 'An unexpected error occurred. Please try again.')
     }
   }
@@ -120,23 +182,17 @@ const Auth = () => {
     try {
       if (isLogin) {
         // Handle login for all roles
-        const { data, error } = await signIn(formData.email, formData.password)
-        
-        if (error) {
-          toast.error(error.message || 'Login failed')
-          return
-        }
-
-        if (data?.user) {
-          toast.success('Login successful!')
-          redirectToRoleDashboard(data.user.role)
-        }
+        await handleLogin()
       } else {
         // Handle signup for all roles (including staff)
         if (selectedRole === 'staff') {
           await handleStaffSignup()
+        } else if (selectedRole === 'restaurant_owner') {
+          await handleRestaurantOwnerSignup()
+        } else if (selectedRole === 'super_admin') {
+          await handleSuperAdminSignup()
         } else {
-          // Regular signup for restaurant_owner and super_admin
+          // Regular signup for super_admin
           const { data, error } = await signUp(formData.email, formData.password, {
             full_name: formData.fullName,
             phone: formData.phone,

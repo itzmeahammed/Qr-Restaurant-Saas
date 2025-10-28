@@ -19,7 +19,8 @@ import {
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import { useConfirmation } from '../contexts/ConfirmationContext'
-import { uploadImageRLSFree, compressRestaurantImage } from '../utils/storageUtils'
+import { uploadRestaurantImage, compressRestaurantImage } from '../utils/storageUtils'
+import enhancedAuthService from '../services/enhancedAuthService'
 import toast from 'react-hot-toast'
 import restaurantLogo from '../assets/restaurant-logo.png'
 
@@ -401,114 +402,107 @@ const RestaurantOnboarding = () => {
     }
   }
 
-  async function handleSubmit() {
+  // Enhanced image upload with proper error handling for both logo and banner
+  const uploadImages = async (restaurantId) => {
+    const uploadedUrls = { logo_url: null, banner_url: null }
+    
+    try {
+      setUploadingImages(true)
+      
+      // Upload logo if selected
+      if (imageFiles.logo) {
+        console.log('🔄 Uploading logo image...')
+        const compressedLogo = await compressRestaurantImage(imageFiles.logo, 'logo')
+        const logoUrl = await uploadRestaurantImage(compressedLogo, 'logo', restaurantId)
+        if (logoUrl) {
+          uploadedUrls.logo_url = logoUrl
+          console.log('✅ Logo uploaded successfully:', logoUrl)
+          toast.success('Logo uploaded successfully!')
+        }
+      }
+      
+      // Upload banner if selected
+      if (imageFiles.banner) {
+        console.log('🔄 Uploading banner image...')
+        const compressedBanner = await compressRestaurantImage(imageFiles.banner, 'banner')
+        const bannerUrl = await uploadRestaurantImage(compressedBanner, 'banner', restaurantId)
+        if (bannerUrl) {
+          uploadedUrls.banner_url = bannerUrl
+          console.log('✅ Banner uploaded successfully:', bannerUrl)
+          toast.success('Banner uploaded successfully!')
+        }
+      }
+      
+      console.log('📸 Final uploaded URLs:', uploadedUrls)
+      return uploadedUrls
+      
+    } catch (error) {
+      console.error('❌ Image upload failed:', error)
+      toast.error('Failed to upload images. You can add them later in settings.')
+      return { logo_url: null, banner_url: null }
+    } finally {
+      setUploadingImages(false)
+    }
+  }
+
+  const handleSubmit = async () => {
     if (!validateStep(currentStep)) {
-      toast.error('Please complete all required fields')
+      toast.error('Please fill in all required fields')
       return
     }
 
     setLoading(true)
-    setUploadingImages(true)
-    
+    let restaurantCreated = false
+
     try {
-      // Upload images using RLS-free method (now that storage RLS is fixed)
-      const uploadedUrls = { logo_url: null, banner_url: null }
+      console.log('🚀 Starting restaurant creation process...')
       
-      console.log('🚀 Starting image uploads with RLS-free method...')
-      
-      // Upload logo if provided
-      if (imageFiles.logo) {
-        try {
-          console.log('📤 Uploading logo...')
-          const compressedLogo = await compressRestaurantImage(imageFiles.logo, 'logo')
-          const logoResult = await uploadImageRLSFree(compressedLogo, user.id, 'logo')
-          uploadedUrls.logo_url = logoResult.url
-          console.log('✅ Logo uploaded successfully:', logoResult.url)
-          toast.success('Logo uploaded successfully!')
-        } catch (logoError) {
-          console.error('❌ Logo upload failed:', logoError)
-          toast.error('Logo upload failed, but continuing with restaurant setup')
-        }
-      }
-      
-      // Upload banner if provided
-      if (imageFiles.banner) {
-        try {
-          console.log('📤 Uploading banner...')
-          const compressedBanner = await compressRestaurantImage(imageFiles.banner, 'banner')
-          const bannerResult = await uploadImageRLSFree(compressedBanner, user.id, 'banner')
-          uploadedUrls.banner_url = bannerResult.url
-          console.log('✅ Banner uploaded successfully:', bannerResult.url)
-          toast.success('Banner uploaded successfully!')
-        } catch (bannerError) {
-          console.error('❌ Banner upload failed:', bannerError)
-          toast.error('Banner upload failed, but continuing with restaurant setup')
-        }
-      }
-      
-      console.log('🎯 Image upload phase complete:', uploadedUrls)
-      
-      // Update user record with restaurant information (simplified schema)
-      // Using only users table with additional restaurant fields
-      console.log('🔄 Updating user record with restaurant information...')
-      
-      const restaurantUpdateData = {
-        restaurant_name: formData.name,
-        restaurant_description: formData.description,
-        restaurant_address: formData.address,
-        restaurant_phone: formData.phone,
-        restaurant_email: formData.email,
+      // Prepare restaurant data
+      const restaurantData = {
+        name: formData.name,
+        description: formData.description,
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
         cuisine_type: formData.cuisine_type,
         opening_hours: formData.opening_hours,
-        logo_url: uploadedUrls.logo_url || null,
-        banner_url: uploadedUrls.banner_url || null,
-        is_active: true,
-        is_open: true,
-        updated_at: new Date().toISOString()
+        logo_url: null, // Will be updated after upload
+        banner_url: null // Will be updated after upload
       }
 
-      // Generate staff signup key if not exists
-      if (!user.staff_signup_key) {
-        const generateStaffKey = () => {
-          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-          let key = ''
-          for (let i = 0; i < 12; i++) {
-            if (i === 4 || i === 8) key += '-'
-            else key += chars.charAt(Math.floor(Math.random() * chars.length))
-          }
-          return key
-        }
-        restaurantUpdateData.staff_signup_key = generateStaffKey()
-      }
-      
-      let restaurantCreated = false
-      
+      console.log('📝 Restaurant data prepared:', restaurantData)
+
+      // Create restaurant record using enhanced auth service
       try {
-        console.log('🔄 Updating user record with restaurant data...')
+        console.log('🔄 Creating restaurant record...')
+        const restaurant = await enhancedAuthService.createRestaurant(user.id, restaurantData)
         
-        const { data: updatedUser, error: updateError } = await supabase
-          .from('users')
-          .update(restaurantUpdateData)
-          .eq('id', user.id)
-          .select()
-          .single()
+        console.log('✅ Restaurant record created:', restaurant.id)
+        restaurantCreated = true
+        toast.success('Restaurant created successfully!')
         
-        if (updateError) {
-          console.error('User update error:', updateError)
-          throw updateError
+        // Upload images after restaurant creation
+        if (imageFiles.logo || imageFiles.banner) {
+          console.log('🔄 Uploading images...')
+          const imageUrls = await uploadImages(restaurant.id)
+          
+          // Update restaurant with image URLs
+          if (imageUrls.logo_url || imageUrls.banner_url) {
+            await enhancedAuthService.updateRestaurant(restaurant.id, {
+              logo_url: imageUrls.logo_url,
+              banner_url: imageUrls.banner_url
+            })
+            console.log('✅ Restaurant updated with image URLs')
+          }
         }
         
-        console.log('✅ User record updated with restaurant data:', updatedUser.id)
-        restaurantCreated = true
-        toast.success('Restaurant information saved successfully!')
-        
-      } catch (updateError) {
-        console.error('❌ User update failed:', updateError)
-        toast.error('Failed to save restaurant information. Please try again.')
-        throw updateError
+      } catch (createError) {
+        console.error('❌ Restaurant creation failed:', createError)
+        toast.error('Failed to create restaurant. Please try again.')
+        throw createError
       }
 
-      // Handle default menu categories with RLS fallback
+      // Handle default menu categories
       const defaultCategories = [
         { name: 'Appetizers', description: 'Start your meal right' },
         { name: 'Main Course', description: 'Our signature dishes' },
@@ -516,39 +510,35 @@ const RestaurantOnboarding = () => {
         { name: 'Desserts', description: 'Sweet endings' }
       ]
 
-      // Try to create categories, but handle RLS policy violations gracefully
+      // Try to create categories using restaurant ID
       try {
-        console.log('🔄 Attempting to create default categories...')
-        const { error: categoriesError } = await supabase
-          .from('categories')
-          .insert(
-            defaultCategories.map((cat) => ({
-              restaurant_id: user.id, // Use user.id as per actual database schema
-              name: cat.name,
-              description: cat.description,
-              is_active: true,
-              sort_order: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }))
-          )
+        console.log('🔄 Creating default categories...')
+        const restaurant = await enhancedAuthService.getRestaurantByOwner(user.id)
+        
+        if (restaurant) {
+          const { error: categoriesError } = await supabase
+            .from('categories')
+            .insert(
+              defaultCategories.map((cat, index) => ({
+                restaurant_id: restaurant.id,
+                name: cat.name,
+                description: cat.description,
+                is_active: true,
+                sort_order: index
+              }))
+            )
 
-        if (categoriesError) {
-          console.warn('Categories creation failed:', categoriesError)
-          if (categoriesError.message?.includes('row-level security policy')) {
-            console.log('⚠️ Categories RLS policy violation - categories will be created later')
-            toast.info('Default menu categories will be set up automatically when you first access your dashboard')
+          if (categoriesError) {
+            console.warn('Categories creation failed:', categoriesError)
+            toast.info('Default menu categories will be set up in your dashboard')
           } else {
-            throw categoriesError
+            console.log('✅ Categories created successfully')
+            toast.success('Default menu categories created!')
           }
-        } else {
-          console.log('✅ Categories created successfully')
-          toast.success('Default menu categories created!')
         }
       } catch (error) {
         console.warn('Categories creation error:', error)
         toast.info('Menu categories will be set up when you access your dashboard')
-        // Don't throw error - continue with restaurant setup
       }
 
       // Refresh user profile to include restaurant data
