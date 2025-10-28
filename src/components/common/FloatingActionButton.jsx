@@ -33,11 +33,15 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
 
+  const BRAND_LIME = '#C6FF3D'
+  const BRAND_BLACK = '#2D2D2D'
+
   const actions = [
     {
       icon: QrCodeIcon,
       label: 'Scan QR',
-      color: 'bg-orange-500 hover:bg-orange-600 text-white',
+      color: 'text-white border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)]',
+      bgColor: BRAND_BLACK,
       onClick: () => {
         if (onQRScan) {
           onQRScan()
@@ -51,7 +55,8 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     {
       icon: MapPinIcon,
       label: 'Restaurants',
-      color: 'bg-white hover:bg-gray-50 text-orange-600 border border-orange-200',
+      color: 'text-black border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)]',
+      bgColor: '#FFFFFF',
       onClick: () => {
         if (onLocationSearch) {
           onLocationSearch()
@@ -66,7 +71,8 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     {
       icon: ChatBubbleLeftRightIcon,
       label: 'Live Chat',
-      color: 'bg-blue-500 hover:bg-blue-600 text-white',
+      color: 'text-white border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)]',
+      bgColor: '#3B82F6',
       onClick: () => {
         setShowChat(true)
         toast.success('💬 Chat opened', { duration: 1500 })
@@ -76,7 +82,8 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
     {
       icon: PhoneIcon,
       label: 'Call Us',
-      color: 'bg-green-500 hover:bg-green-600 text-white',
+      color: 'text-white border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)]',
+      bgColor: '#10B981',
       onClick: () => {
         const phoneNumber = '+1-800-QR-FOOD'
         if (navigator.userAgent.match(/iPhone|iPad|iPod|Android/i)) {
@@ -114,12 +121,12 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
                     onClick={() => setIsOpen(false)}
                   />
                   
-                  {/* Compact Action Menu */}
+                  {/* Compact Action Menu - Ordyrr Style */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                    className="absolute bottom-16 right-0 space-y-2"
+                    className="absolute bottom-20 right-0 space-y-3"
                   >
                     {actions.map((action, index) => (
                       <motion.button
@@ -128,13 +135,14 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                         transition={{ delay: index * 0.05 }}
-                        whileHover={{ scale: 1.05 }}
+                        whileHover={{ scale: 1.05, x: -4 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={action.onClick}
-                        className={`flex items-center gap-3 px-4 py-3 ${action.color} rounded-xl shadow-lg hover:shadow-xl transition-all font-medium text-sm`}
+                        className={`flex items-center gap-3 px-5 py-3 rounded-full transition-all font-black text-sm min-w-[170px] ${action.color}`}
+                        style={{ backgroundColor: action.bgColor }}
                       >
-                        <action.icon className="w-4 h-4 flex-shrink-0" />
-                        <span className="whitespace-nowrap">{action.label}</span>
+                        <action.icon className="w-5 h-5" />
+                        <span>{action.label}</span>
                       </motion.button>
                     ))}
                   </motion.div>
@@ -142,31 +150,32 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
               )}
             </AnimatePresence>
 
-            {/* Compact Main FAB */}
+            {/* Main FAB Button - Ordyrr Style */}
             <motion.button
-              whileHover={{ scale: 1.1 }}
+              whileHover={{ scale: 1.1, rotate: isOpen ? 0 : 90 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsOpen(!isOpen)}
-              className={`relative w-12 h-12 rounded-xl shadow-lg flex items-center justify-center transition-all duration-200 ${
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all border-4 border-black ${
                 isOpen 
-                  ? 'bg-white border-2 border-orange-300 text-orange-600' 
-                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                  ? 'shadow-[0_4px_0_0_rgba(0,0,0,1)]' 
+                  : 'shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)]'
               }`}
+              style={{ backgroundColor: isOpen ? '#EF4444' : BRAND_LIME }}
             >
               <motion.div
                 animate={{ rotate: isOpen ? 45 : 0 }}
                 transition={{ duration: 0.2 }}
               >
                 {isOpen ? (
-                  <XMarkIcon className="w-5 h-5" />
+                  <XMarkIcon className="w-6 h-6 text-white font-bold" />
                 ) : (
-                  <PlusIcon className="w-5 h-5" />
+                  <PlusIcon className="w-6 h-6 text-black font-bold" />
                 )}
               </motion.div>
               
-              {/* Small notification dot */}
+              {/* Small notification dot - Ordyrr Style */}
               {!isOpen && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse border-2 border-white" style={{ backgroundColor: '#EF4444' }}></div>
               )}
             </motion.button>
           </motion.div>

@@ -11,15 +11,22 @@ import {
   ArrowLeftIcon,
   QrCodeIcon,
   EyeIcon,
-  HeartIcon
+  HeartIcon,
+  FireIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
-import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
+import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import { supabase } from '../config/supabase'
 import toast from 'react-hot-toast'
 import CustomerLoader from '../components/customer/CustomerLoader'
 import CustomerNavHeader from '../components/customer/CustomerNavHeader'
 import CustomerBreadcrumbs from '../components/customer/CustomerBreadcrumbs'
 import MobileMenu from '../components/customer/MobileMenu'
+import logo from '../assets/logo.png'
+
+// Brand colors
+const BRAND_LIME = '#C6FF3D'
+const BRAND_BLACK = '#2D2D2D'
 
 const RestaurantDiscovery = () => {
   const [searchParams] = useSearchParams()
@@ -241,17 +248,66 @@ const RestaurantDiscovery = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation Header */}
-      <CustomerNavHeader 
-        title="Restaurants"
-        showBackButton={true}
-        showMenu={true}
-        onMenuClick={() => setShowMobileMenu(true)}
-      />
-      
-      {/* Breadcrumbs */}
-      <CustomerBreadcrumbs />
+    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
+      {/* Playful Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <motion.div 
+          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
+        }} />
+      </div>
+
+      {/* Professional Navbar */}
+      <motion.div 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className="sticky top-0 z-50 bg-black border-b-4 border-black"
+      >
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Back Button */}
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: -10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate('/customer')}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+            >
+              <ArrowLeftIcon className="w-5 h-5 text-black" />
+            </motion.button>
+            
+            {/* Logo */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
+              className="flex items-center"
+            >
+              <img src={logo} alt="Ordyrr" className="h-10 w-auto" />
+            </motion.div>
+            
+            {/* Filter Button */}
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowMobileMenu(true)}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+            >
+              <FunnelIcon className="w-5 h-5 text-black" />
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Search and Filters */}
       <div className="px-4 py-4">
@@ -267,22 +323,32 @@ const RestaurantDiscovery = () => {
           />
         </div>
 
-        {/* Cuisine Filter */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-4">
-          {cuisineTypes.map((cuisine) => (
-            <button
-              key={cuisine.id}
-              onClick={() => setSelectedCuisine(cuisine.id)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all ${
-                selectedCuisine === cuisine.id
-                  ? 'bg-black text-white'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {cuisine.name}
-            </button>
-          ))}
-        </div>
+        {/* Cuisine Filter Chips - Mobile Optimized */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-6 overflow-x-auto scrollbar-hide"
+        >
+          <div className="flex gap-2 pb-2">
+            {cuisineTypes.map((cuisine) => (
+              <motion.button
+                key={cuisine.id}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedCuisine(cuisine.id)}
+                className={`px-4 py-2 rounded-full font-black text-sm whitespace-nowrap border-4 border-black transition-all shadow-[3px_3px_0_0_rgba(0,0,0,1)] ${
+                  selectedCuisine === cuisine.id
+                    ? 'bg-black text-lime-400'
+                    : 'bg-white text-black hover:bg-gray-50'
+                }`}
+                style={selectedCuisine === cuisine.id ? { color: BRAND_LIME } : {}}
+              >
+                {cuisine.name.toUpperCase()}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Results Count */}
         <p className="text-sm text-gray-600 mb-4">
@@ -291,151 +357,106 @@ const RestaurantDiscovery = () => {
         </p>
       </div>
 
-      {/* Restaurant Grid */}
-      <div className="px-4">
-        {filteredRestaurants.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MagnifyingGlassIcon className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No restaurants found</h3>
-            <p className="text-gray-600 mb-4">Try adjusting your search</p>
-            <button
-              onClick={() => {
-                setSearchQuery('')
-                setSelectedCuisine('all')
-              }}
-              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              Clear Filters
-            </button>
-          </div>
+      {/* Restaurant Cards Grid - Mobile First */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 pb-8">
+        {loading ? (
+          <CustomerLoader />
         ) : (
-          <div className="space-y-6">
-            {filteredRestaurants.map((restaurant, index) => (
-              <motion.div
-                key={restaurant.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-                whileHover={{ y: -4, scale: 1.01 }}
-                onClick={() => handleRestaurantClick(restaurant)}
-                className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100"
-              >
-                {/* Restaurant Image Header */}
-                <div className="relative h-48 overflow-hidden">
-                  {restaurant.banner_url || restaurant.logo_url ? (
-                    <img
-                      src={restaurant.banner_url || restaurant.logo_url}
-                      alt={restaurant.name}
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-black rounded-3xl flex items-center justify-center mx-auto mb-3">
-                          <QrCodeIcon className="w-8 h-8 text-white" />
-                        </div>
-                        <p className="font-bold text-gray-600">No Image</p>
-                      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {filteredRestaurants.map((restaurant, index) => (
+            <motion.div
+              key={restaurant.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleRestaurantClick(restaurant)}
+              className="bg-white rounded-2xl overflow-hidden border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] transition-all cursor-pointer"
+            >
+              {/* Restaurant Image */}
+              <div className="relative h-48 sm:h-56 overflow-hidden">
+                <img
+                  src={restaurant.image_url || `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop`}
+                  alt={restaurant.name}
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                {/* Status Badge */}
+                <div className="absolute top-3 left-3">
+                  <span className={`px-3 py-1.5 rounded-full text-xs font-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] ${
+                    isCurrentlyOpen(restaurant)
+                      ? 'bg-lime-400 text-black'
+                      : 'bg-red-500 text-white'
+                  }`}>
+                    {isCurrentlyOpen(restaurant) ? '● OPEN' : '● CLOSED'}
+                  </span>
+                </div>
+
+                {/* Favorite Button */}
+                <div className="absolute top-3 right-3">
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toast.success('Added to favorites!')
+                    }}
+                    className="p-2 bg-white rounded-full border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all"
+                  >
+                    <HeartIcon className="w-5 h-5 text-red-500" />
+                  </motion.button>
+                </div>
+
+                {/* Restaurant Name Overlay */}
+                <div className="absolute bottom-3 left-3 right-3">
+                  <h3 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight leading-tight">
+                    {restaurant.name?.toUpperCase()}
+                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 rounded-full px-2 py-1 border-2 border-black" style={{ backgroundColor: BRAND_LIME }}>
+                      <StarSolidIcon className="w-4 h-4 text-black" />
+                      <span className="text-black font-black text-xs">{restaurant.rating}</span>
                     </div>
-                  )}
-                  
-                  {/* Overlay Elements */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
-                  {/* Status Badge */}
-                  <div className="absolute top-4 left-4">
-                    <span className={`px-4 py-2 rounded-2xl font-bold text-sm backdrop-blur-md ${
-                      isCurrentlyOpen(restaurant) 
-                        ? 'bg-green-500/90 text-white' 
-                        : 'bg-red-500/90 text-white'
-                    }`}>
-                      {isCurrentlyOpen(restaurant) ? 'OPEN NOW' : 'CLOSED'}
-                    </span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="absolute top-4 right-4 flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={(e) => handleQRCode(restaurant, e)}
-                      className="w-12 h-12 bg-black/80 backdrop-blur-md rounded-2xl flex items-center justify-center hover:bg-black transition-all"
-                    >
-                      <QrCodeIcon className="w-6 h-6 text-white" />
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="w-12 h-12 bg-white/90 backdrop-blur-md rounded-2xl flex items-center justify-center hover:bg-white transition-all"
-                    >
-                      <HeartIcon className="w-6 h-6 text-red-500" />
-                    </motion.button>
-                  </div>
-
-                  {/* Restaurant Name Overlay */}
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="text-2xl font-black text-white mb-1 tracking-tight">
-                      {restaurant.name?.toUpperCase()}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 bg-black/50 backdrop-blur-md rounded-full px-3 py-1">
-                        <StarIcon className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-white font-bold text-sm">{restaurant.rating}</span>
-                        <span className="text-white/70 text-sm">({restaurant.review_count || 0})</span>
-                      </div>
-                      <div className="flex items-center gap-1 bg-black/50 backdrop-blur-md rounded-full px-3 py-1">
-                        <ClockIcon className="w-4 h-4 text-white" />
-                        <span className="text-white font-medium text-sm">{restaurant.estimated_delivery_time || '25-30'} min</span>
-                      </div>
+                    <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 border-2 border-black">
+                      <ClockIcon className="w-4 h-4 text-black" />
+                      <span className="text-black font-black text-xs">{restaurant.estimated_delivery_time || '25-30'}m</span>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Restaurant Details */}
-                <div className="p-6">
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
+              {/* Restaurant Details */}
+              <div className="p-4">
+                  <p className="text-black/70 text-xs sm:text-sm mb-3 line-clamp-2 leading-relaxed font-bold">
                     {restaurant.description || 'Delicious food awaits you at this amazing restaurant.'}
                   </p>
 
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-600 text-sm font-medium truncate">{restaurant.address}</span>
-                    </div>
-                    
-                    {restaurant.phone && (
-                      <div className="flex items-center gap-1">
-                        <PhoneIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-500 text-xs">{restaurant.phone}</span>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPinIcon className="w-4 h-4 text-black/60 flex-shrink-0" />
+                    <span className="text-black/70 text-xs font-bold truncate">{restaurant.address}</span>
                   </div>
 
                   {/* Bottom Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
                     {/* Cuisine Badge */}
-                    <span className="px-4 py-2 bg-black text-white text-sm font-bold rounded-2xl capitalize">
+                    <span className="px-3 py-1.5 bg-black text-xs font-black rounded-full capitalize border-2 border-black" style={{ color: BRAND_LIME }}>
                       {restaurant.cuisine_type}
                     </span>
 
                     {/* View Menu Button */}
                     <motion.button
-                      whileHover={{ scale: 1.05, x: 4 }}
+                      whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={(e) => handleViewMenu(restaurant, e)}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-2xl hover:from-black hover:to-gray-900 transition-all font-bold shadow-lg"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-black text-xs sm:text-sm border-4 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all text-black"
+                      style={{ backgroundColor: BRAND_LIME }}
                     >
-                      <EyeIcon className="w-5 h-5" />
+                      <EyeIcon className="w-4 h-4" />
                       <span>VIEW MENU</span>
-                      <motion.div
-                        animate={{ x: [0, 4, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      >
-                        →
-                      </motion.div>
                     </motion.button>
                   </div>
                 </div>

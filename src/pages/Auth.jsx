@@ -21,6 +21,11 @@ import {
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
+import restaurantLogo from '../assets/restaurant-logo.png'
+
+// Brand colors
+const BRAND_ORANGE = '#F59E0B'
+const BRAND_BLACK = '#1F2937'
 
 const Auth = () => {
   const navigate = useNavigate()
@@ -156,86 +161,25 @@ const Auth = () => {
     }
   }
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden" style={{ backgroundColor: BRAND_ORANGE }}>
       {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-purple-50 to-pink-50">
-        {/* Floating 3D Boxes */}
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute bg-gradient-to-r from-orange-200/30 to-purple-200/30 backdrop-blur-sm rounded-xl shadow-lg"
-            style={{
-              width: Math.random() * 80 + 40,
-              height: Math.random() * 80 + 40,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, -20, 0],
-              x: [0, 10, 0],
-              rotate: [0, 360],
-              scale: [1, 1.1, 1],
-            }}
-            transition={{
-              duration: Math.random() * 4 + 6,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
-
-        {/* Large Gradient Orbs */}
-        <motion.div
-          className="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-r from-orange-300/40 to-pink-300/40 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.4, 0.6, 0.4],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+      <div className="absolute inset-0">
+        {/* Playful Background Elements */}
+        <motion.div 
+          className="absolute top-20 right-10 w-24 h-24 rounded-full border-4 border-black/10"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
-          className="absolute -bottom-32 -left-32 w-64 h-64 bg-gradient-to-r from-purple-300/40 to-blue-300/40 rounded-full blur-3xl"
-          animate={{
-            scale: [1.3, 1, 1.3],
-            opacity: [0.6, 0.4, 0.6],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        <motion.div 
+          className="absolute bottom-32 left-16 w-16 h-16 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         />
-
-        {/* Geometric Shapes */}
-        <motion.div
-          className="absolute top-20 right-20 w-16 h-16 bg-gradient-to-r from-orange-400/20 to-purple-400/20 rounded-lg"
-          animate={{
-            rotate: [0, 180, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-        <motion.div
-          className="absolute bottom-20 left-20 w-12 h-12 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full"
-          animate={{
-            y: [0, -30, 0],
-            scale: [1, 1.3, 1],
-          }}
-          transition={{
-            duration: 6,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
+        }} />
       </div>
 
       {/* Back Button */}
@@ -244,9 +188,9 @@ const Auth = () => {
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2 }}
         onClick={() => navigate('/')}
-        className="fixed top-6 left-6 z-50 bg-white/90 backdrop-blur-sm hover:bg-white p-3 rounded-full shadow-xl transition-all duration-300 hover:scale-110 group"
+        className="fixed top-6 left-6 z-50 bg-white p-3 rounded-full border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all hover:scale-110 group"
       >
-        <ArrowLeftIcon className="w-6 h-6 text-gray-700 group-hover:text-orange-600 transition-colors" />
+        <ArrowLeftIcon className="w-6 h-6 text-black group-hover:text-amber-500 transition-colors" />
       </motion.button>
 
       {/* Main Content */}
@@ -255,56 +199,36 @@ const Auth = () => {
           initial={{ opacity: 0, y: 30, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, type: "spring", bounce: 0.3 }}
-          className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-full max-w-md border border-white/20"
+          className="bg-white rounded-3xl p-8 w-full max-w-md border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)]"
         >
-          {/* Header with 3D Logo */}
+          {/* Header with Logo */}
           <div className="text-center mb-8">
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.3, duration: 0.8, type: "spring", bounce: 0.4 }}
-              className="relative mb-6"
+              className="mb-6"
             >
-              <motion.div
-                className="w-20 h-20 bg-gradient-to-r from-orange-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-2xl transform rotate-6"
-                whileHover={{ 
-                  scale: 1.1, 
-                  rotate: 12,
-                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
-                }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <QrCodeIcon className="w-10 h-10 text-white" />
-              </motion.div>
-              <motion.div
-                className="absolute -inset-4 bg-gradient-to-r from-orange-400 to-purple-500 rounded-2xl opacity-20 blur-xl"
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.2, 0.4, 0.2],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
+              <div className="bg-white rounded-2xl px-4 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] inline-block">
+                <img src={restaurantLogo} alt="Ordyrr Restaurant" className="h-12 w-auto" />
+              </div>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-600 to-purple-600 bg-clip-text text-transparent mb-2"
+              className="text-3xl sm:text-4xl font-black text-black mb-2 tracking-tight"
             >
-              {isLogin ? 'QR Restaurant Login' : 'Join QR Restaurant'}
+              {isLogin ? 'WELCOME BACK' : 'JOIN ORDYRR'}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="text-gray-600"
+              className="text-black/70 font-bold"
             >
-              {isLogin ? 'Staff • Restaurant Owner • Super Admin' : 'Start your digital restaurant journey'}
+              {isLogin ? 'Sign in to your account' : 'Start your digital restaurant journey'}
             </motion.p>
           </div>
 
@@ -315,8 +239,8 @@ const Auth = () => {
             animate={{ opacity: 1, height: 'auto' }}
             className="mb-6"
           >
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Select Your Role
+            <label className="block text-sm font-black text-black mb-3">
+              SELECT YOUR ROLE
             </label>
             <div className="space-y-2">
               {roles.map((role) => {
@@ -326,28 +250,28 @@ const Auth = () => {
                     key={role.id}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`p-3 rounded-xl border-4 border-black cursor-pointer transition-all shadow-[3px_3px_0_0_rgba(0,0,0,1)] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] ${
                       selectedRole === role.id
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'bg-amber-500'
+                        : 'bg-white hover:bg-gray-50'
                     }`}
                     onClick={() => setSelectedRole(role.id)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 bg-gradient-to-r ${role.color} rounded-lg flex items-center justify-center`}>
-                        <IconComponent className="w-5 h-5 text-white" />
+                      <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center border-2 border-black">
+                        <IconComponent className="w-5 h-5" style={{ color: BRAND_ORANGE }} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{role.name}</h3>
-                        <p className="text-sm text-gray-600">{role.description}</p>
+                        <h3 className="font-black text-black">{role.name}</h3>
+                        <p className="text-sm font-bold text-black/70">{role.description}</p>
                       </div>
-                      <div className={`w-4 h-4 rounded-full border-2 ${
+                      <div className={`w-5 h-5 rounded-full border-3 border-black ${
                         selectedRole === role.id
-                          ? 'border-orange-500 bg-orange-500'
-                          : 'border-gray-300'
+                          ? 'bg-black'
+                          : 'bg-white'
                       }`}>
                         {selectedRole === role.id && (
-                          <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                          <CheckCircleIcon className="w-full h-full text-amber-400" />
                         )}
                       </div>
                     </div>
@@ -367,19 +291,19 @@ const Auth = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
+              <label className="block text-sm font-black text-black mb-2">
+                FULL NAME
               </label>
               <div className="relative">
-                <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                 <input
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none focus:shadow-[4px_4px_0_0_rgba(245,158,11,1)] transition-all"
                   placeholder="Enter your full name"
-                  required={!isLogin}
+                  required
                 />
               </div>
             </motion.div>
@@ -391,17 +315,17 @@ const Auth = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
+            <label className="block text-sm font-black text-black mb-2">
+              EMAIL
             </label>
             <div className="relative">
-              <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <EnvelopeIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none focus:shadow-[4px_4px_0_0_rgba(245,158,11,1)] transition-all"
                 placeholder="Enter your email"
                 required
               />
@@ -415,24 +339,23 @@ const Auth = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
+              <label className="block text-sm font-black text-black mb-2">
+                PHONE NUMBER
               </label>
               <div className="relative">
-                <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <PhoneIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                 <input
                   type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none focus:shadow-[4px_4px_0_0_rgba(245,158,11,1)] transition-all"
                   placeholder="Enter your phone number"
+                  required
                 />
               </div>
             </motion.div>
           )}
-
-
 
           {/* Password */}
           <motion.div
@@ -440,17 +363,17 @@ const Auth = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.6 }}
           >
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+            <label className="block text-sm font-black text-black mb-2">
+              PASSWORD
             </label>
             <div className="relative">
-              <LockClosedIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <LockClosedIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none focus:shadow-[4px_4px_0_0_rgba(245,158,11,1)] transition-all"
                 placeholder="Enter your password"
                 required
                 minLength={6}
@@ -463,19 +386,20 @@ const Auth = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 rounded-full font-black text-lg border-4 border-black shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)] active:shadow-[0_3px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
+            style={{ backgroundColor: BRAND_ORANGE }}
           >
             {loading ? (
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>{isLogin ? 'Signing In...' : 'Creating Account...'}</span>
+                <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>{isLogin ? 'SIGNING IN...' : 'CREATING ACCOUNT...'}</span>
               </div>
             ) : (
-              isLogin ? 'Sign In' : 'Create Account'
+              isLogin ? 'SIGN IN' : 'CREATE ACCOUNT'
             )}
           </motion.button>
         </form>
@@ -487,7 +411,7 @@ const Auth = () => {
           transition={{ delay: 0.8 }}
           className="text-center mt-6"
         >
-          <p className="text-gray-600">
+          <p className="text-black/70 font-bold">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <button
               type="button"
@@ -500,9 +424,10 @@ const Auth = () => {
                   phone: ''
                 })
               }}
-              className="ml-2 text-orange-600 hover:text-orange-700 font-medium"
+              className="ml-2 font-black hover:underline"
+              style={{ color: BRAND_ORANGE }}
             >
-              {isLogin ? 'Sign Up' : 'Sign In'}
+              {isLogin ? 'SIGN UP' : 'SIGN IN'}
             </button>
           </p>
         </motion.div>
@@ -513,17 +438,18 @@ const Auth = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100"
+            className="mt-4 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+            style={{ backgroundColor: BRAND_ORANGE }}
           >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <BuildingStorefrontIcon className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
+                <BuildingStorefrontIcon className="w-5 h-5" style={{ color: BRAND_ORANGE }} />
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900 mb-1">
-                  For Restaurant Business
+                <p className="text-sm font-black text-black mb-1">
+                  FOR RESTAURANT BUSINESS
                 </p>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm font-bold text-black/90">
                   Create your restaurant account to manage menu, orders, and staff applications.
                 </p>
               </div>
@@ -537,17 +463,18 @@ const Auth = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-100"
+            className="mt-4 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+            style={{ backgroundColor: BRAND_ORANGE }}
           >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <UserGroupIcon className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
+                <UserGroupIcon className="w-5 h-5" style={{ color: BRAND_ORANGE }} />
               </div>
               <div>
-                <p className="text-sm font-medium text-green-900 mb-1">
-                  Staff Account
+                <p className="text-sm font-black text-black mb-1">
+                  STAFF ACCOUNT
                 </p>
-                <p className="text-sm text-green-700">
+                <p className="text-sm font-bold text-black/90">
                   Create your staff account. After login, you can apply to restaurants using their signup key.
                 </p>
               </div>
@@ -561,17 +488,18 @@ const Auth = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100"
+            className="mt-4 p-4 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+            style={{ backgroundColor: BRAND_ORANGE }}
           >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <UserCircleIcon className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
+                <UserCircleIcon className="w-5 h-5" style={{ color: BRAND_ORANGE }} />
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900 mb-1">
-                  Welcome Back
+                <p className="text-sm font-black text-black mb-1">
+                  WELCOME BACK
                 </p>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm font-bold text-black/90">
                   Login with your account credentials to access your dashboard.
                 </p>
               </div>

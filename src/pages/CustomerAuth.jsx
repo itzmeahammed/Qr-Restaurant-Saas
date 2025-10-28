@@ -17,6 +17,11 @@ import { supabase } from '../config/supabase'
 import toast from 'react-hot-toast'
 import CustomerNavHeader from '../components/customer/CustomerNavHeader'
 import { useCustomerNavigation } from '../contexts/CustomerNavigationContext'
+import logo from '../assets/logo.png'
+
+// Brand colors
+const BRAND_LIME = '#C6FF3D'
+const BRAND_BLACK = '#2D2D2D'
 
 const CustomerAuth = () => {
   const navigate = useNavigate()
@@ -135,7 +140,7 @@ const CustomerAuth = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white relative">
+    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
       {/* Navigation Header */}
       <CustomerNavHeader 
         title={isLogin ? 'Sign In' : 'Create Account'}
@@ -143,78 +148,96 @@ const CustomerAuth = () => {
         showMenu={false}
       />
 
-      {/* Subtle Background Pattern */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      {/* Offline Warning Banner */}
+      {!isOnline && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed top-0 left-0 right-0 z-50 bg-red-500 text-white py-3 px-4 shadow-lg border-b-4 border-black"
+        >
+          <div className="max-w-md mx-auto flex items-center justify-center gap-2">
+            <WifiIcon className="w-5 h-5" />
+            <span className="font-black">NO INTERNET CONNECTION</span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Playful Background */}
+      <div className="absolute inset-0">
+        <motion.div 
+          className="absolute top-20 right-10 w-24 h-24 rounded-full border-4 border-black/10"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute bottom-32 left-16 w-16 h-16 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
         }} />
       </div>
 
+      {/* Back Button */}
+      <Link
+        to="/customer"
+        className="fixed top-6 left-6 z-50 bg-white p-3 rounded-full border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all hover:scale-110"
+      >
+        <ArrowLeftIcon className="w-6 h-6 text-black" />
+      </Link>
+
       {/* Main Content */}
-      <div className="max-w-md mx-auto px-4 relative z-10">
+      <div className="max-w-md mx-auto px-4 py-20 relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden"
+          initial={{ opacity: 0, y: 30, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, type: "spring", bounce: 0.3 }}
+          className="bg-white rounded-3xl overflow-hidden border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)]"
         >
-          {/* Progress Indicator */}
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">
-                    {isLogin ? 'Welcome Back!' : 'Join QR Restaurant'}
-                  </h1>
-                  <p className="text-sm text-gray-600">
-                    {isLogin ? 'Sign in to your account' : 'Create your account in seconds'}
-                  </p>
-                </div>
+          {/* Header */}
+          <div className="text-white p-8 text-center" style={{ backgroundColor: BRAND_BLACK }}>
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, duration: 0.8, type: "spring", bounce: 0.4 }}
+              className="mb-6"
+            >
+              <div className="bg-white rounded-2xl px-4 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(198,255,61,1)] inline-block">
+                <img src={logo} alt="Ordyrr" className="h-12 w-auto" />
               </div>
-              
-              <div className="flex items-center gap-3">
-                {/* Network Status */}
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                  isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
-                  {isOnline ? (
-                    <WifiIcon className="w-3 h-3" />
-                  ) : (
-                    <ExclamationTriangleIcon className="w-3 h-3" />
-                  )}
-                  <span>{isOnline ? 'Online' : 'Offline'}</span>
-                </div>
-                
-                {/* Step Indicator */}
-                <div className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${isLogin ? 'bg-black' : 'bg-gray-300'}`}></div>
-                  <div className={`w-2 h-2 rounded-full ${!isLogin ? 'bg-black' : 'bg-gray-300'}`}></div>
-                </div>
-              </div>
-            </div>
+            </motion.div>
+            <h1 className="text-3xl sm:text-4xl font-black mb-2 tracking-tight">
+              {isLogin ? 'WELCOME BACK!' : 'JOIN ORDYRR'}
+            </h1>
+            <p className="font-bold" style={{ color: BRAND_LIME, opacity: 0.9 }}>
+              {isLogin ? 'Sign in to continue your food journey' : 'Create an account to get started'}
+            </p>
           </div>
 
           {/* Form Content */}
-          <div className="p-6">
-            {/* Form Fields */}
+          <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Form Fields */}
               {/* Full Name (signup only) */}
               {!isLogin && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Full Name</label>
+                  <label className="text-sm font-black text-black mb-2">FULL NAME</label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                     <input
                       type="text"
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                      className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none transition-all"
+                      style={{ boxShadow: '0 0 0 0 rgba(198,255,61,1)', transition: 'box-shadow 0.2s' }}
+                      onFocus={(e) => e.target.style.boxShadow = '4px 4px 0 0 rgba(198,255,61,1)'}
+                      onBlur={(e) => e.target.style.boxShadow = '0 0 0 0 rgba(198,255,61,1)'}
                       placeholder="Enter your full name"
-                      required={!isLogin}
+                      required
                     />
                   </div>
                 </div>
@@ -222,15 +245,18 @@ const CustomerAuth = () => {
 
               {/* Email */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                <label className="text-sm font-black text-black mb-2">EMAIL</label>
                 <div className="relative">
-                  <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <EnvelopeIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                    className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none transition-all"
+                    style={{ boxShadow: '0 0 0 0 rgba(198,255,61,1)', transition: 'box-shadow 0.2s' }}
+                    onFocus={(e) => e.target.style.boxShadow = '4px 4px 0 0 rgba(198,255,61,1)'}
+                    onBlur={(e) => e.target.style.boxShadow = '0 0 0 0 rgba(198,255,61,1)'}
                     placeholder="Enter your email"
                     required
                   />
@@ -240,15 +266,18 @@ const CustomerAuth = () => {
               {/* Phone (signup only) */}
               {!isLogin && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                  <label className="text-sm font-black text-black mb-2">PHONE NUMBER</label>
                   <div className="relative">
-                    <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <PhoneIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                      className="w-full pl-12 pr-4 py-3 border-4 border-black rounded-xl font-bold focus:outline-none transition-all"
+                      style={{ boxShadow: '0 0 0 0 rgba(198,255,61,1)', transition: 'box-shadow 0.2s' }}
+                      onFocus={(e) => e.target.style.boxShadow = '4px 4px 0 0 rgba(198,255,61,1)'}
+                      onBlur={(e) => e.target.style.boxShadow = '0 0 0 0 rgba(198,255,61,1)'}
                       placeholder="Enter your phone number"
                     />
                   </div>
@@ -257,15 +286,18 @@ const CustomerAuth = () => {
 
               {/* Password */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Password</label>
+                <label className="text-sm font-black text-black mb-2">PASSWORD</label>
                 <div className="relative">
-                  <LockClosedIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <LockClosedIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-black/60" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                    className="w-full pl-12 pr-12 py-3 border-4 border-black rounded-xl font-bold focus:outline-none transition-all"
+                    style={{ boxShadow: '0 0 0 0 rgba(198,255,61,1)', transition: 'box-shadow 0.2s' }}
+                    onFocus={(e) => e.target.style.boxShadow = '4px 4px 0 0 rgba(198,255,61,1)'}
+                    onBlur={(e) => e.target.style.boxShadow = '0 0 0 0 rgba(198,255,61,1)'}
                     placeholder="Enter your password"
                     required
                     minLength={6}
@@ -273,7 +305,7 @@ const CustomerAuth = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-black/60 hover:text-black transition-colors"
                   >
                     {showPassword ? (
                       <EyeSlashIcon className="w-5 h-5" />
@@ -285,58 +317,62 @@ const CustomerAuth = () => {
               </div>
 
               {/* Submit Button */}
-              <button
+              <motion.button
                 type="submit"
                 disabled={loading || !isOnline}
-                className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full py-4 rounded-full font-black text-lg border-4 border-black shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)] active:shadow-[0_3px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6 text-black"
+                style={{ backgroundColor: BRAND_LIME }}
               >
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>{isLogin ? 'Signing In...' : 'Creating Account...'}</span>
+                    <div className="w-5 h-5 border-3 border-black border-t-transparent rounded-full animate-spin"></div>
+                    <span>{isLogin ? 'SIGNING IN...' : 'CREATING ACCOUNT...'}</span>
                   </div>
                 ) : (
-                  isLogin ? 'Sign In' : 'Create Account'
+                  isLogin ? 'SIGN IN' : 'CREATE ACCOUNT'
                 )}
-              </button>
+              </motion.button>
             </form>
 
             {/* Toggle Auth Mode */}
             <div className="text-center mt-6">
-              <p className="text-gray-600 mb-3">
+              <p className="text-black/70 font-bold">
                 {isLogin ? "Don't have an account?" : "Already have an account?"}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLogin(!isLogin)
+                    setFormData({ email: '', password: '', fullName: '', phone: '' })
+                  }}
+                  className="ml-2 font-black hover:underline"
+                  style={{ color: BRAND_BLACK }}
+                >
+                  {isLogin ? 'CREATE ACCOUNT' : 'SIGN IN'}
+                </button>
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin)
-                  setFormData({ email: '', password: '', fullName: '', phone: '' })
-                }}
-                className="text-black hover:underline font-medium transition-all"
-              >
-                {isLogin ? 'Create Account' : 'Sign In'}
-              </button>
             </div>
           </div>
 
           {/* Quick Actions Footer */}
-          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-            <p className="text-center text-gray-600 mb-4 text-sm">Or continue without signing in</p>
+          <div className="px-8 py-6 border-t-4 border-black" style={{ backgroundColor: BRAND_LIME }}>
+            <p className="text-center text-black font-black mb-4 text-sm">OR CONTINUE WITHOUT SIGNING IN</p>
             
             <div className="grid grid-cols-2 gap-3">
               <Link
                 to="/customer"
-                className="flex items-center justify-center gap-2 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
+                className="flex items-center justify-center gap-2 py-3 bg-white border-4 border-black rounded-xl hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all font-black text-sm"
               >
-                <QrCodeIcon className="w-4 h-4 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700">Scan QR</span>
+                <QrCodeIcon className="w-4 h-4 text-black" />
+                <span>SCAN QR</span>
               </Link>
               
               <Link
                 to="/restaurants"
-                className="flex items-center justify-center gap-2 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
+                className="flex items-center justify-center gap-2 py-3 bg-white border-4 border-black rounded-xl hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all font-black text-sm"
               >
-                <span className="text-sm font-medium text-gray-700">Browse</span>
+                <span>BROWSE</span>
               </Link>
             </div>
           </div>

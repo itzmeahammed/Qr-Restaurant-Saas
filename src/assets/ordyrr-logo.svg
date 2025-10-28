@@ -1,0 +1,46 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lime background -->
+  <rect width="500" height="500" fill="#C6FF3D"/>
+  
+  <!-- DINEIN text curved above the O -->
+  <g transform="translate(250, 250)">
+    <!-- D -->
+    <text x="-95" y="-85" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">D</text>
+    <!-- I -->
+    <text x="-75" y="-92" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">I</text>
+    <!-- N -->
+    <text x="-60" y="-97" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">N</text>
+    <!-- E -->
+    <text x="-40" y="-100" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">E</text>
+    <!-- I -->
+    <text x="-18" y="-100" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">I</text>
+    <!-- N -->
+    <text x="0" y="-97" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#000000" letter-spacing="2">N</text>
+  </g>
+  
+  <!-- Main Ordyrr wordmark -->
+  <g transform="translate(50, 280)">
+    <!-- Big O with white outline and black fill -->
+    <circle cx="50" cy="0" r="48" fill="#FFFFFF" stroke="#000000" stroke-width="8"/>
+    <circle cx="50" cy="0" r="35" fill="#2D2D2D"/>
+    <circle cx="50" cy="0" r="15" fill="#FFFFFF"/>
+    
+    <!-- r -->
+    <path d="M 115 -35 L 115 35 L 135 35 L 135 10 Q 135 -10 145 -15 Q 155 -20 165 -15 L 165 -35 Q 145 -40 135 -30 L 135 -35 Z" fill="#2D2D2D"/>
+    
+    <!-- d -->
+    <circle cx="205" cy="10" r="25" fill="#2D2D2D"/>
+    <circle cx="205" cy="10" r="12" fill="#FFFFFF"/>
+    <rect x="218" y="-35" width="20" height="70" fill="#2D2D2D"/>
+    
+    <!-- y -->
+    <path d="M 260 -35 L 260 35 Q 260 55 250 65 Q 240 75 220 75 L 220 60 Q 235 60 240 50 Q 245 40 245 35 L 245 -35 Z" fill="#C6FF3D"/>
+    <rect x="260" y="-35" width="20" height="70" fill="#2D2D2D"/>
+    
+    <!-- r -->
+    <path d="M 300 -35 L 300 35 L 320 35 L 320 10 Q 320 -10 330 -15 Q 340 -20 350 -15 L 350 -35 Q 330 -40 320 -30 L 320 -35 Z" fill="#C6FF3D"/>
+    
+    <!-- r -->
+    <path d="M 370 -35 L 370 35 L 390 35 L 390 10 Q 390 -10 400 -15 Q 410 -20 420 -15 L 420 -35 Q 400 -40 390 -30 L 390 -35 Z" fill="#C6FF3D"/>
+  </g>
+</svg>
