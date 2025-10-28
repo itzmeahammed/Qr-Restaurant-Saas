@@ -48,12 +48,30 @@ const RestaurantDiscovery = () => {
     try {
       setLoading(true)
       
-      // Fetch restaurants from users table (consistent foreign key)
+      // Fetch restaurants from users table (simplified schema)
       const { data: restaurantsData, error: restaurantsError } = await supabase
         .from('users')
-        .select('*')
+        .select(`
+          id,
+          full_name,
+          email,
+          restaurant_name,
+          restaurant_description,
+          restaurant_address,
+          restaurant_phone,
+          restaurant_email,
+          cuisine_type,
+          logo_url,
+          banner_url,
+          opening_hours,
+          is_active,
+          is_open,
+          created_at,
+          updated_at
+        `)
         .eq('role', 'restaurant_owner')
         .eq('is_active', true)
+        .not('restaurant_name', 'is', null)
         .order('created_at', { ascending: false })
 
       if (restaurantsError) throw restaurantsError
@@ -62,14 +80,14 @@ const RestaurantDiscovery = () => {
       const restaurantsWithCounts = await Promise.all(
         (restaurantsData || []).map(async (restaurant) => {
           try {
-            // Get categories count - categories.restaurant_id references restaurants.id
+            // Get categories count - categories.restaurant_id references users.id
             const { count: categoriesCount } = await supabase
               .from('categories')
               .select('*', { count: 'exact', head: true })
               .eq('restaurant_id', restaurant.id)
               .eq('is_active', true)
 
-            // Get menu items count - menu_items.restaurant_id references restaurants.id  
+            // Get menu items count - menu_items.restaurant_id references users.id  
             const { count: menuItemsCount } = await supabase
               .from('menu_items')
               .select('*', { count: 'exact', head: true })
@@ -88,6 +106,17 @@ const RestaurantDiscovery = () => {
 
             return {
               ...restaurant,
+              // Map users table fields to restaurant fields for compatibility
+              name: restaurant.restaurant_name,
+              description: restaurant.restaurant_description,
+              address: restaurant.restaurant_address,
+              phone: restaurant.restaurant_phone,
+              email: restaurant.restaurant_email || restaurant.email,
+              owner: {
+                id: restaurant.id,
+                full_name: restaurant.full_name,
+                email: restaurant.email
+              },
               rating: Number(avgRating.toFixed(1)),
               review_count: reviews?.length || 0,
               menu_count: menuItemsCount || 12,
@@ -163,7 +192,8 @@ const RestaurantDiscovery = () => {
   }
 
   const isCurrentlyOpen = (restaurant) => {
-    if (!restaurant?.opening_hours) return false
+    // Default to open if opening_hours is missing (restaurant still setting up)
+    if (!restaurant?.opening_hours) return true
     
     try {
       const hours = restaurant.opening_hours
