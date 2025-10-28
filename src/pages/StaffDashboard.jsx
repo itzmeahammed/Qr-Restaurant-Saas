@@ -27,7 +27,7 @@ import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
 import StaffOrderManagement from '../components/staff/StaffOrderManagement'
-import StaffPerformance from '../components/staff/StaffPerformance'
+// import StaffPerformance from '../components/staff/StaffPerformance' // REMOVED
 import RestaurantInfo from '../components/staff/RestaurantInfo'
 import StaffRestaurantApplication from '../components/staff/StaffRestaurantApplication'
 import StaffOverview from '../components/staff/StaffOverview'
@@ -115,102 +115,148 @@ const StaffDashboard = () => {
     }
   }
 
-  useEffect(() => {
-    const checkStaffApprovalStatus = async () => {
-      if (!user?.id) return
+  // Move checkStaffApprovalStatus outside useEffect so it can be called from callbacks
+  const checkStaffApprovalStatus = async () => {
+    if (!user?.id) return
 
-      try {
-        // Check for cached session first for instant loading
-        const cachedSession = localStorage.getItem('staff_session')
-        if (cachedSession) {
-          try {
-            const sessionData = JSON.parse(cachedSession)
-            if (sessionData.user_id === user.id && sessionData.staff_id) {
-              console.log('📦 Using cached session data for instant loading')
-              setStaffSession(sessionData)
-              setRestaurantInfo({
-                id: sessionData.restaurant_id,
-                name: sessionData.restaurant_name
-              })
-              setLoading(false)
-              
-              // Load stats and notifications in background
-              loadStaffStats(sessionData.staff_id)
-              loadOrderNotifications(sessionData.staff_id)
-              return
-            }
-          } catch (error) {
-            localStorage.removeItem('staff_session')
-          }
+    try {
+      console.log('🔍 Checking staff approval status for user:', user.id)
+      console.log('👤 Current user data:', { 
+        id: user.id, 
+        role: user.role, 
+        restaurant_id: user.restaurant_id,
+        approved_at: user.approved_at 
+      })
+
+      // Fetch fresh user data from database to check approval status
+      const { data: freshUserData, error: userError } = await supabase
+        .from('users')
+        .select('id, role, restaurant_id, approved_at, approved_by, position, hourly_rate, full_name')
+        .eq('id', user.id)
+        .single()
+
+      if (userError) {
+        console.error('❌ Error fetching fresh user data:', userError)
+        toast.error('Failed to load user information')
+        setLoading(false)
+        return
+      }
+
+      console.log('📊 Fresh user data from database:', freshUserData)
+
+      // Check if staff is approved (has restaurant_id and approved_at)
+      if (freshUserData.role === 'staff' && freshUserData.restaurant_id && freshUserData.approved_at) {
+        console.log('✅ Staff is approved, loading dashboard...')
+        
+        // Get restaurant information
+        const { data: restaurantOwner, error: restaurantError } = await supabase
+          .from('users')
+          .select('restaurant_name, full_name')
+          .eq('id', freshUserData.restaurant_id)
+          .eq('role', 'restaurant_owner')
+          .single()
+
+        if (restaurantError) {
+          console.error('❌ Error fetching restaurant info:', restaurantError)
+          toast.error('Failed to load restaurant information')
+          setLoading(false)
+          return
         }
 
-        console.log('🔍 Fetching fresh staff data...')
-        
-        // Parallel fetch for better performance
-        const [staffResult, applicationResult] = await Promise.all([
-          supabase
-            .from('staff')
-            .select('id, position, restaurant_id, restaurants(id, name), approved_at')
-            .eq('user_id', user.id)
-            .maybeSingle(),
-          supabase
-            .from('staff_applications')
-            .select('id, status, restaurant_id, restaurants(id, name)')
-            .eq('user_id', user.id)
-            .order('applied_at', { ascending: false })
-            .maybeSingle()
-        ])
-
-        const { data: staffData, error: staffError } = staffResult
-        const { data: applicationData, error: appError } = applicationResult
-
-        if (!staffError && staffData) {
-          console.log('✅ Staff approved, loading dashboard...')
-          setStaffData(staffData)
-          setRestaurant(staffData.restaurants)
-          
-          // Cache session for faster subsequent loads
-          const sessionData = {
-            user_id: user.id,
-            staff_id: staffData.id,
-            restaurant_id: staffData.restaurant_id,
-            restaurant_name: staffData.restaurants?.name,
-            full_name: user.user_metadata?.full_name,
-            email: user.email,
-            position: staffData.position,
-            cached_at: Date.now()
-          }
-          
-          localStorage.setItem('staff_session', JSON.stringify(sessionData))
-          setStaffSession(sessionData)
-          setRestaurantInfo({
-            id: staffData.restaurant_id,
-            name: staffData.restaurants?.name
+        // Set up approved staff session
+        if (!freshUserData.restaurant_id) {
+          console.error('❌ Restaurant ID is missing for approved staff')
+          toast.error('Restaurant information missing. Please contact support.')
+          // Redirect to application flow since restaurant_id is missing
+          setStaffSession({
+            status: 'no_application',
+            user_id: freshUserData.id,
+            full_name: freshUserData.full_name
           })
+          setLoading(false)
+          return
+        }
+        
+        console.log('✅ Setting up staff session with restaurant_id:', freshUserData.restaurant_id)
+        const staffSessionData = {
+          staff_id: freshUserData.id,
+          user_id: freshUserData.id,
+          restaurant_id: freshUserData.restaurant_id, // Ensure this is properly set
+          full_name: freshUserData.full_name,
+          position: freshUserData.position,
+          hourly_rate: freshUserData.hourly_rate,
+          status: 'approved'
+        }
+        
+        console.log('🔍 Staff session data being set:', staffSessionData)
+        setStaffSession(staffSessionData)
+        setRestaurantInfo({
+          id: freshUserData.restaurant_id,
+          name: restaurantOwner.restaurant_name,
+          owner: restaurantOwner.full_name
+        })
+        
+        // Set restaurant data for components that need it
+        setRestaurant({
+          id: freshUserData.restaurant_id,
+          name: restaurantOwner.restaurant_name,
+          owner_id: freshUserData.restaurant_id // In unified table, restaurant_id is the owner's user ID
+        })
+        
+        // Load performance stats and notifications
+        await loadStaffStats(freshUserData.id)
+        await loadOrderNotifications(freshUserData.id)
+        
+      } else {
+        // Staff is not approved, check application status
+        console.log('❌ Staff not approved, checking application status...')
+        
+        const { data: applicationData, error: appError } = await supabase
+          .from('staff_applications')
+          .select(`
+            id, 
+            status, 
+            restaurant_id,
+            applied_at,
+            reviewed_at
+          `)
+          .eq('user_id', user.id)
+          .order('applied_at', { ascending: false })
+          .maybeSingle()
+
+        if (!appError && applicationData) {
+          console.log(`📋 Application found with status: ${applicationData.status}`)
           
-          // Load performance stats and notifications
-          await loadStaffStats(staffData.id)
-          await loadOrderNotifications(staffData.id)
-          await checkOnlineStatus(staffData.id)
-        } else if (!appError && applicationData) {
-          console.log(`📋 Application status: ${applicationData.status}`)
+          // Get restaurant owner details separately
+          const { data: restaurantOwnerData, error: ownerError } = await supabase
+            .from('users')
+            .select('restaurant_name, full_name')
+            .eq('id', applicationData.restaurant_id)
+            .eq('role', 'restaurant_owner')
+            .single()
+
           setApplicationStatus(applicationData.status)
           setStaffSession({ 
             status: applicationData.status,
-            restaurant_name: applicationData.restaurants?.name 
+            restaurant_name: restaurantOwnerData?.restaurant_name || 'Unknown Restaurant',
+            restaurant_owner: restaurantOwnerData?.full_name || 'Unknown Owner',
+            applied_at: applicationData.applied_at,
+            reviewed_at: applicationData.reviewed_at
           })
         } else {
-          console.log('❌ No staff record or application found')
+          console.log('❌ No application found')
           setStaffSession({ status: 'no_application' })
         }
-      } catch (error) {
-        console.error('❌ Error loading staff data:', error)
-        toast.error('Failed to load staff information')
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error('❌ Error checking staff approval status:', error)
+      toast.error('Failed to load staff information')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     checkStaffApprovalStatus()
   }, [user])
 
@@ -342,13 +388,12 @@ const StaffDashboard = () => {
 
 
 
-// Define tabs
+// Define tabs (Performance tab removed as requested)
   const tabs = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'orders', name: 'Orders', icon: ShoppingBagIcon },
     { id: 'tables', name: 'Tables', icon: TableCellsIcon },
     { id: 'menu', name: 'Menu', icon: BookOpenIcon },
-    { id: 'performance', name: 'Performance', icon: TrophyIcon },
     { id: 'restaurant', name: 'Restaurant', icon: BuildingStorefrontIcon }
   ]
 
@@ -449,6 +494,10 @@ switch (activeTab) {
         )
 
       case 'orders':
+        console.log('🍽️ Rendering StaffOrderManagement with:', { 
+          staffId: staffSession?.staff_id, 
+          restaurantId: staffSession?.restaurant_id 
+        })
         return (
           <StaffOrderManagement 
             staffId={staffSession?.staff_id} 
@@ -458,6 +507,10 @@ switch (activeTab) {
         )
 
       case 'tables':
+        console.log('🪑 Rendering StaffTableSelection with:', { 
+          restaurantId: staffSession?.restaurant_id, 
+          staffId: staffSession?.staff_id 
+        })
         return (
           <StaffTableSelection 
             restaurantId={staffSession?.restaurant_id}
@@ -470,12 +523,14 @@ switch (activeTab) {
         )
 
       case 'menu':
+        console.log('📖 Rendering StaffMenuView with restaurantId:', staffSession?.restaurant_id)
         return <StaffMenuView restaurantId={staffSession?.restaurant_id} />
 
-      case 'performance':
-        return <StaffPerformance staffId={staffSession?.staff_id} />
+      // case 'performance': // REMOVED
+      //   return <StaffPerformance staffId={staffSession?.staff_id} />
 
       case 'restaurant':
+        console.log('🏢 Rendering RestaurantInfo with restaurantId:', staffSession?.restaurant_id)
         return <RestaurantInfo restaurantId={staffSession?.restaurant_id} />
 
       default:
@@ -686,6 +741,143 @@ switch (activeTab) {
     )
   }
 
+  // Show different screens based on staff approval status
+  if (staffSession.status === 'no_application') {
+    return renderNoApplicationStatus()
+  }
+
+  if (staffSession.status === 'pending') {
+    return renderPendingStatus()
+  }
+
+  if (staffSession.status === 'rejected') {
+    return renderRejectedStatus()
+  }
+
+  // Only show full dashboard if staff is approved AND has valid restaurant_id
+  if (staffSession.status !== 'approved' || !staffSession.restaurant_id) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-orange-400 via-orange-500 to-red-500">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-20 right-10 w-24 h-24 rounded-full border-4 border-white/20"
+            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 left-16 w-16 h-16 rounded-full bg-white/10"
+            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute top-1/2 left-10 w-8 h-8 rounded-full bg-white/15"
+            animate={{ x: [0, 30, 0], rotate: [0, 360] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          
+          {/* Dot Pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23ffffff'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, type: "spring", bounce: 0.3 }}
+            className="bg-white rounded-3xl p-8 w-full max-w-md border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] text-center"
+          >
+            {/* Animated Icon */}
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, duration: 0.8, type: "spring", bounce: 0.4 }}
+              className="mb-6"
+            >
+              <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center mx-auto border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                >
+                  <ClockIcon className="h-10 w-10 text-orange-600" />
+                </motion.div>
+              </div>
+            </motion.div>
+
+            {/* Title */}
+            <motion.h3
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="text-3xl font-black text-black mb-4 tracking-tight"
+            >
+              ACCESS PENDING
+            </motion.h3>
+            
+            {/* Description */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="text-black/70 font-bold mb-8 text-lg"
+            >
+              Your staff application is still being processed
+            </motion.p>
+
+            {/* Status Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="bg-gradient-to-r from-yellow-50 to-orange-50 border-4 border-black rounded-2xl p-6 mb-8 shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+            >
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  🕰️
+                </motion.div>
+                <span className="font-black text-orange-800">REVIEW IN PROGRESS</span>
+              </div>
+              <p className="text-orange-700 font-bold text-sm">
+                You'll receive a notification once approved!
+              </p>
+            </motion.div>
+
+            {/* Refresh Button */}
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.location.reload()}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-black py-4 px-6 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all duration-200 text-lg tracking-wide"
+            >
+              🔄 REFRESH STATUS
+            </motion.button>
+
+            {/* Logout Option */}
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1 }}
+              onClick={handleLogout}
+              className="mt-4 text-black/60 hover:text-black font-bold text-sm transition-colors underline"
+            >
+              Sign Out
+            </motion.button>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
+
+  // Full Staff Dashboard - Only shown for approved staff
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
       {/* Fixed Top Header Bar */}
@@ -968,7 +1160,7 @@ switch (activeTab) {
               {activeTab === 'orders' && 'Manage your assigned orders'}
               {activeTab === 'tables' && 'Reserve tables for customers without mobile phones'}
               {activeTab === 'menu' && 'View restaurant menu items'}
-              {activeTab === 'performance' && 'Track your performance metrics'}
+               {activeTab === 'performance' && 'Track your performance metrics'} 
               {activeTab === 'restaurant' && 'Restaurant information and details'}
             </p>
           </motion.div>
@@ -987,7 +1179,7 @@ switch (activeTab) {
 
       {/* Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="grid grid-cols-6 h-16">
+        <div className="grid grid-cols-5 h-16">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}

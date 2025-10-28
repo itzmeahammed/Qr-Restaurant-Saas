@@ -12,11 +12,13 @@ import {
   GlobeAltIcon,
   EnvelopeIcon,
   CameraIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  FireIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../../config/supabase'
 
 const RestaurantInfo = ({ restaurantId }) => {
+  console.log('🏢 RestaurantInfo props:', { restaurantId })
   const [restaurant, setRestaurant] = useState(null)
   const [menuCategories, setMenuCategories] = useState([])
   const [popularItems, setPopularItems] = useState([])
@@ -31,6 +33,7 @@ const RestaurantInfo = ({ restaurantId }) => {
   const fetchRestaurantInfo = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Fetching restaurant info for ID:', restaurantId)
 
       // Fetch restaurant details from users table (consistent foreign key)
       const { data: restaurantData, error: restaurantError } = await supabase

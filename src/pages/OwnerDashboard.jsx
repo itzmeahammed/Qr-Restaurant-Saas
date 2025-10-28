@@ -415,7 +415,7 @@ const OwnerDashboard = () => {
       
       // Fetch staff performance for notifications
       const { data: staffPerformance } = await supabase
-        .from('staff')
+        .from('users')
         .select('id, total_orders_completed, user_id')
         .eq('restaurant_id', restaurantId)
         .gte('total_orders_completed', 5)
@@ -478,7 +478,7 @@ const OwnerDashboard = () => {
           }
 
           const { data: staffData, error: staffError } = await supabase
-        .from('staff')
+        .from('users')
         .select('is_available')
         .eq('restaurant_id', restaurantId)
 
@@ -607,7 +607,7 @@ const OwnerDashboard = () => {
       // In unified system, staff are linked directly to user ID (restaurant owner)
       // Query staff table where restaurant_id equals the user ID
       const { data: staffData, error } = await supabase
-        .from('staff')
+        .from('users')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
@@ -822,7 +822,7 @@ const OwnerDashboard = () => {
       }
       
       let { data: staffRecord, error: staffError } = await supabase
-        .from('staff')
+        .from('users')
         .insert(staffInsertData)
         .select('*')
         .single()
@@ -847,7 +847,7 @@ const OwnerDashboard = () => {
           }
           
           const { data: retryStaffRecord, error: retryStaffError } = await supabase
-            .from('staff')
+            .from('users')
             .insert(staffInsertDataWithoutUser)
             .select('*')
             .single()
@@ -955,7 +955,7 @@ const OwnerDashboard = () => {
       
       // Step 1: Update staff record in database
       const { data, error } = await supabase
-        .from('staff')
+        .from('users')
         .update(staffUpdates)
         .eq('id', staffId)
         .select('*')
@@ -969,7 +969,7 @@ const OwnerDashboard = () => {
           delete staffUpdatesWithoutUserId.user_id
           
           const { data: retryData, error: retryError } = await supabase
-            .from('staff')
+            .from('users')
             .update(staffUpdatesWithoutUserId)
             .eq('id', staffId)
             .select('*')
@@ -1028,7 +1028,7 @@ const OwnerDashboard = () => {
               // Link the auth user to staff record with error handling
               try {
                 const { error: linkError } = await supabase
-                  .from('staff')
+                  .from('users')
                   .update({ user_id: authData.user.id })
                   .eq('id', staffId)
                 
@@ -1109,7 +1109,7 @@ const OwnerDashboard = () => {
       if (!authError && authData?.user?.id) {
         // Link the auth user to staff record
         await supabase
-          .from('staff')
+          .from('users')
           .update({ user_id: authData.user.id })
           .eq('id', staffId)
         
@@ -1145,7 +1145,7 @@ const OwnerDashboard = () => {
       console.log('Deleting staff:', staffId)
       
       const { error } = await supabase
-        .from('staff')
+        .from('users')
         .delete()
         .eq('id', staffId)
 

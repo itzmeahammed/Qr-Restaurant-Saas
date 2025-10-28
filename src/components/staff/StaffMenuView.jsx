@@ -17,6 +17,7 @@ import { supabase } from '../../config/supabase'
 import toast from 'react-hot-toast'
 
 const StaffMenuView = ({ restaurantId }) => {
+  console.log('📖 StaffMenuView props:', { restaurantId })
   const [categories, setCategories] = useState([])
   const [menuItems, setMenuItems] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -34,6 +35,7 @@ const StaffMenuView = ({ restaurantId }) => {
   const fetchMenuData = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Fetching menu data for restaurant:', restaurantId)
       
       // Fetch categories and menu items using restaurant ID directly
       const [categoriesResult, itemsResult] = await Promise.all([
