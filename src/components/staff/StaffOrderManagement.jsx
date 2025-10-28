@@ -21,6 +21,7 @@ import useOrderStore from '../../stores/useOrderStore'
 import toast from 'react-hot-toast'
 
 const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
+  console.log('🍽️ StaffOrderManagement props:', { staffId, restaurantId, isOnline })
   // Use enhanced order store
   const {
     orders,
@@ -39,12 +40,13 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const [processingOrders, setProcessingOrders] = useState(new Set())
 
   useEffect(() => {
-    console.log('🔍 StaffOrderManagement props:', { staffId, restaurantId, isOnline, filter })
+    console.log('🔍 StaffOrderManagement useEffect:', { staffId, restaurantId, isOnline, filter })
     
     if (restaurantId && staffId) {
       // Clear any previous errors
       clearError()
       
+      console.log('📋 Fetching staff orders with filter:', getStatusFilter(filter))
       // Fetch staff orders using enhanced service
       fetchStaffOrders(staffId, {
         status: getStatusFilter(filter),
