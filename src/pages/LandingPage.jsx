@@ -15,11 +15,18 @@ import {
   BuildingStorefrontIcon,
   CogIcon,
   BellIcon,
-  PlayIcon
+  PlayIcon,
+  SparklesIcon,
+  RocketLaunchIcon
 } from '@heroicons/react/24/outline'
+import restaurantLogo from '../assets/restaurant-logo.png'
 
 const LandingPage = () => {
   const navigate = useNavigate()
+  
+  // Brand Colors from Restaurant Logo
+  const BRAND_ORANGE = '#F59E0B' // Amber-500
+  const BRAND_BLACK = '#1F2937' // Gray-800
   const features = [
     {
       icon: QrCodeIcon,
@@ -92,196 +99,336 @@ const LandingPage = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
-      {/* Back Button */}
-      <motion.button
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        onClick={() => navigate(-1)}
-        className="fixed top-6 left-6 z-50 bg-white/90 backdrop-blur-sm hover:bg-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
-      >
-        <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
-      </motion.button>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="relative z-40 bg-white border-b-4 border-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <motion.div 
+              className="relative"
+              whileHover={{ y: -2 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <div className="bg-white rounded-2xl px-4 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all">
+                <img src={restaurantLogo} alt="Ordyrr Restaurant" className="h-10 sm:h-12 w-auto" />
+              </div>
+            </motion.div>
 
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-neutral-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <QrCodeIcon className="h-8 w-8 text-primary-500" />
-              <span className="ml-2 text-xl font-bold text-neutral-900">QR Restaurant</span>
-            </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-neutral-600 hover:text-primary-500 transition-colors">Features</a>
-              <a href="#how-it-works" className="text-neutral-600 hover:text-primary-500 transition-colors">How It Works</a>
-              <a href="#pricing" className="text-neutral-600 hover:text-primary-500 transition-colors">Pricing</a>
-              <Link to="/auth" className="btn-primary">Get Started</Link>
-            </div>
-            
-            {/* Mobile Menu Button */}
-            <div className="md:hidden">
-              <Link to="/auth" className="bg-primary-500 text-white px-4 py-2 rounded-lg font-medium">
-                Get Started
-              </Link>
+            {/* Navigation */}
+            <div className="flex items-center gap-3 sm:gap-6">
+              <div className="hidden md:flex items-center gap-6">
+                <a href="#features" className="font-black text-sm hover:text-amber-500 transition-colors">FEATURES</a>
+                <a href="#how-it-works" className="font-black text-sm hover:text-amber-500 transition-colors">HOW IT WORKS</a>
+                <a href="#pricing" className="font-black text-sm hover:text-amber-500 transition-colors">PRICING</a>
+              </div>
+              
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link 
+                  to="/auth" 
+                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-full font-black text-sm sm:text-base transition-all shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] active:shadow-[2px_2px_0_0_rgba(0,0,0,1)] border-4 border-black text-white"
+                  style={{ backgroundColor: BRAND_ORANGE }}
+                >
+                  GET STARTED
+                </Link>
+              </motion.div>
             </div>
           </div>
         </div>
-      </nav>
+        <div className="h-1 bg-black"></div>
+      </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h1 className="text-4xl lg:text-6xl font-bold text-neutral-900 leading-tight">
-                Transform Your Restaurant with
-                <span className="gradient-bg bg-clip-text text-transparent"> QR Ordering</span>
-              </h1>
-              <p className="text-xl text-neutral-600 mt-6 leading-relaxed">
-                Complete contactless dining solution with QR menus, real-time order tracking, 
-                staff management, and powerful analytics. Boost efficiency and customer satisfaction.
-              </p>
-              
-              {/* Key Benefits */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 mb-8">
-                <div className="flex items-center gap-3 p-4 bg-white/50 rounded-xl backdrop-blur-sm border border-white/20">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-neutral-900">No Setup Fees</p>
-                    <p className="text-sm text-neutral-600">Start free today</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-4 bg-white/50 rounded-xl backdrop-blur-sm border border-white/20">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <ClockIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-neutral-900">5 Min Setup</p>
-                    <p className="text-sm text-neutral-600">Go live instantly</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-4 bg-white/50 rounded-xl backdrop-blur-sm border border-white/20">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <StarIcon className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-neutral-900">4.9★ Rating</p>
-                    <p className="text-sm text-neutral-600">Loved by 500+ restaurants</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4 mt-8">
-                <Link to="/auth" className="btn-primary text-center">
-                  Start Free Trial
-                </Link>
-                <Link to="/customer" className="btn-outline text-center">
-                  Try Demo Menu
-                </Link>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative"
-            >
-              <div className="relative z-10 bg-white rounded-3xl shadow-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                <div className="bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl p-6 text-white">
-                  <QrCodeIcon className="h-16 w-16 mb-4" />
-                  <h3 className="text-2xl font-bold mb-2">Scan & Order</h3>
-                  <p className="opacity-90">Instant access to menu without app downloads</p>
-                </div>
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-success rounded-full"></div>
-                    <span className="text-neutral-700">Order placed successfully</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-warning rounded-full animate-pulse"></div>
-                    <span className="text-neutral-700">Preparing your order...</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-neutral-300 rounded-full"></div>
-                    <span className="text-neutral-400">Ready for pickup</span>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-accent-400 rounded-3xl blur-xl opacity-30 -z-10"></div>
-            </motion.div>
-          </div>
+      <section className="relative overflow-hidden" style={{ backgroundColor: BRAND_ORANGE }}>
+        {/* Playful Background Elements */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-20 right-10 w-24 h-24 rounded-full border-4 border-black/10"
+            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 left-16 w-16 h-16 rounded-full bg-black/5"
+            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          
+          {/* Dot Pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
+          }} />
         </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
+        <div className="relative z-10 px-4 py-12 sm:py-16 lg:py-24">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              
+              {/* Left Side - Text Content */}
+              <div className="text-center lg:text-left space-y-6 sm:space-y-8">
+                {/* Badge */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.6 }}
+                  className="inline-flex items-center gap-2 bg-black px-4 py-2 rounded-full border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,0.3)]"
+                >
+                  <SparklesIcon className="w-5 h-5 text-amber-400" />
+                  <span className="font-black text-sm tracking-wide text-amber-400">TRUSTED BY 500+ RESTAURANTS</span>
+                </motion.div>
+
+                {/* Main Headline */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.8 }}
+                  className="space-y-1 sm:space-y-2"
+                >
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-black leading-[0.9] tracking-tighter">
+                    TRANSFORM
+                  </h1>
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-black leading-[0.9] tracking-tighter">
+                    YOUR
+                  </h1>
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-black leading-[0.9] tracking-tighter">
+                    RESTAURANT
+                  </h1>
+                </motion.div>
+
+                {/* Subtitle - Shorter for mobile */}
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.6 }}
+                  className="text-base sm:text-lg lg:text-2xl font-black text-black/90 max-w-lg mx-auto lg:mx-0"
+                >
+                  <span className="lg:hidden">Boost revenue by 40%. Reduce wait times by 60%. Powered by QR technology.</span>
+                  <span className="hidden lg:block">Boost revenue by 40%. Reduce wait times by 60%. Powered by QR technology.</span>
+                </motion.p>
+
+                {/* Mobile Feature Pills - Mobile Only */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                  className="lg:hidden flex flex-wrap justify-center gap-3"
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="bg-white rounded-full px-4 py-2 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                  >
+                    <span className="text-xl">⚡</span>
+                    <span className="font-black text-xs text-black">FAST</span>
+                  </motion.div>
+                  
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="bg-white rounded-full px-4 py-2 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                  >
+                    <span className="text-xl">📊</span>
+                    <span className="font-black text-xs text-black">ANALYTICS</span>
+                  </motion.div>
+                  
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="bg-white rounded-full px-4 py-2 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2"
+                  >
+                    <span className="text-xl">💰</span>
+                    <span className="font-black text-xs text-black">REVENUE</span>
+                  </motion.div>
+                </motion.div>
+
+                {/* Stats */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7, duration: 0.6 }}
+                  className="grid grid-cols-4 gap-2 sm:gap-4 max-w-lg mx-auto lg:mx-0"
+                >
+                  {stats.map((stat, index) => (
+                    <div key={index} className="text-center">
+                      <div className="text-lg sm:text-2xl lg:text-3xl font-black text-black">{stat.number}</div>
+                      <div className="text-xs sm:text-sm font-bold text-black/70">{stat.label}</div>
+                    </div>
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* Right Side - Dashboard Mockup */}
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="text-center"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.8, type: "spring", bounce: 0.3 }}
+                className="hidden lg:block relative"
               >
-                <div className="text-3xl lg:text-4xl font-bold text-primary-500 mb-2">
-                  {stat.number}
+                {/* Desktop Frame */}
+                <div className="relative bg-black rounded-3xl p-3 border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)]">
+                  {/* Screen */}
+                  <div className="bg-white rounded-2xl overflow-hidden">
+                    {/* Browser Bar */}
+                    <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b-2 border-black">
+                      <div className="flex gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-red-500 border border-black"></div>
+                        <div className="w-3 h-3 rounded-full bg-yellow-500 border border-black"></div>
+                        <div className="w-3 h-3 rounded-full bg-green-500 border border-black"></div>
+                      </div>
+                      <div className="flex-1 bg-white rounded-lg px-3 py-1 border-2 border-black">
+                        <span className="text-xs font-bold text-black/60">ordyrr.com/dashboard</span>
+                      </div>
+                    </div>
+
+                    {/* Dashboard Content */}
+                    <div className="p-6 bg-white">
+                      {/* Header */}
+                      <div className="mb-6">
+                        <h3 className="text-xl font-black text-black mb-1">Dashboard</h3>
+                        <p className="text-xs font-bold text-black/60">Today's Performance</p>
+                      </div>
+
+                      {/* Stats Cards */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {/* Revenue Card */}
+                        <motion.div
+                          animate={{ scale: [1, 1.02, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          className="p-4 rounded-xl border-4 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                              <span className="text-lg">💰</span>
+                            </div>
+                            <span className="text-xs font-black text-black">REVENUE</span>
+                          </div>
+                          <div className="text-2xl font-black text-black mb-1">₹45,280</div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-black text-green-600">↑ 40%</span>
+                            <span className="text-xs font-bold text-black/60">vs last week</span>
+                          </div>
+                        </motion.div>
+
+                        {/* Orders Card */}
+                        <motion.div
+                          animate={{ scale: [1, 1.02, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                          className="p-4 rounded-xl border-4 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                              <span className="text-lg">📦</span>
+                            </div>
+                            <span className="text-xs font-black text-black">ORDERS</span>
+                          </div>
+                          <div className="text-2xl font-black text-black mb-1">342</div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-black text-green-600">↑ 35%</span>
+                            <span className="text-xs font-bold text-black/60">vs last week</span>
+                          </div>
+                        </motion.div>
+                      </div>
+
+                      {/* Chart Placeholder */}
+                      <div className="p-4 rounded-xl border-4 border-black bg-gray-50">
+                        <div className="flex items-end justify-between h-20 gap-2">
+                          {[40, 65, 45, 80, 60, 90, 75].map((height, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ height: 0 }}
+                              animate={{ height: `${height}%` }}
+                              transition={{ delay: i * 0.1, duration: 0.5 }}
+                              className="flex-1 rounded-t-lg border-2 border-black"
+                              style={{ backgroundColor: BRAND_ORANGE }}
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-2 text-center">
+                          <span className="text-xs font-black text-black/60">WEEKLY GROWTH</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-neutral-600">{stat.label}</div>
+                
+                {/* Floating Success Badge */}
+                <motion.div
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="absolute -top-4 -right-4 bg-white p-3 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                    <span className="text-sm font-black">Live Dashboard</span>
+                  </div>
+                </motion.div>
               </motion.div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-neutral-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Features Section - WHY CHOOSE US? */}
+      <section id="features" className="py-16 sm:py-20 bg-black relative overflow-hidden">
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-10 left-20 w-20 h-20 rounded-full"
+            style={{ backgroundColor: BRAND_ORANGE, opacity: 0.1 }}
+            animate={{ scale: [1, 1.3, 1], rotate: [0, 90, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-20 right-16 w-16 h-16 rotate-45"
+            style={{ backgroundColor: BRAND_ORANGE, opacity: 0.1 }}
+            animate={{ rotate: [45, 135, 45] }}
+            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23F59E0B'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+        
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          {/* Section Header */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-3xl lg:text-4xl font-bold text-neutral-900 mb-4">
-              Everything You Need to Succeed
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black mb-4 sm:mb-6 tracking-tighter" style={{ color: BRAND_ORANGE }}>
+              WHY CHOOSE US?
             </h2>
-            <p className="text-xl text-neutral-600 max-w-3xl mx-auto">
-              Comprehensive restaurant management platform designed for modern dining experiences
+            <p className="text-lg sm:text-xl lg:text-2xl max-w-2xl mx-auto font-bold" style={{ color: BRAND_ORANGE, opacity: 0.8 }}>
+              Everything you need to run a modern restaurant ⚡
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Features Grid - Mobile: Stack, Desktop: 2 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 max-w-5xl mx-auto">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="card hover:shadow-2xl transition-all duration-300 group"
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                whileHover={{ scale: 1.02, y: -4 }}
+                className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-[0_6px_0_0_rgba(245,158,11,0.3)] hover:shadow-[0_8px_0_0_rgba(245,158,11,0.5)] transition-all group border-4 border-black"
+                style={{ backgroundColor: BRAND_ORANGE }}
               >
-                <div className="flex items-center mb-4">
-                  <div className="p-3 bg-primary-100 rounded-xl group-hover:bg-primary-500 transition-colors duration-300">
-                    <feature.icon className="h-6 w-6 text-primary-500 group-hover:text-white transition-colors duration-300" />
+                <div className="flex items-start gap-4 sm:gap-0 sm:block">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-black rounded-2xl sm:rounded-3xl flex items-center justify-center mb-0 sm:mb-6 group-hover:rotate-6 transition-transform shadow-[0_4px_0_0_rgba(0,0,0,0.3)] flex-shrink-0">
+                    <feature.icon className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: BRAND_ORANGE }} />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-black mb-2 sm:mb-4 tracking-tight">
+                      {feature.title}
+                    </h3>
+                    <p className="text-black/90 leading-relaxed text-base sm:text-lg font-bold">
+                      {feature.description}
+                    </p>
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold text-neutral-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-neutral-600 leading-relaxed">
-                  {feature.description}
-                </p>
               </motion.div>
             ))}
           </div>
@@ -289,125 +436,162 @@ const LandingPage = () => {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="how-it-works" className="py-16 sm:py-20 relative overflow-hidden" style={{ backgroundColor: BRAND_ORANGE }}>
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-20 right-20 w-24 h-24 rounded-full border-4 border-black/10"
+            animate={{ y: [0, -15, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-16 left-16 w-16 h-16 rotate-45 border-4 border-black/10"
+            animate={{ rotate: [45, 225, 45], scale: [1, 1.2, 1] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+        
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              How It Works
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black text-black mb-4 sm:mb-6 tracking-tighter">
+              HOW IT WORKS
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Get your restaurant online in 4 simple steps
+            <p className="text-lg sm:text-xl lg:text-2xl text-black/90 font-bold">
+              Get your restaurant online in 4 simple steps 🚀
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Steps Grid - Mobile: 2x2, Desktop: 4 columns */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-5xl mx-auto">
             {howItWorks.map((step, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.2, duration: 0.6 }}
-                className="text-center relative"
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                whileHover={{ y: -4, scale: 1.02 }}
+                className="text-center group"
               >
-                {/* Connection Line */}
-                {index < howItWorks.length - 1 && (
-                  <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-gray-300 to-transparent z-0" />
-                )}
-                
-                <div className="relative z-10">
-                  <div className={`w-16 h-16 bg-gradient-to-r ${step.color} rounded-full flex items-center justify-center mx-auto shadow-lg mb-4 relative`}>
-                    <step.icon className="w-8 h-8 text-white" />
-                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-white text-gray-900 rounded-full flex items-center justify-center text-sm font-bold shadow-md">
-                      {step.step}
-                    </div>
+                <div className="relative mb-4 sm:mb-6">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-black rounded-full flex items-center justify-center mx-auto shadow-[0_4px_0_0_rgba(0,0,0,0.3)] sm:shadow-[0_6px_0_0_rgba(0,0,0,0.3)] group-hover:shadow-[0_6px_0_0_rgba(0,0,0,0.3)] sm:group-hover:shadow-[0_8px_0_0_rgba(0,0,0,0.3)] transition-all group-hover:rotate-6 border-4 border-black">
+                    <step.icon className="w-10 h-10 sm:w-12 sm:h-12" style={{ color: BRAND_ORANGE }} />
                   </div>
-                  
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                    {step.title}
-                  </h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    {step.description}
-                  </p>
+                  <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-black border-3 sm:border-4 border-black shadow-[0_3px_0_0_rgba(0,0,0,1)] sm:shadow-[0_4px_0_0_rgba(0,0,0,1)]" style={{ backgroundColor: BRAND_ORANGE, color: '#000' }}>
+                    {step.step}
+                  </div>
                 </div>
+                
+                <h3 className="text-base sm:text-xl lg:text-2xl font-black text-black mb-2 sm:mb-3 tracking-tight">
+                  {step.title}
+                </h3>
+                <p className="text-black/90 leading-relaxed text-sm sm:text-base font-bold">
+                  {step.description}
+                </p>
               </motion.div>
             ))}
           </div>
 
-          {/* CTA Button */}
+          {/* CTA Button - Hidden on mobile (buttons are fixed at bottom) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="text-center mt-12"
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="hidden sm:flex justify-center mt-12 sm:mt-16"
           >
-            <Link 
-              to="/auth" 
-              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary-500 to-accent-500 text-white rounded-2xl font-semibold text-lg shadow-xl hover:shadow-2xl transition-all hover:scale-105"
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/auth')}
+              className="px-10 py-4 sm:px-12 sm:py-5 bg-black rounded-full font-black text-xl sm:text-2xl shadow-[0_6px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_0_0_rgba(0,0,0,0.3)] active:shadow-[0_3px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 transition-all border-4 border-black"
+              style={{ color: BRAND_ORANGE }}
             >
-              <PlayIcon className="w-6 h-6" />
-              Get Started Now
-            </Link>
+              GET STARTED NOW ⚡
+            </motion.button>
           </motion.div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="pricing" className="py-16 sm:py-20 bg-black relative overflow-hidden">
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-10 left-10 w-20 h-20 rounded-full"
+            style={{ backgroundColor: BRAND_ORANGE, opacity: 0.1 }}
+            animate={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-10 right-20 w-16 h-16 rotate-45"
+            style={{ backgroundColor: BRAND_ORANGE, opacity: 0.1 }}
+            animate={{ rotate: [45, 225, 45] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23F59E0B'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Simple, Transparent Pricing
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black mb-4 sm:mb-6 tracking-tighter" style={{ color: BRAND_ORANGE }}>
+              SIMPLE PRICING
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Start free and scale as you grow. No hidden fees, no setup costs.
+            <p className="text-lg sm:text-xl lg:text-2xl max-w-2xl mx-auto font-bold" style={{ color: BRAND_ORANGE, opacity: 0.8 }}>
+              Start free and scale as you grow 💰
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
             {/* Starter Plan */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.6 }}
-              className="bg-white rounded-3xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+              whileHover={{ scale: 1.02, y: -4 }}
+              className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-[0_6px_0_0_rgba(245,158,11,0.3)] hover:shadow-[0_8px_0_0_rgba(245,158,11,0.5)] transition-all border-4 border-black bg-white"
             >
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Starter</h3>
-                <div className="text-4xl font-bold text-gray-900 mb-1">Free</div>
-                <p className="text-gray-600">Perfect for small restaurants</p>
+                <h3 className="text-2xl font-black text-black mb-2">STARTER</h3>
+                <div className="text-5xl font-black text-black mb-1">FREE</div>
+                <p className="text-black/70 font-bold">Perfect for small restaurants</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Up to 50 orders/month</span>
+                  <span className="text-black font-bold">Up to 50 orders/month</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">QR code menus</span>
+                  <span className="text-black font-bold">QR code menus</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Basic analytics</span>
+                  <span className="text-black font-bold">Basic analytics</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Email support</span>
+                  <span className="text-black font-bold">Email support</span>
                 </li>
               </ul>
               
-              <Link to="/auth" className="w-full btn-outline text-center block">
-                Get Started Free
+              <Link to="/auth" className="w-full text-center block px-6 py-3 bg-white text-black rounded-full font-black border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)] hover:shadow-[0_6px_0_0_rgba(0,0,0,1)] transition-all">
+                GET STARTED FREE
               </Link>
             </motion.div>
 
@@ -416,45 +600,47 @@ const LandingPage = () => {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="bg-gradient-to-br from-primary-500 to-accent-500 rounded-3xl p-8 shadow-xl text-white relative transform scale-105"
+              whileHover={{ scale: 1.02, y: -4 }}
+              className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-[0_8px_0_0_rgba(245,158,11,0.5)] hover:shadow-[0_10px_0_0_rgba(245,158,11,0.7)] transition-all border-4 border-black relative transform scale-105"
+              style={{ backgroundColor: BRAND_ORANGE }}
             >
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-medium">
-                  Most Popular
+                <span className="bg-black text-amber-400 px-4 py-1 rounded-full text-sm font-black border-2 border-black">
+                  MOST POPULAR
                 </span>
               </div>
               
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold mb-2">Professional</h3>
-                <div className="text-4xl font-bold mb-1">₹999</div>
-                <p className="text-blue-100">per month</p>
+                <h3 className="text-2xl font-black text-black mb-2">PROFESSIONAL</h3>
+                <div className="text-5xl font-black text-black mb-1">₹999</div>
+                <p className="text-black/70 font-bold">per month</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-300" />
-                  <span>Unlimited orders</span>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  <span className="text-black font-bold">Unlimited orders</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-300" />
-                  <span>Advanced analytics</span>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  <span className="text-black font-bold">Advanced analytics</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-300" />
-                  <span>Staff management</span>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  <span className="text-black font-bold">Staff management</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-300" />
-                  <span>Priority support</span>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  <span className="text-black font-bold">Priority support</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-300" />
-                  <span>Custom branding</span>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  <span className="text-black font-bold">Custom branding</span>
                 </li>
               </ul>
               
-              <Link to="/auth" className="w-full bg-white text-primary-500 hover:bg-gray-100 font-medium py-3 px-6 rounded-xl transition-all duration-200 text-center block">
-                Start Free Trial
+              <Link to="/auth" className="w-full text-center block px-6 py-3 bg-black text-amber-400 rounded-full font-black border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)] hover:shadow-[0_6px_0_0_rgba(0,0,0,1)] transition-all">
+                START FREE TRIAL
               </Link>
             </motion.div>
 
@@ -463,35 +649,40 @@ const LandingPage = () => {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.6 }}
-              className="bg-white rounded-3xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+              whileHover={{ scale: 1.02, y: -4 }}
+              className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-[0_6px_0_0_rgba(245,158,11,0.3)] hover:shadow-[0_8px_0_0_rgba(245,158,11,0.5)] transition-all border-4 border-black bg-white"
             >
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
-                <div className="text-4xl font-bold text-gray-900 mb-1">Custom</div>
-                <p className="text-gray-600">For restaurant chains</p>
+                <h3 className="text-2xl font-black text-black mb-2">ENTERPRISE</h3>
+                <div className="text-5xl font-black text-black mb-1">CUSTOM</div>
+                <p className="text-black/70 font-bold">For restaurant chains</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Multi-location support</span>
+                  <span className="text-black font-bold">Everything in Pro</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">API access</span>
+                  <span className="text-black font-bold">Multi-location support</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Dedicated support</span>
+                  <span className="text-black font-bold">Dedicated account manager</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700">Custom integrations</span>
+                  <span className="text-black font-bold">24/7 phone support</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                  <span className="text-black font-bold">Custom integrations</span>
                 </li>
               </ul>
               
-              <Link to="/auth" className="w-full btn-outline text-center block">
-                Contact Sales
+              <Link to="/auth" className="w-full text-center block px-6 py-3 bg-white text-black rounded-full font-black border-4 border-black shadow-[0_4px_0_0_rgba(0,0,0,1)] hover:shadow-[0_6px_0_0_rgba(0,0,0,1)] transition-all">
+                CONTACT SALES
               </Link>
             </motion.div>
           </div>
@@ -499,71 +690,143 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 gradient-bg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="py-16 sm:py-20 pb-24 sm:pb-28 relative overflow-hidden" style={{ backgroundColor: BRAND_ORANGE }}>
+        {/* Playful Background */}
+        <div className="absolute inset-0">
+          <motion.div 
+            className="absolute top-10 left-10 w-20 h-20 rounded-full border-4 border-black/10"
+            animate={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-10 right-20 w-16 h-16 rotate-45 border-4 border-black/10"
+            animate={{ rotate: [45, 225, 45] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%23000000'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+        
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center relative z-10">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8 }}
           >
-            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-6">
-              Ready to Transform Your Restaurant?
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black text-black mb-4 sm:mb-6 tracking-tighter">
+              READY TO GROW?
             </h2>
-            <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-              Join thousands of restaurants already using our platform to increase efficiency and customer satisfaction.
+            <p className="text-lg sm:text-xl lg:text-2xl mb-10 sm:mb-12 max-w-2xl mx-auto font-bold text-black/90">
+              Join 500+ restaurants using Ordyrr to boost revenue and delight customers 🚀
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/dashboard" className="bg-white text-primary-500 hover:bg-neutral-100 font-medium py-3 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
-                Start Free Trial
-              </Link>
-              <Link to="/menu/demo" className="border-2 border-white text-white hover:bg-white hover:text-primary-500 font-medium py-3 px-8 rounded-xl transition-all duration-200">
-                View Demo
-              </Link>
+            
+            {/* Desktop Only Buttons */}
+            <div className="hidden sm:flex flex-col sm:flex-row gap-4 sm:gap-5 justify-center max-w-xl mx-auto">
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/auth')}
+                className="flex-1 px-8 py-4 sm:py-5 rounded-full font-black text-lg sm:text-xl shadow-[0_6px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_0_0_rgba(0,0,0,0.3)] active:shadow-[0_3px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 transition-all flex items-center justify-center gap-3 group border-4 border-black bg-black text-amber-400"
+              >
+                <RocketLaunchIcon className="w-6 h-6 sm:w-7 sm:h-7 group-hover:rotate-12 transition-transform" />
+                <span>START FREE TRIAL</span>
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/menu/demo')}
+                className="flex-1 px-8 py-4 sm:py-5 bg-white text-black rounded-full font-black text-lg sm:text-xl border-4 border-black shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all flex items-center justify-center gap-3 group"
+              >
+                <PlayIcon className="w-6 h-6 sm:w-7 sm:h-7 group-hover:scale-110 transition-transform" />
+                <span>VIEW DEMO</span>
+              </motion.button>
             </div>
+
+            {/* Mobile Message - Pointing to fixed buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="sm:hidden mt-8"
+            >
+              <div className="inline-flex items-center gap-2 bg-black/10 backdrop-blur-sm px-6 py-3 rounded-full border-2 border-black/30">
+                <span className="text-black font-bold text-sm">👇 Use buttons below to get started</span>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
+      {/* Fixed Floating CTA Buttons - Bottom Center (Mobile & Desktop) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7, duration: 0.6, type: "spring", bounce: 0.4 }}
+        className="fixed bottom-6 sm:bottom-8 left-0 right-0 z-50 flex flex-row gap-3 sm:gap-4 justify-center items-center px-4"
+        style={{ transform: 'none' }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: 3 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/auth')}
+          className="px-5 py-3 sm:px-6 sm:py-4 bg-black rounded-full font-black text-sm sm:text-base shadow-[0_6px_0_0_rgba(0,0,0,0.4)] hover:shadow-[0_8px_0_0_rgba(0,0,0,0.6)] active:shadow-[0_3px_0_0_rgba(0,0,0,0.4)] active:translate-y-1 transition-all flex items-center justify-center gap-2 group border-4 border-black text-amber-400"
+        >
+          <RocketLaunchIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" />
+          <span>START FREE</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: -3 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/menu/demo')}
+          className="px-5 py-3 sm:px-6 sm:py-4 bg-white text-black rounded-full font-black text-sm sm:text-base shadow-[0_6px_0_0_rgba(0,0,0,1)] hover:shadow-[0_8px_0_0_rgba(0,0,0,1)] active:shadow-[0_3px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all border-4 border-black flex items-center justify-center gap-2 group"
+        >
+          <PlayIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+          <span>VIEW DEMO</span>
+        </motion.button>
+      </motion.div>
+
       {/* Footer */}
-      <footer className="bg-neutral-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
-                <QrCodeIcon className="h-8 w-8 text-primary-500" />
-                <span className="ml-2 text-xl font-bold">QR Restaurant</span>
+      <footer className="bg-black text-white py-12 sm:py-16 border-t-4 border-amber-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div className="col-span-2 md:col-span-1">
+              <div className="mb-4">
+                <img src={restaurantLogo} alt="Ordyrr Restaurant" className="h-12 w-auto" />
               </div>
-              <p className="text-neutral-400 leading-relaxed">
+              <p className="text-white/70 leading-relaxed font-bold text-sm">
                 The complete QR ordering solution for modern restaurants.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-neutral-400">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Demo</a></li>
+              <h3 className="font-black mb-4 text-amber-400">PRODUCT</h3>
+              <ul className="space-y-2 text-white/70 font-bold text-sm">
+                <li><a href="#features" className="hover:text-amber-400 transition-colors">Features</a></li>
+                <li><a href="#pricing" className="hover:text-amber-400 transition-colors">Pricing</a></li>
+                <li><a href="/menu/demo" className="hover:text-amber-400 transition-colors">Demo</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-neutral-400">
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API Docs</a></li>
+              <h3 className="font-black mb-4 text-amber-400">SUPPORT</h3>
+              <ul className="space-y-2 text-white/70 font-bold text-sm">
+                <li><a href="#" className="hover:text-amber-400 transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-amber-400 transition-colors">Contact Us</a></li>
+                <li><a href="#" className="hover:text-amber-400 transition-colors">API Docs</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-neutral-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
+              <h3 className="font-black mb-4 text-amber-400">COMPANY</h3>
+              <ul className="space-y-2 text-white/70 font-bold text-sm">
+                <li><a href="#" className="hover:text-amber-400 transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-amber-400 transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-amber-400 transition-colors">Careers</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-neutral-800 mt-8 pt-8 text-center text-neutral-400">
-            <p>&copy; 2024 QR Restaurant SaaS. All rights reserved.</p>
+          <div className="border-t-2 border-white/10 pt-8 text-center">
+            <p className="text-white/60 font-bold text-sm">&copy; 2024 Ordyrr Restaurant SaaS. All rights reserved.</p>
           </div>
         </div>
       </footer>
