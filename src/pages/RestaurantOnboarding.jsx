@@ -443,102 +443,64 @@ const RestaurantOnboarding = () => {
       
       console.log('🎯 Image upload phase complete:', uploadedUrls)
       
-      // Create restaurant with or without image URLs
-      // Note: restaurants.owner_id references auth.users(id), but we're using unified users table
-      // We need to create the restaurant record properly
-      const restaurantData = {
-        name: formData.name,
-        description: formData.description,
-        address: formData.address,
-        phone: formData.phone,
-        email: formData.email,
+      // Update user record with restaurant information (simplified schema)
+      // Using only users table with additional restaurant fields
+      console.log('🔄 Updating user record with restaurant information...')
+      
+      const restaurantUpdateData = {
+        restaurant_name: formData.name,
+        restaurant_description: formData.description,
+        restaurant_address: formData.address,
+        restaurant_phone: formData.phone,
+        restaurant_email: formData.email,
         cuisine_type: formData.cuisine_type,
         opening_hours: formData.opening_hours,
         logo_url: uploadedUrls.logo_url || null,
         banner_url: uploadedUrls.banner_url || null,
         is_active: true,
-        created_at: new Date().toISOString(),
+        is_open: true,
         updated_at: new Date().toISOString()
       }
 
-      // Handle restaurant creation with comprehensive RLS fallback
-      let restaurant
+      // Generate staff signup key if not exists
+      if (!user.staff_signup_key) {
+        const generateStaffKey = () => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+          let key = ''
+          for (let i = 0; i < 12; i++) {
+            if (i === 4 || i === 8) key += '-'
+            else key += chars.charAt(Math.floor(Math.random() * chars.length))
+          }
+          return key
+        }
+        restaurantUpdateData.staff_signup_key = generateStaffKey()
+      }
+      
       let restaurantCreated = false
       
       try {
         console.log('🔄 Updating user record with restaurant data...')
-        const { data, error } = await supabase
+        
+        const { data: updatedUser, error: updateError } = await supabase
           .from('users')
-          .update({
-            role: 'restaurant_owner',
-            restaurant_name: restaurantData.name,
-            restaurant_phone: restaurantData.phone,
-            restaurant_email: restaurantData.email,
-            restaurant_address: restaurantData.address,
-            cuisine_type: restaurantData.cuisine_type,
-            logo_url: restaurantData.logo_url,
-            updated_at: new Date().toISOString()
-          })
+          .update(restaurantUpdateData)
           .eq('id', user.id)
           .select()
           .single()
         
-        if (error) {
-          console.error('Restaurant creation error:', error)
-          throw error
+        if (updateError) {
+          console.error('User update error:', updateError)
+          throw updateError
         }
         
-        restaurant = data
+        console.log('✅ User record updated with restaurant data:', updatedUser.id)
         restaurantCreated = true
-        console.log('✅ Restaurant record created successfully')
-        toast.success('Restaurant created successfully!')
+        toast.success('Restaurant information saved successfully!')
         
-      } catch (error) {
-        console.warn('Restaurant table creation failed:', error)
-        
-        if (error.message?.includes('row-level security policy') || error.code === '42501') {
-          console.log('⚠️ Restaurant RLS policy violation - using user profile fallback')
-          
-          try {
-            // Fallback: Update user record with restaurant information
-            const { data: updatedUser, error: updateError } = await supabase
-              .from('users')
-              .update({
-                restaurant_name: formData.name,
-                restaurant_description: formData.description,
-                restaurant_address: formData.address,
-                restaurant_phone: formData.phone,
-                restaurant_email: formData.email,
-                cuisine_type: formData.cuisine_type,
-                logo_url: uploadedUrls.logo_url || null,
-                banner_url: uploadedUrls.banner_url || null,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', user.id)
-              .select()
-              .single()
-            
-            if (updateError) {
-              console.error('User update also failed:', updateError)
-              throw updateError
-            }
-            
-            // Create a mock restaurant object for further processing
-            restaurant = { id: user.id, ...restaurantData }
-            console.log('✅ Restaurant data saved to user profile')
-            toast.success('Restaurant information saved to your profile!')
-            
-          } catch (fallbackError) {
-            console.error('Both restaurant creation and user update failed:', fallbackError)
-            toast.error('Failed to save restaurant information. Please try again.')
-            throw fallbackError
-          }
-        } else {
-          // Other database errors
-          console.error('Unexpected database error:', error)
-          toast.error(`Database error: ${error.message}`)
-          throw error
-        }
+      } catch (updateError) {
+        console.error('❌ User update failed:', updateError)
+        toast.error('Failed to save restaurant information. Please try again.')
+        throw updateError
       }
 
       // Handle default menu categories with RLS fallback
