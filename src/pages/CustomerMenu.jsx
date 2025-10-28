@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { 
+  ArrowLeftIcon, 
+  Bars3Icon,
+  HeartIcon,
+  ClockIcon,
+  UserGroupIcon,
+  PlusIcon,
+  MinusIcon,
+  ShoppingCartIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline'
+import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
 import OrderService from '../services/orderService'
 import realtimeService from '../services/realtimeService'
 import tableService from '../services/tableService'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
 
 // Import new components
 import RestaurantHeader from '../components/customer/RestaurantHeader'
@@ -22,7 +34,12 @@ import CustomerNavHeader from '../components/customer/CustomerNavHeader'
 import FloatingBackButton from '../components/customer/FloatingBackButton'
 import MobileMenu from '../components/customer/MobileMenu'
 
+// Brand colors
+const BRAND_LIME = '#C6FF3D'
+const BRAND_BLACK = '#2D2D2D'
+
 const CustomerMenu = () => {
+  const navigate = useNavigate()
   const { restaurantId, tableId } = useParams()
   const [searchParams] = useSearchParams()
   const { cart, addToCart, initializeSession, getCartCount } = useCartStore()
@@ -44,6 +61,11 @@ const CustomerMenu = () => {
   const [sessionId, setSessionId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  
+  // New menu UI states
+  const [selectedFilters, setSelectedFilters] = useState([])
+  const [favorites, setFavorites] = useState([])
+  const [itemQuantities, setItemQuantities] = useState({})
 
   useEffect(() => {
     initializeCustomerSession()
@@ -344,11 +366,145 @@ const CustomerMenu = () => {
     }
   }
 
-  const filteredItems = menuItems.filter(item => item.category_id === activeCategory)
+  // Helper functions for new menu UI
+  const toggleFilter = (filter) => {
+    setSelectedFilters(prev => 
+      prev.includes(filter) 
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
+    )
+  }
+
+  const toggleFavorite = (itemId) => {
+    setFavorites(prev =>
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    )
+  }
+
+  const updateItemQuantity = (itemId, change) => {
+    setItemQuantities(prev => {
+      const current = prev[itemId] || 0
+      const newQuantity = Math.max(0, current + change)
+      return { ...prev, [itemId]: newQuantity }
+    })
+  }
+
+  const handleAddToCartWithQuantity = (item) => {
+    const quantity = itemQuantities[item.id] || 0
+    if (quantity > 0) {
+      for (let i = 0; i < quantity; i++) {
+        addToCart(item)
+      }
+      toast.success(`Added ${quantity} ${item.name} to cart`)
+    } else {
+      addToCart(item)
+      setItemQuantities(prev => ({ ...prev, [item.id]: 1 }))
+      toast.success(`Added ${item.name} to cart`)
+    }
+  }
+
+  // Filter items by category and dietary filters
+  let filteredItems = menuItems.filter(item => item.category_id === activeCategory)
+  
+  if (selectedFilters.length > 0) {
+    filteredItems = filteredItems.filter(item => {
+      if (selectedFilters.includes('veg') && item.is_vegetarian) return true
+      if (selectedFilters.includes('non-veg') && !item.is_vegetarian) return true
+      if (selectedFilters.includes('egg') && item.contains_egg) return true
+      if (selectedFilters.includes('highly-reordered') && item.is_popular) return true
+      return selectedFilters.length === 0
+    })
+  }
 
   // Loading state
   if (loading) {
-    return <LoadingScreen />
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: BRAND_LIME }}>
+        {/* Playful Background - Matching Landing Page */}
+        <div className="fixed inset-0 pointer-events-none">
+          <motion.div 
+            className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
+            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
+            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          
+          {/* Dot Pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        {/* Loading Content */}
+        <div className="relative z-10 text-center px-4">
+          {/* Logo Container - Matching Landing Page Style */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ duration: 0.8, type: "spring", bounce: 0.5 }}
+            className="mb-8"
+          >
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="bg-white rounded-2xl px-8 py-6 border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] inline-block"
+            >
+              <img src={logo} alt="Ordyrr" className="h-20 w-auto" />
+            </motion.div>
+          </motion.div>
+
+          {/* Loading Text */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h2 className="text-2xl sm:text-3xl font-black text-black mb-3 tracking-tight">
+              LOADING MENU
+            </h2>
+            <p className="text-base font-bold text-black/70 mb-6">
+              Preparing delicious options for you... 🍽️
+            </p>
+            
+            {/* Animated Food Emojis */}
+            <div className="flex items-center justify-center gap-4">
+              {['🍕', '🍔', '🍜', '🍰'].map((emoji, i) => (
+                <motion.div
+                  key={i}
+                  className="text-4xl"
+                  animate={{
+                    y: [0, -15, 0],
+                    rotate: [0, 10, -10, 0],
+                    scale: [1, 1.2, 1]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: i * 0.3,
+                    ease: "easeInOut"
+                  }}
+                >
+                  {emoji}
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    )
   }
 
   // Error state
@@ -357,75 +513,85 @@ const CustomerMenu = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Enhanced Restaurant Header with Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        {/* Top Navigation Bar */}
-        <div className="px-4 py-3 border-b border-gray-100">
+    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
+      {/* Playful Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <motion.div 
+          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
+          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
+          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        
+        {/* Dot Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
+        }} />
+      </div>
+
+      {/* Header */}
+      <motion.div 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className="sticky top-0 z-50 bg-black border-b-4 border-black"
+      >
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.history.back()}
-              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all"
+              whileHover={{ scale: 1.1, rotate: -10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate(-1)}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
             >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-700" />
+              <ArrowLeftIcon className="w-5 h-5 text-black" />
             </motion.button>
             
-            <div className="flex-1 text-center">
-              <h1 className="text-lg font-bold text-gray-900 truncate">
-                {restaurant?.name || 'Menu'}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {getCartCount() > 0 && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowCart(true)}
-                  className="relative w-10 h-10 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-all"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.5 1.5M7 13l1.5 1.5M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
-                  </svg>
-                  <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {getCartCount()}
-                  </span>
-                </motion.button>
-              )}
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowMobileMenu(true)}
-                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all"
-              >
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </motion.button>
-            </div>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
+            >
+              <img src={logo} alt="Ordyrr" className="h-10 w-auto" />
+            </motion.div>
+            
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 10 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowMobileMenu(true)}
+              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+            >
+              <Bars3Icon className="w-5 h-5 text-black" />
+            </motion.button>
           </div>
         </div>
+      </motion.div>
 
-        {/* Restaurant Info */}
-        {restaurant && (
-          <div className="px-4 py-4">
+      {/* Restaurant Info Card */}
+      {restaurant && (
+        <div className="relative z-10 p-4 max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-4 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] mb-4"
+          >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border-3 border-black" style={{ backgroundColor: BRAND_LIME }}>
                 {restaurant.logo_url ? (
                   <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
                 ) : (
-                  <span className="text-lg font-bold text-gray-600">{restaurant.name?.charAt(0)}</span>
+                  <span className="text-lg font-bold text-black">{restaurant.name?.charAt(0)}</span>
                 )}
               </div>
               
               <div className="flex-1">
-                <h2 className="font-bold text-gray-900">{restaurant.name}</h2>
-                <p className="text-sm text-gray-600">{restaurant.address}</p>
+                <h2 className="font-black text-black text-lg">{restaurant.name}</h2>
+                <p className="text-sm font-bold text-black/70">{restaurant.address}</p>
                 {table && (
-                  <p className="text-xs text-gray-500 mt-1">Table {table.table_number}</p>
+                  <p className="text-xs font-bold text-black/50 mt-1">Table {table.table_number}</p>
                 )}
               </div>
 
@@ -434,32 +600,303 @@ const CustomerMenu = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowOrderTracking(true)}
-                  className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium"
+                  className="px-3 py-2 rounded-full text-sm font-black border-3 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
+                  style={{ backgroundColor: BRAND_LIME, color: BRAND_BLACK }}
                 >
                   Track Order
                 </motion.button>
               )}
             </div>
+          </motion.div>
+        </div>
+      )}
+
+
+      {/* Hero Banner with Category - Boxy Brand Style */}
+      {activeCategory && categories.find(c => c.id === activeCategory) && (
+        <div className="relative z-10 p-4 max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-6 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] mb-4 flex items-center justify-between"
+            style={{ backgroundColor: BRAND_LIME }}
+          >
+            <div className="flex-1">
+              <h2 className="text-3xl font-black text-black mb-2 uppercase italic tracking-tight">
+                {categories.find(c => c.id === activeCategory)?.name}
+              </h2>
+              <p className="text-base font-bold text-black/70">
+                {filteredItems.length} items
+              </p>
+            </div>
+            
+            {/* Circular Food Image */}
+            <div className="w-28 h-28 rounded-full border-4 border-black shadow-lg overflow-hidden bg-white flex-shrink-0">
+              {categories.find(c => c.id === activeCategory)?.image_url ? (
+                <img 
+                  src={categories.find(c => c.id === activeCategory).image_url} 
+                  alt={categories.find(c => c.id === activeCategory)?.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-red-500">
+                  <span className="text-4xl">🍽️</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Filter Chips - Brand Style */}
+      <div className="px-4 py-3 border-b-2 border-black sticky top-[72px] z-40" style={{ backgroundColor: BRAND_LIME }}>
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-4xl mx-auto">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => toggleFilter('veg')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
+              selectedFilters.includes('veg')
+                ? 'bg-black text-white'
+                : 'bg-white text-black'
+            }`}
+          >
+            <div className="w-3 h-3 rounded-full bg-green-500 border border-green-700"></div>
+            <span className="text-sm font-bold">Veg</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => toggleFilter('non-veg')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
+              selectedFilters.includes('non-veg')
+                ? 'bg-black text-white'
+                : 'bg-white text-black'
+            }`}
+          >
+            <div className="w-3 h-3 bg-red-500 border border-red-700" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+            <span className="text-sm font-bold">Non-veg</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => toggleFilter('egg')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
+              selectedFilters.includes('egg')
+                ? 'bg-black text-white'
+                : 'bg-white text-black'
+            }`}
+          >
+            <div className="w-3 h-3 rounded-sm bg-yellow-600 border border-yellow-800"></div>
+            <span className="text-sm font-bold">Egg</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => toggleFilter('highly-reordered')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
+              selectedFilters.includes('highly-reordered')
+                ? 'bg-black text-white'
+                : 'bg-white text-black'
+            }`}
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            <span className="text-sm font-bold">Highly Reordered</span>
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Category Tabs */}
+      <div className="px-4 py-3 border-b-2 border-black sticky top-[132px] z-40" style={{ backgroundColor: BRAND_LIME }}>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide max-w-4xl mx-auto">
+          {categories.map((category) => (
+            <motion.button
+              key={category.id}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveCategory(category.id)}
+              className={`px-6 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all border-2 border-black ${
+                activeCategory === category.id
+                  ? 'bg-black text-white'
+                  : 'bg-white text-black hover:bg-gray-100'
+              }`}
+            >
+              {category.name}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Professional Menu Grid - Swiggy Style */}
+      <div className="px-4 py-4 max-w-4xl mx-auto">
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No items found</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {filteredItems.map((item, index) => {
+              const quantity = itemQuantities[item.id] || 0
+              const isFavorite = favorites.includes(item.id)
+              
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
+                >
+                  {/* Food Image */}
+                  <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200">
+                    {item.image_url ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-4xl">🍽️</span>
+                      </div>
+                    )}
+                    
+                    {/* Badges */}
+                    {item.is_popular && (
+                      <div className="absolute top-2 left-2 bg-pink-500 text-white px-2 py-1 rounded-md flex items-center gap-1 text-xs font-bold">
+                        <HeartSolidIcon className="w-3 h-3" />
+                        Most Loved
+                      </div>
+                    )}
+                    
+                    {item.is_special && (
+                      <div className="absolute top-2 left-2 bg-teal-500 text-white px-2 py-1 rounded-md text-xs font-bold">
+                        Chef's Special
+                      </div>
+                    )}
+
+                    {/* Favorite Button */}
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => toggleFavorite(item.id)}
+                      className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md"
+                    >
+                      {isFavorite ? (
+                        <HeartSolidIcon className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <HeartIcon className="w-5 h-5 text-gray-600" />
+                      )}
+                    </motion.button>
+                  </div>
+
+                  {/* Item Details */}
+                  <div className="p-3">
+                    <h3 className="font-bold text-sm text-gray-900 mb-1 line-clamp-2">
+                      {item.name}
+                    </h3>
+                    
+                    {/* Meta Info */}
+                    <div className="flex items-center gap-2 mb-2 text-xs text-gray-600">
+                      {item.prep_time && (
+                        <div className="flex items-center gap-1">
+                          <ClockIcon className="w-3 h-3" />
+                          <span>{item.prep_time} min</span>
+                        </div>
+                      )}
+                      {item.serves && (
+                        <div className="flex items-center gap-1">
+                          <UserGroupIcon className="w-3 h-3" />
+                          <span>{item.serves}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                      {item.description || 'Delicious and freshly prepared'}
+                    </p>
+
+                    {/* Price */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-lg font-bold text-gray-900">
+                        ₹{item.price}
+                      </span>
+                      {item.original_price && item.original_price > item.price && (
+                        <span className="text-sm text-gray-500 line-through">
+                          ₹{item.original_price}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Add to Cart / Quantity Controls */}
+                    {quantity === 0 ? (
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setItemQuantities(prev => ({ ...prev, [item.id]: 1 }))
+                          handleAddToCart(item)
+                        }}
+                        className="w-full py-2 rounded-lg font-bold text-sm text-black border-2 border-black transition-all shadow-md"
+                        style={{ backgroundColor: BRAND_LIME }}
+                      >
+                        ADD
+                        {item.customizable && (
+                          <span className="block text-xs font-normal opacity-90">customisable</span>
+                        )}
+                      </motion.button>
+                    ) : (
+                      <div className="flex items-center justify-between rounded-lg px-3 py-2 border-2 border-black" style={{ backgroundColor: BRAND_LIME }}>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => updateItemQuantity(item.id, -1)}
+                          className="w-6 h-6 rounded-full bg-black flex items-center justify-center"
+                        >
+                          <MinusIcon className="w-4 h-4 text-white" />
+                        </motion.button>
+                        
+                        <span className="text-black font-bold">{quantity}</span>
+                        
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => updateItemQuantity(item.id, 1)}
+                          className="w-6 h-6 rounded-full bg-black flex items-center justify-center"
+                        >
+                          <PlusIcon className="w-4 h-4 text-white" />
+                        </motion.button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         )}
       </div>
 
-
-      {/* Category Tabs */}
-      <CategoryTabs 
-        categories={categories}
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-      />
-
-      {/* Menu Grid */}
-      <MenuGrid 
-        items={filteredItems}
-        onAddToCart={handleAddToCart}
-        categories={categories}
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-      />
+      {/* Floating Cart Button */}
+      {getCartCount() > 0 && (
+        <motion.div
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          className="fixed bottom-4 left-4 right-4 z-50 max-w-4xl mx-auto"
+        >
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCart(true)}
+            className="w-full py-4 rounded-2xl font-bold text-black shadow-2xl flex items-center justify-between px-6 border-4 border-black"
+            style={{ backgroundColor: BRAND_LIME }}
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingCartIcon className="w-6 h-6" />
+              <span>View cart • {getCartCount()} items</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>₹{cart.reduce((total, item) => total + item.price, 0)}</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* Modals and Sidebars */}
       <AnimatePresence>
