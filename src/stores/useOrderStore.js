@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../config/supabase'
-import OrderService from '../services/orderService'
+import UnifiedOrderService from '../services/unifiedOrderService'
+import NotificationService from '../services/notificationService'
 import toast from 'react-hot-toast'
 
 const useOrderStore = create((set, get) => ({
@@ -91,10 +92,16 @@ const useOrderStore = create((set, get) => ({
         throw new Error('Cart is empty')
       }
 
-      // Use enhanced OrderService
-      const order = await OrderService.createOrder({
-        ...orderData,
-        items: cart
+      // Use UnifiedOrderService for consistent order creation
+      const order = await UnifiedOrderService.createOrder({
+        source: 'customer',
+        restaurantId: orderData.restaurantId,
+        tableId: orderData.tableId,
+        cartItems: cart,
+        customerInfo: orderData.customerInfo || {},
+        specialInstructions: orderData.specialInstructions || '',
+        paymentMethod: orderData.paymentMethod || 'cash',
+        tipAmount: orderData.tipAmount || 0
       })
       
       set({ currentOrder: order })
@@ -117,7 +124,14 @@ const useOrderStore = create((set, get) => ({
   createCustomerSession: async (sessionData) => {
     set({ loading: true, error: null })
     try {
-      const session = await OrderService.createCustomerSession(sessionData)
+      // Create customer session using supabase directly (UnifiedOrderService handles this internally)
+      const { data: session, error } = await supabase
+        .from('customer_sessions')
+        .insert(sessionData)
+        .select()
+        .single()
+      
+      if (error) throw error
       toast.success('Session created successfully!')
       return session
     } catch (error) {
@@ -133,7 +147,8 @@ const useOrderStore = create((set, get) => ({
    * Track customer order in real-time
    */
   trackCustomerOrder: (sessionId, callback) => {
-    const subscription = OrderService.subscribeToCustomerOrders(sessionId, (payload) => {
+    // Use NotificationService for real-time updates
+    const subscription = NotificationService.subscribeToCustomerOrders(sessionId, (payload) => {
       // Update current order if it matches
       const currentOrder = get().currentOrder
       if (currentOrder && currentOrder.id === payload.orderId) {
@@ -157,7 +172,7 @@ const useOrderStore = create((set, get) => ({
    */
   subscribeToCustomerOrders: (sessionId, callback) => {
     try {
-      const subscription = OrderService.subscribeToCustomerOrders(sessionId, callback)
+      const subscription = NotificationService.subscribeToCustomerOrders(sessionId, callback)
       get().subscriptions.set(`customer-orders-${sessionId}`, subscription)
       return subscription
     } catch (error) {
@@ -175,7 +190,19 @@ const useOrderStore = create((set, get) => ({
   getCustomerOrders: async (sessionId) => {
     set({ loading: true, error: null })
     try {
-      const orders = await OrderService.getCustomerOrders(sessionId)
+      // Get customer orders using supabase directly
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*),
+          tables(table_number),
+          users!orders_assigned_staff_id_fkey(full_name)
+        `)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
       set({ orders: orders || [] })
       return { data: orders, error: null }
     } catch (error) {
@@ -195,7 +222,8 @@ const useOrderStore = create((set, get) => ({
   fetchStaffOrders: async (staffId, filters = {}) => {
     set({ loading: true, error: null })
     try {
-      const orders = await OrderService.getStaffOrders(staffId, filters)
+      // Get staff orders using UnifiedOrderService
+      const orders = await UnifiedOrderService.getStaffOrders(staffId, filters)
       set({ orders, filters })
       return orders
     } catch (error) {
@@ -213,7 +241,7 @@ const useOrderStore = create((set, get) => ({
   updateOrderStatusByStaff: async (orderId, status, staffId) => {
     set({ loading: true, error: null })
     try {
-      const updatedOrder = await OrderService.updateOrderStatusByStaff(orderId, status, staffId)
+      const updatedOrder = await UnifiedOrderService.updateOrderStatus(orderId, status, staffId, 'staff')
       
       // Update orders list
       const orders = get().orders.map(order =>
@@ -238,7 +266,19 @@ const useOrderStore = create((set, get) => ({
   fetchStaffEarnings: async (staffId, filters = {}) => {
     set({ loading: true, error: null })
     try {
-      const earnings = await OrderService.getStaffEarnings(staffId, filters)
+      // Get staff earnings using supabase directly
+      const { data: earnings, error } = await supabase
+        .from('orders')
+        .select('total_amount, tip_amount, created_at')
+        .eq('assigned_staff_id', staffId)
+        .eq('status', 'completed')
+        .gte('created_at', filters?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .lte('created_at', filters?.dateTo || new Date().toISOString())
+      
+      if (error) throw error
+      
+      const totalEarnings = earnings.reduce((sum, order) => sum + (order.total_amount + order.tip_amount), 0)
+      const totalOrders = earnings.length
       return earnings
     } catch (error) {
       set({ error: error.message })
@@ -253,7 +293,8 @@ const useOrderStore = create((set, get) => ({
    * Subscribe to staff order updates
    */
   subscribeToStaffOrders: (staffId, callback) => {
-    const subscription = OrderService.subscribeToStaffOrders(staffId, (payload) => {
+    // Use NotificationService for staff order subscriptions
+    const subscription = NotificationService.subscribeToStaffOrders(staffId, (payload) => {
       // Refresh orders list
       get().fetchStaffOrders(staffId, get().filters)
       
@@ -272,7 +313,29 @@ const useOrderStore = create((set, get) => ({
   fetchRestaurantOrders: async (restaurantId, filters = {}) => {
     set({ loading: true, error: null })
     try {
-      const result = await OrderService.getRestaurantOrdersWithAnalytics(restaurantId, filters)
+      // Get restaurant orders with analytics using supabase
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*),
+          tables(table_number),
+          users!orders_assigned_staff_id_fkey(full_name)
+        `)
+        .eq('restaurant_id', restaurantId)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      // Calculate analytics
+      const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0)
+      const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
+      const ordersByStatus = orders.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1
+        return acc
+      }, {})
+      
+      const result = { orders, analytics: { totalRevenue, averageOrderValue, ordersByStatus } }
       set({ 
         orders: result.orders, 
         analytics: result.analytics,
@@ -294,7 +357,7 @@ const useOrderStore = create((set, get) => ({
   assignOrderToStaff: async (orderId, staffId, ownerId) => {
     set({ loading: true, error: null })
     try {
-      const updatedOrder = await OrderService.assignOrderToStaffByOwner(orderId, staffId, ownerId)
+      const updatedOrder = await UnifiedOrderService.assignOrderToStaff(orderId, staffId, ownerId)
       
       // Update orders list
       const orders = get().orders.map(order =>
@@ -317,7 +380,8 @@ const useOrderStore = create((set, get) => ({
    * Subscribe to restaurant order updates
    */
   subscribeToRestaurantOrders: (restaurantId, callback) => {
-    const subscription = OrderService.subscribeToRestaurantOrders(restaurantId, (payload) => {
+    // Use NotificationService for restaurant order subscriptions
+    const subscription = NotificationService.subscribeToRestaurantOrders(restaurantId, (payload) => {
       // Refresh orders list
       get().fetchRestaurantOrders(restaurantId, get().filters)
       
@@ -336,7 +400,27 @@ const useOrderStore = create((set, get) => ({
   fetchPlatformAnalytics: async (filters = {}) => {
     set({ loading: true, error: null })
     try {
-      const analytics = await OrderService.getPlatformOrderAnalytics(filters)
+      // Get platform analytics using supabase directly
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users!orders_restaurant_id_fkey(restaurant_name)
+        `)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      // Calculate platform analytics
+      const totalOrders = orders.length
+      const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0)
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+      const ordersByStatus = orders.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1
+        return acc
+      }, {})
+      
+      const analytics = { totalOrders, totalRevenue, averageOrderValue, ordersByStatus }
       set({ analytics })
       return analytics
     } catch (error) {
@@ -392,7 +476,20 @@ const useOrderStore = create((set, get) => ({
 
   fetchOrderById: async (orderId) => {
     try {
-      const orderDetails = await OrderService.getOrderDetails(orderId)
+      // Get order details using supabase directly
+      const { data: orderDetails, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*),
+          tables(table_number, capacity),
+          users!orders_restaurant_id_fkey(restaurant_name, full_name),
+          users!orders_assigned_staff_id_fkey(full_name)
+        `)
+        .eq('id', orderId)
+        .single()
+      
+      if (error) throw error
       set({ currentOrder: orderDetails })
       return { data: orderDetails, error: null }
     } catch (error) {
@@ -410,7 +507,20 @@ const useOrderStore = create((set, get) => ({
   fetchOrderDetails: async (orderId) => {
     set({ loading: true, error: null })
     try {
-      const orderDetails = await OrderService.getOrderDetails(orderId)
+      // Get order details using supabase directly
+      const { data: orderDetails, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*),
+          tables(table_number, capacity),
+          users!orders_restaurant_id_fkey(restaurant_name, full_name),
+          users!orders_assigned_staff_id_fkey(full_name)
+        `)
+        .eq('id', orderId)
+        .single()
+      
+      if (error) throw error
       set({ currentOrder: orderDetails })
       return orderDetails
     } catch (error) {

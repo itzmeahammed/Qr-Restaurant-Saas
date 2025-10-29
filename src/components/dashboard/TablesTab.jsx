@@ -19,6 +19,7 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline'
 import tableService from '../../services/tableService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
 import toast from 'react-hot-toast'
 
 const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDeleteTable }) => {
@@ -166,6 +167,8 @@ const TablesTab = ({ restaurant, tables = [], onAddTable, onUpdateTable, onDelet
   const handleDeleteTable = (tableId) => {
     onDeleteTable?.(tableId)
   }
+
+
 
   return (
     <div className="space-y-4 sm:space-y-6">

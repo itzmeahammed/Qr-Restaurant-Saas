@@ -16,11 +16,13 @@ import {
   ChatBubbleLeftIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../../config/supabase'
-import OrderService from '../../services/orderService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
+import NotificationService from '../../services/notificationService'
 import useOrderStore from '../../stores/useOrderStore'
 import toast from 'react-hot-toast'
 
 const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
+  console.log('🍽️ StaffOrderManagement props:', { staffId, restaurantId, isOnline })
   // Use enhanced order store
   const {
     orders,
@@ -39,19 +41,38 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const [processingOrders, setProcessingOrders] = useState(new Set())
 
   useEffect(() => {
-    console.log('🔍 StaffOrderManagement props:', { staffId, restaurantId, isOnline, filter })
+    console.log('🔍 StaffOrderManagement useEffect:', { staffId, restaurantId, isOnline, filter })
     
     if (restaurantId && staffId) {
       // Clear any previous errors
       clearError()
       
+      console.log('📋 Fetching staff orders with filter:', getStatusFilter(filter))
       // Fetch staff orders using enhanced service
       fetchStaffOrders(staffId, {
         status: getStatusFilter(filter),
         limit: 30
       })
       
-      // Setup real-time subscription
+      // Setup real-time notifications for staff
+      const notificationSub = NotificationService.subscribeToNotifications(
+        staffId,
+        'staff',
+        (notification) => {
+          console.log('📨 Staff notification received:', notification)
+          playNotificationSound()
+          
+          // Refresh orders when new assignment comes in
+          if (notification.notification_type === 'order_assigned') {
+            fetchStaffOrders(staffId, {
+              status: getStatusFilter(filter),
+              limit: 30
+            })
+          }
+        }
+      )
+      
+      // Setup real-time subscription for order updates
       const sub = subscribeToStaffOrders(staffId, (newOrder) => {
         console.log('📨 New order notification:', newOrder)
         playNotificationSound()
@@ -67,6 +88,9 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         if (sub) {
           console.log('🔌 Cleaning up staff order subscription')
           sub.unsubscribe()
+        }
+        if (notificationSub) {
+          NotificationService.unsubscribeFromNotifications(staffId)
         }
       }
     } else {
@@ -135,7 +159,8 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     try {
       console.log('✅ Accepting order:', orderId, 'for staff:', staffId)
       
-      const result = await updateOrderStatusByStaff(orderId, 'assigned', staffId)
+      // Use UnifiedOrderService to accept order
+      const result = await UnifiedOrderService.acceptOrder(orderId, staffId)
       
       if (result.error) {
         throw new Error(result.error.message)
@@ -160,6 +185,46 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     }
   }
 
+  const rejectOrder = async (orderId) => {
+    if (!staffId) {
+      toast.error('Staff ID not available')
+      return
+    }
+
+    // Prevent multiple clicks
+    if (processingOrders.has(orderId)) return
+    
+    setProcessingOrders(prev => new Set(prev).add(orderId))
+
+    try {
+      console.log('❌ Rejecting order:', orderId, 'by staff:', staffId)
+      
+      // Use UnifiedOrderService to reject order
+      const result = await UnifiedOrderService.rejectOrder(orderId, staffId)
+      
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
+
+      toast.success('Order rejected. It will be reassigned to another staff member.', {
+        icon: '↩️',
+        duration: 4000
+      })
+      
+      // Refresh orders to show updated status
+      await handleRefresh()
+    } catch (error) {
+      console.error('❌ Error rejecting order:', error)
+      toast.error(`Failed to reject order: ${error.message}`)
+    } finally {
+      setProcessingOrders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
+    }
+  }
+
   const updateOrderStatus = async (orderId, newStatus) => {
     if (!staffId) {
       toast.error('Staff ID not available')
@@ -174,7 +239,8 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     try {
       console.log('🔄 Updating order status:', orderId, 'to:', newStatus)
       
-      const result = await updateOrderStatusByStaff(orderId, newStatus, staffId)
+      // Use UnifiedOrderService for status updates with tracking
+      const result = await UnifiedOrderService.updateOrderStatus(orderId, newStatus, staffId, 'staff')
       
       if (result.error) {
         throw new Error(result.error.message)
@@ -184,7 +250,8 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         'preparing': 'Started preparing order! 🍳',
         'ready': 'Order is ready for pickup! 🔔',
         'served': 'Order served successfully! ✅',
-        'completed': 'Order completed! 🎉'
+        'delivered': 'Order delivered! 🎉',
+        'completed': 'Order completed! 🎊'
       }
 
       toast.success(statusMessages[newStatus] || `Order status updated to ${newStatus}!`, {
@@ -500,26 +567,49 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                     
                     {/* Status Action Buttons */}
                     {order.status === 'pending' && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => acceptOrder(order.id)}
-                        disabled={isProcessing}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
-                      >
-                        {isProcessing ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                          />
-                        ) : (
-                          <>
-                            <CheckCircleIcon className="h-4 w-4" />
-                            <span>Accept Order</span>
-                          </>
-                        )}
-                      </motion.button>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => acceptOrder(order.id)}
+                          disabled={isProcessing}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                        >
+                          {isProcessing ? (
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                              className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                            />
+                          ) : (
+                            <>
+                              <CheckCircleIcon className="h-4 w-4" />
+                              <span>Accept Order</span>
+                            </>
+                          )}
+                        </motion.button>
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => rejectOrder(order.id)}
+                          disabled={isProcessing}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                        >
+                          {isProcessing ? (
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                              className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                            />
+                          ) : (
+                            <>
+                              <XCircleIcon className="h-4 w-4" />
+                              <span>Reject Order</span>
+                            </>
+                          )}
+                        </motion.button>
+                      </div>
                     )}
                     
                     {order.status === 'assigned' && (

@@ -14,8 +14,11 @@ const Header = ({
   user, 
   profile, 
   notifications = [],
+  unreadNotifications = 0,
   setActiveTab,
-  handleLogout 
+  handleLogout,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead
 }) => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
@@ -160,8 +163,11 @@ const Header = ({
               <div className="notifications-dropdown">
                 <NotificationDropdown 
                   notifications={notifications}
+                  unreadNotifications={unreadNotifications}
                   showNotifications={showNotifications}
-                  setShowNotifications={handleNotificationToggle}
+                  setShowNotifications={setShowNotifications}
+                  onMarkNotificationRead={onMarkNotificationRead}
+                  onMarkAllNotificationsRead={onMarkAllNotificationsRead}
                 />
               </div>
 
