@@ -13,6 +13,7 @@ import tableService from '../../services/tableService'
 import toast from 'react-hot-toast'
 
 const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }) => {
+  console.log('🪑 StaffTableSelection props:', { restaurantId, staffId })
   const [allTables, setAllTables] = useState([])
   const [availableTables, setAvailableTables] = useState([])
   const [reservedTables, setReservedTables] = useState([])
@@ -34,8 +35,11 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
   const loadAllTables = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Loading tables for restaurant:', restaurantId)
+      
       // Load all tables with their current status
       const tables = await tableService.getRestaurantTables(restaurantId)
+      console.log('✅ Tables loaded:', tables)
       setAllTables(tables)
       
       // Separate available and reserved tables
@@ -45,7 +49,7 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
       setAvailableTables(available)
       setReservedTables(reserved)
     } catch (error) {
-      console.error('Error loading tables:', error)
+      console.error('❌ Error loading tables:', error)
       toast.error('Failed to load tables')
     } finally {
       setLoading(false)

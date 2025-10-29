@@ -32,7 +32,7 @@ import {
   Line
 } from 'recharts'
 import { supabase } from '../config/supabase'
-import OrderService from '../services/orderService'
+import UnifiedOrderService from '../services/unifiedOrderService'
 import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
