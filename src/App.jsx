@@ -12,6 +12,7 @@ import CustomerAuth from './pages/CustomerAuth'
 import RestaurantDiscovery from './pages/RestaurantDiscovery'
 import Auth from './pages/Auth'
 import CustomerMenu from './pages/CustomerMenu'
+import ItemDetail from './pages/ItemDetail'
 import StaffDashboard from './pages/StaffDashboard'
 import OwnerDashboard from './pages/OwnerDashboard'
 import SuperAdminPanel from './pages/SuperAdminPanel'
@@ -206,6 +207,13 @@ function App() {
           <Route path="/menu/:restaurantId" element={
             <CustomerNavigationProvider>
               <CustomerMenu />
+            </CustomerNavigationProvider>
+          } />
+          
+          {/* Item Detail Page */}
+          <Route path="/menu/:restaurantId/item/:itemId" element={
+            <CustomerNavigationProvider>
+              <ItemDetail />
             </CustomerNavigationProvider>
           } />
           
