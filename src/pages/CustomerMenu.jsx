@@ -10,9 +10,12 @@ import {
   PlusIcon,
   MinusIcon,
   ShoppingCartIcon,
-  ArrowPathIcon
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  StarIcon,
+  FireIcon
 } from '@heroicons/react/24/outline'
-import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
+import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
 import UnifiedOrderService from '../services/unifiedOrderService'
@@ -21,23 +24,53 @@ import tableService from '../services/tableService'
 import realtimeService from '../services/realtimeService'
 import toast from 'react-hot-toast'
 import logo from '../assets/logo.png'
+import ordyrrLogo from '../assets/logo-bg.png'
 
-// Import new components
-import RestaurantHeader from '../components/customer/RestaurantHeader'
-import CategoryTabs from '../components/customer/CategoryTabs'
-import MenuGrid from '../components/customer/MenuGrid'
-import LoadingScreen from '../components/customer/LoadingScreen'
-import ErrorScreen from '../components/customer/ErrorScreen'
+// Import 3D Food Icons
+import croissantIcon from '../assets/3D food icons/Croisant.png'
+import burgerIcon from '../assets/3D food icons/Burger.png'
+import pizzaIcon from '../assets/3D food icons/Pizza.png'
+import coffeeIcon from '../assets/3D food icons/Cofee.png'
+import cakeIcon from '../assets/3D food icons/Cake.png'
+import steakIcon from '../assets/3D food icons/Steak.png'
+
+// Import components
 import CartSidebar from '../components/customer/CartSidebar'
 import CheckoutModal from '../components/customer/CheckoutModal'
 import OrderTracking from '../components/customer/OrderTracking'
-import CustomerNavHeader from '../components/customer/CustomerNavHeader'
-import FloatingBackButton from '../components/customer/FloatingBackButton'
-import MobileMenu from '../components/customer/MobileMenu'
 
-// Brand colors
-const BRAND_LIME = '#C6FF3D'
-const BRAND_BLACK = '#2D2D2D'
+// Ordyrr Brand Colors - From UI Spec
+const BRAND_GREEN = '#00E676' // Header background
+const ACTION_GREEN = '#00C853' // Buttons, active states
+const DARK_TEXT = '#212121' // Primary text
+const MEDIUM_GRAY = '#666666' // Secondary text
+const LIGHT_GRAY = '#E0E0E0' // Borders
+const BG_WHITE = '#FFFFFF' // Background
+
+// Semantic Colors
+const VEG_GREEN = '#4CAF50'
+const NON_VEG_RED = '#D32F2F'
+const EGG_ORANGE = '#F57C00'
+const CHEF_SPECIAL_TEAL = '#00BCD4'
+const MOST_LOVED_RED = '#FF4458'
+const HIGHLY_REORDERED_GREEN = '#2E7D32'
+const HIGHLY_REORDERED_BG = '#E8F5E9'
+
+// Legacy compatibility
+const LIME = ACTION_GREEN
+const SUCCESS_GREEN = ACTION_GREEN
+
+// Helper function to get category icon
+const getCategoryIcon = (categoryName) => {
+  const name = categoryName?.toLowerCase() || ''
+  if (name.includes('breakfast') || name.includes('appetizer')) return croissantIcon
+  if (name.includes('burger') || name.includes('sandwich')) return burgerIcon
+  if (name.includes('pizza')) return pizzaIcon
+  if (name.includes('beverage') || name.includes('drink') || name.includes('coffee')) return coffeeIcon
+  if (name.includes('dessert') || name.includes('sweet')) return cakeIcon
+  if (name.includes('main') || name.includes('steak') || name.includes('meat')) return steakIcon
+  return croissantIcon // default
+}
 
 const CustomerMenu = () => {
   const navigate = useNavigate()
@@ -62,11 +95,13 @@ const CustomerMenu = () => {
   const [sessionId, setSessionId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   
   // New menu UI states
   const [selectedFilters, setSelectedFilters] = useState([])
   const [favorites, setFavorites] = useState([])
   const [itemQuantities, setItemQuantities] = useState({})
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   useEffect(() => {
     initializeCustomerSession()
@@ -81,6 +116,15 @@ const CustomerMenu = () => {
       }
     }
   }, [restaurantId, finalTableId])
+
+  // Auto-slide carousel effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 3) // 3 slides total
+    }, 4000) // Change slide every 4 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   const initializeCustomerSession = async () => {
     try {
@@ -328,9 +372,18 @@ const CustomerMenu = () => {
     }
   }
 
-  // Filter items by category and dietary filters
+  // Filter items by category, search query, and dietary filters
   let filteredItems = menuItems.filter(item => item.category_id === activeCategory)
   
+  // Apply search filter
+  if (searchQuery.trim()) {
+    filteredItems = filteredItems.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }
+  
+  // Apply dietary filters
   if (selectedFilters.length > 0) {
     filteredItems = filteredItems.filter(item => {
       if (selectedFilters.includes('veg') && item.is_vegetarian) return true
@@ -341,89 +394,87 @@ const CustomerMenu = () => {
     })
   }
 
-  // Loading state
+  // Loading state with Ordyrr branding and food animations
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: BRAND_LIME }}>
-        {/* Playful Background - Matching Landing Page */}
-        <div className="fixed inset-0 pointer-events-none">
-          <motion.div 
-            className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
-            animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div 
-            className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
-            animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          />
-          
-          {/* Dot Pattern */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
-          }} />
-        </div>
-
-        {/* Loading Content */}
-        <div className="relative z-10 text-center px-4">
-          {/* Logo Container - Matching Landing Page Style */}
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <div className="text-center px-4">
+          {/* Ordyrr Logo - Boxy with Border */}
           <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ duration: 0.8, type: "spring", bounce: 0.5 }}
-            className="mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-12"
           >
+            <div 
+              className="inline-block p-6 border-3 border-black rounded-2xl bg-white"
+              style={{ boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)' }}
+            >
+              <img 
+                src="/src/assets/logo.png"
+                alt="Ordyrr" 
+                className="h-16 w-auto"
+              />
+            </div>
+          </motion.div>
+
+          {/* Food Elements Loading Animation */}
+          <div className="flex justify-center items-center gap-4 mb-8">
+            {/* Pizza */}
             <motion.div
               animate={{ 
-                scale: [1, 1.1, 1],
-                rotate: [0, 5, -5, 0]
+                y: [0, -15, 0],
+                rotate: [0, 10, 0]
               }}
               transition={{ 
-                duration: 2, 
-                repeat: Infinity, 
-                ease: "easeInOut" 
+                duration: 0.8,
+                repeat: Infinity,
+                ease: "easeInOut"
               }}
-              className="bg-white rounded-2xl px-8 py-6 border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] inline-block"
             >
-              <img src={logo} alt="Ordyrr" className="h-20 w-auto" />
+              <span className="text-5xl">🍕</span>
             </motion.div>
-          </motion.div>
+
+            {/* Burger */}
+            <motion.div
+              animate={{ 
+                y: [0, -15, 0],
+                rotate: [0, -10, 0]
+              }}
+              transition={{ 
+                duration: 0.8,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 0.2
+              }}
+            >
+              <span className="text-5xl">🍔</span>
+            </motion.div>
+
+            {/* Noodles */}
+            <motion.div
+              animate={{ 
+                y: [0, -15, 0],
+                rotate: [0, 10, 0]
+              }}
+              transition={{ 
+                duration: 0.8,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 0.4
+              }}
+            >
+              <span className="text-5xl">🍜</span>
+            </motion.div>
+          </div>
 
           {/* Loading Text */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <h2 className="text-2xl sm:text-3xl font-black text-black mb-3 tracking-tight">
-              LOADING MENU
-            </h2>
-            <p className="text-base font-bold text-black/70 mb-6">
-              Preparing delicious options for you... 🍽️
-            </p>
-            
-            {/* Animated Food Emojis */}
-            <div className="flex items-center justify-center gap-4">
-              {['🍕', '🍔', '🍜', '🍰'].map((emoji, i) => (
-                <motion.div
-                  key={i}
-                  className="text-4xl"
-                  animate={{
-                    y: [0, -15, 0],
-                    rotate: [0, 10, -10, 0],
-                    scale: [1, 1.2, 1]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    delay: i * 0.3,
-                    ease: "easeInOut"
-                  }}
-                >
-                  {emoji}
-                </motion.div>
-              ))}
-            </div>
+            <p className="text-lg font-semibold" style={{ color: DARK_TEXT }}>Loading your menu...</p>
           </motion.div>
         </div>
       </div>
@@ -432,244 +483,615 @@ const CustomerMenu = () => {
 
   // Error state
   if (!restaurant) {
-    return <ErrorScreen onRetry={() => window.location.reload()} />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white px-4">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-red-100 flex items-center justify-center">
+            <span className="text-4xl">😕</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Restaurant Not Found</h2>
+          <p className="text-gray-500 mb-6">We couldn't load the menu. Please try again.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-black text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
-      {/* Playful Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <motion.div 
-          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
-          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
-          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        />
-        
-        {/* Dot Pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
-        }} />
-      </div>
-
-      {/* Header */}
-      <motion.div 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="sticky top-0 z-50 bg-black border-b-4 border-black"
+    <div className="min-h-screen bg-white">
+      {/* Vibrant Green Header - Compact Design with Curved Bottom */}
+      <div 
+        className="relative overflow-hidden"
+        style={{ 
+          background: `linear-gradient(135deg, ${BRAND_GREEN} 0%, #00D966 100%)`,
+          minHeight: '140px',
+          borderBottomLeftRadius: '24px',
+          borderBottomRightRadius: '24px',
+          borderBottom: '1px solid rgba(0,0,0,0.1)'
+        }}
       >
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
+        {/* Decorative sparkles */}
+        <div className="absolute inset-0 opacity-30">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute bg-white rounded-full animate-pulse"
+              style={{
+                width: Math.random() * 6 + 3 + 'px',
+                height: Math.random() * 6 + 3 + 'px',
+                top: Math.random() * 100 + '%',
+                left: Math.random() * 100 + '%',
+                animationDelay: Math.random() * 2 + 's'
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Navigation Bar */}
+        <div className="relative z-10 px-4 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            {/* Back Button - White Circle with Curved Edge */}
             <motion.button
-              whileHover={{ scale: 1.1, rotate: -10 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => navigate(-1)}
-              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+              className="w-10 h-10 bg-white flex items-center justify-center"
+              style={{ 
+                boxShadow: '0px 2px 8px rgba(0,0,0,0.1)',
+                borderRadius: '50%',
+                clipPath: 'circle(50% at 50% 50%)'
+              }}
             >
               <ArrowLeftIcon className="w-5 h-5 text-black" />
             </motion.button>
             
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
-            >
-              <img src={logo} alt="Ordyrr" className="h-10 w-auto" />
-            </motion.div>
+            {/* Ordyrr Logo */}
+            <img 
+              src={ordyrrLogo} 
+              alt="Ordyrr" 
+              className="h-12"
+            />
             
+            {/* Search Button - White Circle with Curved Edge */}
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 10 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowMobileMenu(true)}
-              className="w-12 h-12 rounded-full bg-white border-4 border-black flex items-center justify-center shadow-[3px_3px_0_0_rgba(198,255,61,1)] hover:shadow-[4px_4px_0_0_rgba(198,255,61,1)] transition-all"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {/* Open search */}}
+              className="w-10 h-10 bg-white flex items-center justify-center"
+              style={{ 
+                boxShadow: '0px 2px 8px rgba(0,0,0,0.1)',
+                borderRadius: '50%',
+                clipPath: 'circle(50% at 50% 50%)'
+              }}
             >
-              <Bars3Icon className="w-5 h-5 text-black" />
+              <MagnifyingGlassIcon className="w-5 h-5 text-black" />
             </motion.button>
           </div>
         </div>
-      </motion.div>
 
-      {/* Restaurant Info Card */}
-      {restaurant && (
-        <div className="relative z-10 p-4 max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-4 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] mb-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center border-3 border-black" style={{ backgroundColor: BRAND_LIME }}>
-                {restaurant.logo_url ? (
-                  <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
-                ) : (
-                  <span className="text-lg font-bold text-black">{restaurant.name?.charAt(0)}</span>
-                )}
-              </div>
-              
-              <div className="flex-1">
-                <h2 className="font-black text-black text-lg">{restaurant.name}</h2>
-                <p className="text-sm font-bold text-black/70">{restaurant.address}</p>
-                {table && (
-                  <p className="text-xs font-bold text-black/50 mt-1">Table {table.table_number}</p>
-                )}
-              </div>
-
-              {currentOrder && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowOrderTracking(true)}
-                  className="px-3 py-2 rounded-full text-sm font-black border-3 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
-                  style={{ backgroundColor: BRAND_LIME, color: BRAND_BLACK }}
-                >
-                  Track Order
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-
-      {/* Hero Banner with Category - Boxy Brand Style */}
-      {activeCategory && categories.find(c => c.id === activeCategory) && (
-        <div className="relative z-10 p-4 max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-6 border-4 border-black shadow-[6px_6px_0_0_rgba(0,0,0,1)] mb-4 flex items-center justify-between"
-            style={{ backgroundColor: BRAND_LIME }}
-          >
-            <div className="flex-1">
-              <h2 className="text-3xl font-black text-black mb-2 uppercase italic tracking-tight">
-                {categories.find(c => c.id === activeCategory)?.name}
-              </h2>
-              <p className="text-base font-bold text-black/70">
+        {/* Category Hero Section - Compact */}
+        <div className="relative z-10 px-4 pt-2 pb-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Category Title */}
+            <div className="flex-1 pr-4" style={{ maxWidth: '55%' }}>
+              <h1 
+                className="font-black uppercase leading-none mb-1.5"
+                style={{ 
+                  fontSize: '28px',
+                  letterSpacing: '-0.5px',
+                  lineHeight: '0.95',
+                  color: '#2C2C2C',
+                  fontStyle: 'italic'
+                }}
+              >
+                ALL-DAY<br/>BREAKFAST
+              </h1>
+              <p className="text-sm font-normal" style={{ color: '#424242' }}>
                 {filteredItems.length} items
               </p>
             </div>
-            
-            {/* Circular Food Image */}
-            <div className="w-28 h-28 rounded-full border-4 border-black shadow-lg overflow-hidden bg-white flex-shrink-0">
-              {categories.find(c => c.id === activeCategory)?.image_url ? (
-                <img 
-                  src={categories.find(c => c.id === activeCategory).image_url} 
-                  alt={categories.find(c => c.id === activeCategory)?.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-red-500">
-                  <span className="text-4xl">🍽️</span>
-                </div>
-              )}
+
+            {/* Right: Circular Food Image */}
+            <div 
+              className="rounded-full border-3 border-white overflow-hidden flex-shrink-0 bg-white"
+              style={{ width: '110px', height: '110px', boxShadow: '0px 4px 16px rgba(0,0,0,0.15)' }}
+            >
+              <img
+                src={getCategoryIcon(activeCategory && categories.find(c => c.id === activeCategory)?.name)}
+                alt="Category"
+                className="w-full h-full object-contain p-2"
+              />
             </div>
-          </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* Carousel Section - Restaurant Info & Offers */}
+      {restaurant && (
+        <div className="px-4 py-3 relative overflow-hidden">
+          <div className="relative">
+            <AnimatePresence mode="wait">
+              {/* Slide 1: Restaurant Info */}
+              {currentSlide === 0 && (
+                <motion.div
+                  key="slide-1"
+                  initial={{ x: 300, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -300, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                  className="bg-white rounded-xl p-3 border border-gray-400"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Restaurant Logo */}
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {restaurant.logo_url ? (
+                        <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl font-bold" style={{ color: DARK_TEXT }}>{restaurant.name?.charAt(0)}</span>
+                      )}
+                    </div>
+                    
+                    {/* Restaurant Details */}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-bold text-sm truncate" style={{ color: DARK_TEXT }}>
+                        {restaurant.restaurant_name || restaurant.name || restaurant.full_name || 'Restaurant'}
+                      </h2>
+                      <p className="text-sm font-bold truncate" style={{ color: DARK_TEXT }}>
+                        {table ? `Table ${table.table_number}` : 'Welcome!'}
+                      </p>
+                      <p className="text-[10px] mt-0.5 truncate" style={{ color: MEDIUM_GRAY }}>
+                        {restaurant.restaurant_address || restaurant.address || 'Enjoy your meal'}
+                      </p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6" style={{ color: DARK_TEXT }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Slide 2: Signup Offer */}
+              {currentSlide === 1 && (
+                <motion.div
+                  key="slide-2"
+                  initial={{ x: 300, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -300, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                  className="bg-white rounded-xl p-3 border border-gray-400"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Icon */}
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: BRAND_GREEN }}>
+                      <span className="text-3xl">🎁</span>
+                    </div>
+                    
+                    {/* Offer Details */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base" style={{ color: DARK_TEXT }}>Sign Up & Get</h3>
+                      <p className="text-base font-bold" style={{ color: BRAND_GREEN }}>100 Loyalty Points</p>
+                      <p className="text-xs mt-0.5" style={{ color: MEDIUM_GRAY }}>Join our loyalty program today!</p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6" style={{ color: DARK_TEXT }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Slide 3: Order Discount Offer */}
+              {currentSlide === 2 && (
+                <motion.div
+                  key="slide-3"
+                  initial={{ x: 300, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -300, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                  className="bg-white rounded-xl p-3 border border-gray-400"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Icon */}
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F97316 0%, #EF4444 100%)' }}>
+                      <span className="text-3xl">🔥</span>
+                    </div>
+                    
+                    {/* Offer Details */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base" style={{ color: DARK_TEXT }}>Order ₹499 or More</h3>
+                      <p className="text-base font-bold" style={{ background: 'linear-gradient(135deg, #F97316 0%, #EF4444 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Get 10% OFF</p>
+                      <p className="text-xs mt-0.5" style={{ color: MEDIUM_GRAY }}>Limited time offer!</p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6" style={{ color: DARK_TEXT }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Slide Indicators */}
+            <div className="flex justify-center gap-2 mt-3">
+              {[0, 1, 2].map((index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className="transition-all"
+                  style={{
+                    width: currentSlide === index ? '24px' : '8px',
+                    height: '8px',
+                    borderRadius: '4px',
+                    backgroundColor: currentSlide === index ? DARK_TEXT : '#E0E0E0'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Filter Chips - Brand Style */}
-      <div className="px-4 py-3 border-b-2 border-black sticky top-[72px] z-40" style={{ backgroundColor: BRAND_LIME }}>
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-4xl mx-auto">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => toggleFilter('veg')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
-              selectedFilters.includes('veg')
-                ? 'bg-black text-white'
-                : 'bg-white text-black'
-            }`}
-          >
-            <div className="w-3 h-3 rounded-full bg-green-500 border border-green-700"></div>
-            <span className="text-sm font-bold">Veg</span>
-          </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => toggleFilter('non-veg')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
-              selectedFilters.includes('non-veg')
-                ? 'bg-black text-white'
-                : 'bg-white text-black'
-            }`}
-          >
-            <div className="w-3 h-3 bg-red-500 border border-red-700" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
-            <span className="text-sm font-bold">Non-veg</span>
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => toggleFilter('egg')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
-              selectedFilters.includes('egg')
-                ? 'bg-black text-white'
-                : 'bg-white text-black'
-            }`}
-          >
-            <div className="w-3 h-3 rounded-sm bg-yellow-600 border border-yellow-800"></div>
-            <span className="text-sm font-bold">Egg</span>
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => toggleFilter('highly-reordered')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black whitespace-nowrap transition-all ${
-              selectedFilters.includes('highly-reordered')
-                ? 'bg-black text-white'
-                : 'bg-white text-black'
-            }`}
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-            <span className="text-sm font-bold">Highly Reordered</span>
-          </motion.button>
+      {/* Category Tabs - UI Spec */}
+      <div className="bg-white">
+        <div className="px-4 py-3">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+            {categories.map((category) => (
+              <motion.button
+                key={category.id}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setActiveCategory(category.id)}
+                className={`px-5 py-2 rounded-full font-semibold text-xs whitespace-nowrap transition-all ${
+                  activeCategory === category.id
+                    ? 'bg-black text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+                style={{
+                  height: '36px',
+                  fontSize: '13px',
+                  fontWeight: activeCategory === category.id ? 600 : 500,
+                  boxShadow: activeCategory === category.id ? '0px 2px 8px rgba(0,0,0,0.15)' : 'none'
+                }}
+              >
+                {category.name}
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="px-4 py-3 border-b-2 border-black sticky top-[132px] z-40" style={{ backgroundColor: BRAND_LIME }}>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide max-w-4xl mx-auto">
-          {categories.map((category) => (
+      {/* Filter Chips - UI Spec Exact Match */}
+      <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '1px solid #F0F0F0' }}>
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             <motion.button
-              key={category.id}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveCategory(category.id)}
-              className={`px-6 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all border-2 border-black ${
-                activeCategory === category.id
-                  ? 'bg-black text-white'
-                  : 'bg-white text-black hover:bg-gray-100'
+              onClick={() => toggleFilter('veg')}
+              className={`flex items-center gap-2 px-3 py-2 whitespace-nowrap transition-all h-9 ${
+                selectedFilters.includes('veg')
+                  ? 'bg-white shadow-md'
+                  : 'bg-white'
               }`}
+              style={{
+                borderRadius: '24px',
+                border: selectedFilters.includes('veg') ? `1.5px solid ${VEG_GREEN}` : '1.5px solid #E0E0E0',
+                boxShadow: selectedFilters.includes('veg') ? '0px 2px 8px rgba(76, 175, 80, 0.15)' : 'none'
+              }}
             >
-              {category.name}
+              <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center" style={{ borderColor: VEG_GREEN }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: VEG_GREEN }}></div>
+              </div>
+              <span className="text-xs font-medium" style={{ color: '#424242' }}>Veg</span>
             </motion.button>
-          ))}
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggleFilter('non-veg')}
+              className={`flex items-center gap-2 px-3 py-2 whitespace-nowrap transition-all h-9 ${
+                selectedFilters.includes('non-veg') ? 'bg-white shadow-md' : 'bg-white'
+              }`}
+              style={{
+                borderRadius: '24px',
+                border: selectedFilters.includes('non-veg') ? `1.5px solid ${NON_VEG_RED}` : '1.5px solid #E0E0E0',
+                boxShadow: selectedFilters.includes('non-veg') ? '0px 2px 8px rgba(211, 47, 47, 0.15)' : 'none'
+              }}
+            >
+              <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center" style={{ borderColor: NON_VEG_RED }}>
+                <div className="w-1.5 h-1.5" style={{ backgroundColor: NON_VEG_RED, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+              </div>
+              <span className="text-xs font-medium" style={{ color: '#424242' }}>Non-veg</span>
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggleFilter('egg')}
+              className={`flex items-center gap-2 px-3 py-2 whitespace-nowrap transition-all h-9 ${
+                selectedFilters.includes('egg') ? 'bg-white shadow-md' : 'bg-white'
+              }`}
+              style={{
+                borderRadius: '24px',
+                border: selectedFilters.includes('egg') ? `1.5px solid ${EGG_ORANGE}` : '1.5px solid #E0E0E0',
+                boxShadow: selectedFilters.includes('egg') ? '0px 2px 8px rgba(245, 124, 0, 0.15)' : 'none'
+              }}
+            >
+              <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center" style={{ borderColor: EGG_ORANGE }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: EGG_ORANGE }}></div>
+              </div>
+              <span className="text-xs font-medium" style={{ color: '#424242' }}>Egg</span>
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggleFilter('highly-reordered')}
+              className={`flex items-center gap-2 px-3 py-2 whitespace-nowrap transition-all h-9 ${
+                selectedFilters.includes('highly-reordered') ? 'bg-white shadow-md' : 'bg-white'
+              }`}
+              style={{
+                borderRadius: '24px',
+                border: selectedFilters.includes('highly-reordered') ? `1.5px solid ${VEG_GREEN}` : '1.5px solid #E0E0E0',
+                boxShadow: selectedFilters.includes('highly-reordered') ? '0px 2px 8px rgba(76, 175, 80, 0.15)' : 'none'
+              }}
+            >
+              <FireIcon className="w-4 h-4" style={{ color: VEG_GREEN }} />
+              <span className="text-xs font-medium" style={{ color: '#424242' }}>Highly Reordered</span>
+            </motion.button>
+          </div>
         </div>
       </div>
 
-      {/* Professional Menu Grid - Swiggy Style */}
-      <div className="px-4 py-4 max-w-4xl mx-auto">
+      {/* Food Cards - Horizontal Scrolling Layout with Sections */}
+      <div className="py-4 pb-32">
         {filteredItems.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No items found</p>
+          <div className="text-center py-16 px-4">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <span className="text-4xl">🔍</span>
+            </div>
+            <p className="text-gray-500 font-medium">No items found</p>
+            <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filteredItems.map((item, index) => {
-              const quantity = itemQuantities[item.id] || 0
-              const isFavorite = favorites.includes(item.id)
-              
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
-                >
-                  {/* Food Image */}
-                  <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200">
+          <>
+            {/* Section: Everything Under ₹99 */}
+            {filteredItems.filter(item => item.price < 99).length > 0 && (
+              <div className="mb-6">
+                <h2 className="px-4 mb-3 font-black italic uppercase" style={{ fontSize: '20px', color: DARK_TEXT }}>
+                  EVERYTHING UNDER ₹99
+                  <span style={{ color: BRAND_GREEN }}>.</span>
+                </h2>
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
+                  {filteredItems.filter(item => item.price < 99).map((item, index) => {
+                    const quantity = itemQuantities[item.id] || 0
+                    
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="bg-white rounded-2xl overflow-hidden flex-shrink-0"
+                        style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.08)', width: '180px' }}
+                      >
+                        {/* Food Image */}
+                        <div 
+                          onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, {
+                            state: { tableId: finalTableId, tableNumber }
+                          })}
+                          className="relative bg-gray-100 cursor-pointer"
+                          style={{ height: '120px', borderRadius: '16px 16px 0 0' }}
+                        >
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-4xl">🍽️</span>
+                            </div>
+                          )}
+                          {item.is_popular && (
+                            <div className="absolute top-2 left-2 px-3 py-1.5 rounded-md flex items-center gap-1"
+                              style={{ background: 'linear-gradient(135deg, #FF4458 0%, #FF6B7A 100%)', boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' }}>
+                              <HeartSolidIcon className="w-3.5 h-3.5 text-white" />
+                              <span className="text-xs font-semibold text-white">Most Loved</span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Card Content */}
+                        <div className="p-2.5">
+                          <div className="flex items-center gap-1 mb-1.5">
+                            {item.is_vegetarian ? (
+                              <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: VEG_GREEN }}>
+                                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: VEG_GREEN }}></div>
+                              </div>
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: NON_VEG_RED }}>
+                                <div className="w-1 h-1" style={{ backgroundColor: NON_VEG_RED, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+                              </div>
+                            )}
+                            <ClockIcon className="w-3 h-3 flex-shrink-0" style={{ color: ACTION_GREEN }} />
+                            <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>16 mins</span>
+                            <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>2 cups</span>
+                          </div>
+                          <h3 className="font-semibold line-clamp-2 mb-1 cursor-pointer" style={{ fontSize: '13px', fontWeight: 600, color: DARK_TEXT, lineHeight: '1.3' }}
+                            onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, { state: { tableId: finalTableId, tableNumber } })}>
+                            {item.name}
+                          </h3>
+                          {item.is_popular && (
+                            <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded mb-1" style={{ backgroundColor: HIGHLY_REORDERED_BG }}>
+                              <span className="text-[9px] font-semibold" style={{ color: HIGHLY_REORDERED_GREEN }}>Highly reordered</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-sm font-bold" style={{ color: DARK_TEXT }}>₹{item.price}</span>
+                            {quantity === 0 ? (
+                              <motion.button whileTap={{ scale: 0.95 }}
+                                onClick={(e) => { e.stopPropagation(); setItemQuantities(prev => ({ ...prev, [item.id]: 1 })); handleAddToCart(item); }}
+                                className="px-3 py-1 rounded-lg font-black border-3 border-black"
+                                style={{ backgroundColor: ACTION_GREEN, color: '#000000', boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)', fontSize: '11px' }}>
+                                ADD
+                              </motion.button>
+                            ) : (
+                              <div className="px-2 py-1 rounded-lg border-3 border-black flex items-center gap-1.5"
+                                style={{ backgroundColor: ACTION_GREEN, boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)' }}>
+                                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); updateItemQuantity(item.id, -1); }}
+                                  className="w-4 h-4 rounded flex items-center justify-center text-black">
+                                  <MinusIcon className="w-3 h-3 font-bold" />
+                                </motion.button>
+                                <span className="font-black text-xs min-w-[0.75rem] text-center text-black">{quantity}</span>
+                                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); updateItemQuantity(item.id, 1); }}
+                                  className="w-4 h-4 rounded flex items-center justify-center text-black">
+                                  <PlusIcon className="w-3 h-3 font-bold" />
+                                </motion.button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section: Everything Under ₹199 */}
+            {filteredItems.filter(item => item.price >= 99 && item.price <= 199).length > 0 && (
+              <div className="mb-6">
+                <h2 className="px-4 mb-3 font-black italic uppercase" style={{ fontSize: '20px', color: DARK_TEXT }}>
+                  EVERYTHING UNDER ₹199
+                  <span style={{ color: BRAND_GREEN }}>.</span>
+                </h2>
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
+                  {filteredItems.filter(item => item.price >= 99 && item.price <= 199).map((item, index) => {
+                    const quantity = itemQuantities[item.id] || 0
+                    
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="bg-white rounded-2xl overflow-hidden flex-shrink-0"
+                        style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.08)', width: '180px' }}
+                      >
+                        {/* Food Image */}
+                        <div 
+                          onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, {
+                            state: { tableId: finalTableId, tableNumber }
+                          })}
+                          className="relative bg-gray-100 cursor-pointer"
+                          style={{ height: '120px', borderRadius: '16px 16px 0 0' }}
+                        >
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-4xl">🍽️</span>
+                            </div>
+                          )}
+                          {item.is_popular && (
+                            <div className="absolute top-2 left-2 px-3 py-1.5 rounded-md flex items-center gap-1"
+                              style={{ background: 'linear-gradient(135deg, #FF4458 0%, #FF6B7A 100%)', boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' }}>
+                              <HeartSolidIcon className="w-3.5 h-3.5 text-white" />
+                              <span className="text-xs font-semibold text-white">Most Loved</span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Card Content */}
+                        <div className="p-2.5">
+                          <div className="flex items-center gap-1 mb-1.5">
+                            {item.is_vegetarian ? (
+                              <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: VEG_GREEN }}>
+                                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: VEG_GREEN }}></div>
+                              </div>
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: NON_VEG_RED }}>
+                                <div className="w-1 h-1" style={{ backgroundColor: NON_VEG_RED, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+                              </div>
+                            )}
+                            <ClockIcon className="w-3 h-3 flex-shrink-0" style={{ color: ACTION_GREEN }} />
+                            <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>16 mins</span>
+                            <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>2 cups</span>
+                          </div>
+                          <h3 className="font-semibold line-clamp-2 mb-1 cursor-pointer" style={{ fontSize: '13px', fontWeight: 600, color: DARK_TEXT, lineHeight: '1.3' }}
+                            onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, { state: { tableId: finalTableId, tableNumber } })}>
+                            {item.name}
+                          </h3>
+                          {item.is_popular && (
+                            <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded mb-1" style={{ backgroundColor: HIGHLY_REORDERED_BG }}>
+                              <span className="text-[9px] font-semibold" style={{ color: HIGHLY_REORDERED_GREEN }}>Highly reordered</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-sm font-bold" style={{ color: DARK_TEXT }}>₹{item.price}</span>
+                            {quantity === 0 ? (
+                              <motion.button whileTap={{ scale: 0.95 }}
+                                onClick={(e) => { e.stopPropagation(); setItemQuantities(prev => ({ ...prev, [item.id]: 1 })); handleAddToCart(item); }}
+                                className="px-3 py-1 rounded-lg font-black border-3 border-black"
+                                style={{ backgroundColor: ACTION_GREEN, color: '#000000', boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)', fontSize: '11px' }}>
+                                ADD
+                              </motion.button>
+                            ) : (
+                              <div className="px-2 py-1 rounded-lg border-3 border-black flex items-center gap-1.5"
+                                style={{ backgroundColor: ACTION_GREEN, boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)' }}>
+                                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); updateItemQuantity(item.id, -1); }}
+                                  className="w-4 h-4 rounded flex items-center justify-center text-black">
+                                  <MinusIcon className="w-3 h-3 font-bold" />
+                                </motion.button>
+                                <span className="font-black text-xs min-w-[0.75rem] text-center text-black">{quantity}</span>
+                                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); updateItemQuantity(item.id, 1); }}
+                                  className="w-4 h-4 rounded flex items-center justify-center text-black">
+                                  <PlusIcon className="w-3 h-3 font-bold" />
+                                </motion.button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section: All Other Items (₹199+) */}
+            {filteredItems.filter(item => item.price >= 199).length > 0 && (
+              <div className="mb-6">
+                <h2 className="px-4 mb-3 font-black italic uppercase" style={{ fontSize: '20px', color: DARK_TEXT }}>
+                  MORE DELICIOUS ITEMS
+                  <span style={{ color: BRAND_GREEN }}>.</span>
+                </h2>
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
+                  {filteredItems.filter(item => item.price >= 199).map((item, index) => {
+                    const quantity = itemQuantities[item.id] || 0
+                    
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="bg-white rounded-2xl overflow-hidden flex-shrink-0"
+                        style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.08)', width: '180px' }}
+                      >
+                  {/* Food Image Section */}
+                  <div 
+                    onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, {
+                      state: { tableId: finalTableId, tableNumber }
+                    })}
+                    className="relative bg-gray-100 cursor-pointer"
+                    style={{ height: '120px', borderRadius: '16px 16px 0 0' }}
+                  >
                     {item.image_url ? (
                       <img 
                         src={item.image_url} 
@@ -677,158 +1099,236 @@ const CustomerMenu = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
                         <span className="text-4xl">🍽️</span>
                       </div>
                     )}
                     
-                    {/* Badges */}
+                    {/* Most Loved Badge */}
                     {item.is_popular && (
-                      <div className="absolute top-2 left-2 bg-pink-500 text-white px-2 py-1 rounded-md flex items-center gap-1 text-xs font-bold">
-                        <HeartSolidIcon className="w-3 h-3" />
-                        Most Loved
-                      </div>
-                    )}
-                    
-                    {item.is_special && (
-                      <div className="absolute top-2 left-2 bg-teal-500 text-white px-2 py-1 rounded-md text-xs font-bold">
-                        Chef's Special
+                      <div 
+                        className="absolute top-2 left-2 px-3 py-1.5 rounded-md flex items-center gap-1"
+                        style={{ 
+                          background: 'linear-gradient(135deg, #FF4458 0%, #FF6B7A 100%)',
+                          boxShadow: '0px 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        <HeartSolidIcon className="w-3.5 h-3.5 text-white" />
+                        <span className="text-xs font-semibold text-white">Most Loved</span>
                       </div>
                     )}
 
-                    {/* Favorite Button */}
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => toggleFavorite(item.id)}
-                      className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md"
-                    >
-                      {isFavorite ? (
-                        <HeartSolidIcon className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <HeartIcon className="w-5 h-5 text-gray-600" />
-                      )}
-                    </motion.button>
+
+
+                    {/* Quantity Selector Overlay (when added) - REMOVED, using button above instead */}
+                    {quantity > 0 && false && (
+                      <div 
+                        className="absolute left-1/2 bottom-0 flex items-center justify-between px-5 py-3"
+                        style={{
+                          transform: 'translate(-50%, 50%)',
+                          backgroundColor: ACTION_GREEN,
+                          borderRadius: '12px',
+                          width: '140px',
+                          height: '48px',
+                          boxShadow: '0px 4px 12px rgba(0, 200, 83, 0.3)',
+                          zIndex: 10
+                        }}
+                      >
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            updateItemQuantity(item.id, -1)
+                          }}
+                          className="text-white"
+                        >
+                          <MinusIcon className="w-5 h-5" />
+                        </motion.button>
+                        <span className="text-lg font-bold text-white">{quantity}</span>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            updateItemQuantity(item.id, 1)
+                          }}
+                          className="text-white"
+                        >
+                          <PlusIcon className="w-5 h-5" />
+                        </motion.button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Item Details */}
-                  <div className="p-3">
-                    <h3 className="font-bold text-sm text-gray-900 mb-1 line-clamp-2">
+                  {/* Card Content Section */}
+                  <div className="p-2.5">
+                    {/* Veg Indicator + Time + Serves Row */}
+                    <div className="flex items-center gap-1 mb-1.5">
+                      {/* Veg/Non-veg Indicator */}
+                      {item.is_vegetarian ? (
+                        <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: VEG_GREEN }}>
+                          <div className="w-1 h-1 rounded-full" style={{ backgroundColor: VEG_GREEN }}></div>
+                        </div>
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: NON_VEG_RED }}>
+                          <div className="w-1 h-1" style={{ backgroundColor: NON_VEG_RED, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+                        </div>
+                      )}
+                      
+                      {/* Time Icon */}
+                      <ClockIcon className="w-3 h-3 flex-shrink-0" style={{ color: ACTION_GREEN }} />
+                      <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>16 mins</span>
+                      
+                      {/* Serves */}
+                      <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>2 cups</span>
+                    </div>
+
+                    {/* Food Title */}
+                    <h3 
+                      onClick={() => navigate(`/menu/${restaurantId}/item/${item.id}`, {
+                        state: { tableId: finalTableId, tableNumber }
+                      })}
+                      className="font-semibold line-clamp-2 mb-1 cursor-pointer"
+                      style={{ 
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: DARK_TEXT,
+                        lineHeight: '1.3'
+                      }}
+                    >
                       {item.name}
                     </h3>
-                    
-                    {/* Meta Info */}
-                    <div className="flex items-center gap-2 mb-2 text-xs text-gray-600">
-                      {item.prep_time && (
-                        <div className="flex items-center gap-1">
-                          <ClockIcon className="w-3 h-3" />
-                          <span>{item.prep_time} min</span>
-                        </div>
-                      )}
-                      {item.serves && (
-                        <div className="flex items-center gap-1">
-                          <UserGroupIcon className="w-3 h-3" />
-                          <span>{item.serves}</span>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Description */}
-                    <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                      {item.description || 'Delicious and freshly prepared'}
-                    </p>
-
-                    {/* Price */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg font-bold text-gray-900">
-                        ₹{item.price}
-                      </span>
-                      {item.original_price && item.original_price > item.price && (
-                        <span className="text-sm text-gray-500 line-through">
-                          ₹{item.original_price}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Add to Cart / Quantity Controls */}
-                    {quantity === 0 ? (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          setItemQuantities(prev => ({ ...prev, [item.id]: 1 }))
-                          handleAddToCart(item)
+                    {/* Highly Reordered Badge - Compact */}
+                    {item.is_popular && (
+                      <div 
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded mb-1"
+                        style={{ 
+                          backgroundColor: HIGHLY_REORDERED_BG
                         }}
-                        className="w-full py-2 rounded-lg font-bold text-sm text-black border-2 border-black transition-all shadow-md"
-                        style={{ backgroundColor: BRAND_LIME }}
                       >
-                        ADD
-                        {item.customizable && (
-                          <span className="block text-xs font-normal opacity-90">customisable</span>
-                        )}
-                      </motion.button>
-                    ) : (
-                      <div className="flex items-center justify-between rounded-lg px-3 py-2 border-2 border-black" style={{ backgroundColor: BRAND_LIME }}>
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => updateItemQuantity(item.id, -1)}
-                          className="w-6 h-6 rounded-full bg-black flex items-center justify-center"
-                        >
-                          <MinusIcon className="w-4 h-4 text-white" />
-                        </motion.button>
-                        
-                        <span className="text-black font-bold">{quantity}</span>
-                        
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => updateItemQuantity(item.id, 1)}
-                          className="w-6 h-6 rounded-full bg-black flex items-center justify-center"
-                        >
-                          <PlusIcon className="w-4 h-4 text-white" />
-                        </motion.button>
+                        <span className="text-[9px] font-semibold" style={{ color: HIGHLY_REORDERED_GREEN }}>
+                          Highly reordered
+                        </span>
                       </div>
                     )}
+
+                    {/* Price and ADD Button Row */}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-sm font-bold" style={{ color: DARK_TEXT }}>
+                        ₹{item.price}
+                      </span>
+
+                      {/* ADD Button - Compact Design */}
+                      {quantity === 0 ? (
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setItemQuantities(prev => ({ ...prev, [item.id]: 1 }))
+                            handleAddToCart(item)
+                          }}
+                          className="px-3 py-1 rounded-lg font-black border-3 border-black"
+                          style={{
+                            backgroundColor: ACTION_GREEN,
+                            color: '#000000',
+                            boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)',
+                            fontSize: '11px'
+                          }}
+                        >
+                          ADD
+                        </motion.button>
+                      ) : (
+                        <div 
+                          className="px-2 py-1 rounded-lg border-3 border-black flex items-center gap-1.5"
+                          style={{
+                            backgroundColor: ACTION_GREEN,
+                            boxShadow: '3px 3px 0px 0px rgba(0,0,0,1)'
+                          }}
+                        >
+                          <motion.button
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateItemQuantity(item.id, -1)
+                            }}
+                            className="w-4 h-4 rounded flex items-center justify-center text-black"
+                          >
+                            <MinusIcon className="w-3 h-3 font-bold" />
+                          </motion.button>
+                          
+                          <span className="font-black text-xs min-w-[0.75rem] text-center text-black">{quantity}</span>
+                          
+                          <motion.button
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateItemQuantity(item.id, 1)
+                            }}
+                            className="w-4 h-4 rounded flex items-center justify-center text-black"
+                          >
+                            <PlusIcon className="w-3 h-3 font-bold" />
+                          </motion.button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+    </>
+  )}
+</div>
 
-      {/* Floating Cart Button */}
+      {/* Floating Cart Button - Boxy Lime & Black Design */}
       {getCartCount() > 0 && (
         <motion.div
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          className="fixed bottom-4 left-4 right-4 z-50 max-w-4xl mx-auto"
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
+          className="fixed bottom-4 left-0 right-0 z-50 flex justify-center px-4"
         >
           <motion.button
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowCart(true)}
-            className="w-full py-4 rounded-2xl font-bold text-black shadow-2xl flex items-center justify-between px-6 border-4 border-black"
-            style={{ backgroundColor: BRAND_LIME }}
+            className="py-3 px-5 rounded-full font-black text-black uppercase flex items-center gap-3 border-4 border-black"
+            style={{
+              backgroundColor: ACTION_GREEN,
+              boxShadow: '6px 6px 0px 0px rgba(0,0,0,1)',
+              minWidth: '280px',
+              maxWidth: '90%'
+            }}
           >
-            <div className="flex items-center gap-2">
-              <ShoppingCartIcon className="w-6 h-6" />
-              <span>View cart • {getCartCount()} items</span>
+            {/* Circular Food Thumbnail */}
+            {cart[0]?.image_url && (
+              <div className="w-10 h-10 rounded-full border-3 border-black overflow-hidden flex-shrink-0">
+                <img 
+                  src={cart[0].image_url} 
+                  alt="Cart item" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
+            <div className="flex-1 text-left">
+              <p className="text-sm font-black">View cart</p>
+              <p className="text-xs font-bold normal-case">
+                {getCartCount()} {getCartCount() === 1 ? 'item' : 'items'} • 17 mins
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span>₹{cart.reduce((total, item) => total + item.price, 0)}</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            
+            {/* Right Arrow */}
+            <svg className="w-5 h-5 text-black flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+            </svg>
           </motion.button>
         </motion.div>
       )}
 
       {/* Modals and Sidebars */}
       <AnimatePresence>
-        {/* Mobile Menu */}
-        <MobileMenu 
-          isOpen={showMobileMenu}
-          onClose={() => setShowMobileMenu(false)}
-        />
-
         {/* Cart Sidebar */}
         {showCart && (
           <CartSidebar 
