@@ -10,9 +10,8 @@ import {
   CreditCardIcon,
   BanknotesIcon
 } from '@heroicons/react/24/outline'
-import OrderService from '../../services/orderService'
-import PaymentService from '../../services/paymentService'
-import customerService from '../../services/customerService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
+import NotificationService from '../../services/notificationService'
 import realtimeService from '../../services/realtimeService'
 import { supabase } from '../../config/supabase'
 
@@ -39,23 +38,29 @@ const OrderTracking = ({ sessionId, isOpen, onClose }) => {
   const loadCustomerOrders = async () => {
     try {
       setLoading(true)
-      const customerOrders = await OrderService.getCustomerOrders(sessionId)
       
-      // Enrich orders with payment information
-      const enrichedOrders = await Promise.all(
-        customerOrders.map(async (order) => {
-          try {
-            const paymentInfo = await PaymentService.getPaymentHistory(order.id)
-            return {
-              ...order,
-              payment_info: paymentInfo.length > 0 ? paymentInfo[0] : null
-            }
-          } catch (error) {
-            console.warn('Failed to load payment info for order:', order.id)
-            return order
-          }
-        })
-      )
+      // Get customer orders using supabase directly
+      const { data: customerOrders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*),
+          tables(table_number),
+          users!orders_assigned_staff_id_fkey(full_name),
+          payment_transactions(*)
+        `)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      // Orders already include payment information from the join
+      const enrichedOrders = customerOrders.map(order => {
+        return {
+          ...order,
+          payment_info: order.payment_transactions?.length > 0 ? order.payment_transactions[0] : null
+        }
+      })
       
       setOrders(enrichedOrders)
       

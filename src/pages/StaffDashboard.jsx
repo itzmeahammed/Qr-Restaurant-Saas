@@ -33,6 +33,7 @@ import StaffRestaurantApplication from '../components/staff/StaffRestaurantAppli
 import StaffOverview from '../components/staff/StaffOverview'
 import StaffMenuView from '../components/staff/StaffMenuView'
 import StaffTableSelection from '../components/staff/StaffTableSelection'
+import StaffOrderingFlow from '../components/staff/StaffOrderingFlow'
 
 const StaffDashboard = () => {
   const navigate = useNavigate()
@@ -56,6 +57,7 @@ const StaffDashboard = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [staffSession, setStaffSession] = useState(null)
   const [restaurantInfo, setRestaurantInfo] = useState(null)
+  const [showOrderingFlow, setShowOrderingFlow] = useState(false)
   
   // Refs for click-outside handling
   const profileDropdownRef = useRef(null)
@@ -112,6 +114,71 @@ const StaffDashboard = () => {
       }
     } catch (error) {
       console.error('Error loading notifications:', error)
+    }
+  }
+
+
+
+  // Toggle online status with database persistence
+  const toggleOnlineStatus = async () => {
+    if (!user?.id) {
+      toast.error('User data not available')
+      return
+    }
+
+    try {
+      const newOnlineStatus = !isOnline
+      
+      // Update database first
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          is_available: newOnlineStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+
+      if (error) {
+        throw error
+      }
+
+      // Update local state only after successful database update
+      setIsOnline(newOnlineStatus)
+      
+      // Show success message
+      toast.success(
+        newOnlineStatus ? 'You are now online and ready to receive orders!' : 'You are now offline',
+        {
+          icon: newOnlineStatus ? '🟢' : '🔴',
+          duration: 3000
+        }
+      )
+
+      console.log(`✅ Staff ${newOnlineStatus ? 'online' : 'offline'} status updated`)
+      
+    } catch (error) {
+      console.error('❌ Error updating online status:', error)
+      toast.error('Failed to update online status: ' + error.message)
+    }
+  }
+
+  // Load staff online status from database
+  const loadStaffOnlineStatus = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('is_available')
+        .eq('id', userId)
+        .single()
+
+      if (!error && data) {
+        setIsOnline(data.is_available || false)
+        console.log('📱 Loaded staff online status:', data.is_available)
+      }
+    } catch (error) {
+      console.error('❌ Error loading online status:', error)
+      // Default to offline if there's an error
+      setIsOnline(false)
     }
   }
 
@@ -203,9 +270,10 @@ const StaffDashboard = () => {
           owner_id: freshUserData.restaurant_id // In unified table, restaurant_id is the owner's user ID
         })
         
-        // Load performance stats and notifications
+        // Load performance stats, notifications, and online status
         await loadStaffStats(freshUserData.id)
         await loadOrderNotifications(freshUserData.id)
+        await loadStaffOnlineStatus(freshUserData.id)
         
       } else {
         // Staff is not approved, check application status
@@ -356,9 +424,9 @@ const StaffDashboard = () => {
   const checkOnlineStatus = async (staffId) => {
     try {
       const { data } = await supabase
-        .from('staff')
+        .from('users')
         .select('is_available')
-        .eq('id', staffId || user?.id)
+        .eq('id', user?.id)
         .single()
 
       setIsOnline(data?.is_available || false)
@@ -370,11 +438,11 @@ const StaffDashboard = () => {
   const handleLogout = async () => {
     try {
       // Update staff status to offline
-      if (staffSession?.staff_id) {
+      if (user?.id) {
         await supabase
-          .from('staff')
+          .from('users')
           .update({ is_available: false })
-          .eq('id', staffSession.staff_id)
+          .eq('id', user.id)
       }
       localStorage.removeItem('staff_session')
       await signOut()
@@ -397,28 +465,7 @@ const StaffDashboard = () => {
     { id: 'restaurant', name: 'Restaurant', icon: BuildingStorefrontIcon }
   ]
 
-  const toggleOnlineStatus = async () => {
-    try {
-      const newStatus = !isOnline
-      const updates = {
-        is_available: newStatus,
-        updated_at: new Date().toISOString()
-      }
-      
-      const { error } = await supabase
-        .from('staff')
-        .update(updates)
-        .eq('id', staffSession?.staff_id || user?.id)
 
-      if (error) throw error
-
-      setIsOnline(newStatus)
-      toast.success(newStatus ? '🟢 You are now online!' : '🔴 You are now offline')
-    } catch (error) {
-      console.error('Error updating status:', error)
-      toast.error('Failed to update status')
-    }
-  }
 
   const renderContent = () => {
     // Handle different application states
@@ -490,6 +537,7 @@ switch (activeTab) {
             setActiveTab={setActiveTab}
             restaurantInfo={restaurantInfo}
             staffSession={staffSession}
+            onStartOrdering={() => setShowOrderingFlow(true)}
           />
         )
 
@@ -512,14 +560,28 @@ switch (activeTab) {
           staffId: staffSession?.staff_id 
         })
         return (
-          <StaffTableSelection 
-            restaurantId={staffSession?.restaurant_id}
-            staffId={staffSession?.staff_id}
-            onTableReserved={(data) => {
-              toast.success(`Table ${data.table.table_number} reserved for ${data.customer.name}`)
-              // You can add additional logic here if needed
-            }}
-          />
+          <div className="space-y-6">
+            <StaffTableSelection 
+              restaurantId={staffSession?.restaurant_id}
+              staffId={staffSession?.staff_id}
+              onTableReserved={(data) => {
+                toast.success(`Table ${data.table.table_number} reserved for ${data.customer.name}`)
+                // You can add additional logic here if needed
+              }}
+            />
+            
+            {/* Quick Action Button for Staff-Assisted Ordering */}
+            <div className="fixed bottom-20 right-4 z-40">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowOrderingFlow(true)}
+                className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <ShoppingBagIcon className="h-6 w-6" />
+              </motion.button>
+            </div>
+          </div>
         )
 
       case 'menu':
@@ -1156,11 +1218,10 @@ switch (activeTab) {
               {tabs.find(tab => tab.id === activeTab)?.name || 'Overview'}
             </h1>
             <p className="text-gray-600">
-              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}`}
-              {activeTab === 'orders' && 'Manage your assigned orders'}
-              {activeTab === 'tables' && 'Reserve tables for customers without mobile phones'}
-              {activeTab === 'menu' && 'View restaurant menu items'}
-               {activeTab === 'performance' && 'Track your performance metrics'} 
+              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}! Use "Assist Order" to help customers without mobile phones.`}
+              {activeTab === 'orders' && 'Manage your assigned orders and track their progress'}
+              {activeTab === 'tables' && 'Reserve tables and start staff-assisted ordering for customers without mobile phones'}
+              {activeTab === 'menu' && 'View restaurant menu items and help customers with selections'}
               {activeTab === 'restaurant' && 'Restaurant information and details'}
             </p>
           </motion.div>
@@ -1176,6 +1237,26 @@ switch (activeTab) {
           {renderContent()}
         </motion.div>
       </div>
+
+      {/* Global Floating Action Button for Staff-Assisted Ordering */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowOrderingFlow(true)}
+        className="fixed bottom-20 right-4 z-50 bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 border-4 border-white"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 1, type: "spring", bounce: 0.5 }}
+      >
+        <div className="relative">
+          <UserIcon className="h-6 w-6" />
+          <motion.div
+            className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        </div>
+      </motion.button>
 
       {/* Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
@@ -1200,6 +1281,23 @@ switch (activeTab) {
           ))}
         </div>
       </div>
+      
+      {/* Staff Ordering Flow Modal */}
+      <AnimatePresence>
+        {showOrderingFlow && (
+          <StaffOrderingFlow
+            restaurantId={staffSession?.restaurant_id}
+            staffId={staffSession?.staff_id}
+            onClose={() => setShowOrderingFlow(false)}
+            onOrderComplete={(orderData) => {
+              toast.success(`Order placed successfully for ${orderData.customerName}!`)
+              setShowOrderingFlow(false)
+              // Refresh stats or update UI as needed
+              fetchStats()
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

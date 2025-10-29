@@ -7,8 +7,8 @@ import {
   PlayIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline'
-import CartService from '../../services/cartService'
-import OrderService from '../../services/orderService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
+import useCartStore from '../../stores/useCartStore'
 import PaymentService from '../../services/paymentService'
 import customerService from '../../services/customerService'
 import StaffAssignmentService from '../../services/staffAssignmentService'
@@ -50,23 +50,26 @@ const WorkflowTest = () => {
         if (!testData.sessionId) throw new Error('No session ID')
         
         // Add test items to cart
-        await CartService.addToCart(testData.sessionId, {
-          menuItemId: 'test-item-1',
-          quantity: 2,
-          specialInstructions: 'Extra spicy'
-        })
+        const { addToCart, getCartTotal } = useCartStore.getState()
         
-        await CartService.addToCart(testData.sessionId, {
-          menuItemId: 'test-item-2',
-          quantity: 1
-        })
+        // Add items to cart using cart store
+        addToCart({
+          id: 'item1',
+          name: 'Test Pizza',
+          price: 299
+        }, 2)
+        addToCart({
+          id: 'item2',
+          name: 'Test Burger',
+          price: 199
+        }, 1)
         
-        // Get cart summary
-        const summary = await CartService.getCartSummary(testData.sessionId)
+        const cartTotal = getCartTotal()
+        const summary = { total: cartTotal, items: useCartStore.getState().cart }
         
         return { 
-          success: summary.itemCount === 3, 
-          data: { itemCount: summary.itemCount, total: summary.total }
+          success: summary.items.length === 3, 
+          data: { itemCount: summary.items.length, total: summary.total }
         }
       }
     },
@@ -89,13 +92,18 @@ const WorkflowTest = () => {
       test: async () => {
         if (!testData.sessionId) throw new Error('No session ID')
         
-        const order = await OrderService.createOrder({
+        const order = await UnifiedOrderService.createOrder({
+          source: 'customer',
           restaurantId: testData.restaurantId,
           tableId: testData.tableId,
-          sessionId: testData.sessionId,
-          specialInstructions: 'Test order - please ignore',
+          cartItems: useCartStore.getState().cart,
+          customerInfo: {
+            name: 'Test Customer',
+            phone: '1234567890'
+          },
+          specialInstructions: 'Test order from workflow test',
           paymentMethod: 'cash',
-          tipAmount: 50
+          tipAmount: 0
         })
         
         setTestData(prev => ({ ...prev, orderId: order.id }))

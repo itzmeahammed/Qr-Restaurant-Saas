@@ -15,9 +15,10 @@ import {
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
-import OrderService from '../services/orderService'
-import realtimeService from '../services/realtimeService'
+import UnifiedOrderService from '../services/unifiedOrderService'
+import NotificationService from '../services/notificationService'
 import tableService from '../services/tableService'
+import realtimeService from '../services/realtimeService'
 import toast from 'react-hot-toast'
 import logo from '../assets/logo.png'
 
@@ -275,95 +276,17 @@ const CustomerMenu = () => {
     toast.success(`${item.name} added to cart`)
   }
 
-  const handleCheckout = async (checkoutData) => {
-    try {
-      setLoading(true)
-      
-      // Validate required data
-      if (!restaurantId) {
-        throw new Error('Restaurant information is missing')
-      }
-      
-      if (!sessionId) {
-        throw new Error('Session not initialized')
-      }
-      
-      if (!cart || cart.length === 0) {
-        throw new Error('Cart is empty')
-      }
-
-      console.log('🛒 Creating order with data:', {
-        restaurantId,
-        tableId: finalTableId,
-        sessionId,
-        itemCount: cart.length
-      })
-      
-      const orderData = {
-        restaurantId,
-        tableId: finalTableId,
-        sessionId,
-        customerId: null, // Anonymous customer
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          specialInstructions: item.specialInstructions || ''
-        })),
-        specialInstructions: checkoutData?.customerInfo?.specialInstructions || '',
-        paymentMethod: checkoutData?.customerInfo?.paymentMethod || 'cash',
-        tipAmount: checkoutData?.selectedTip || 0
-      }
-
-      // Update customer session with customer details from checkout
-      if (checkoutData?.customerInfo?.name && checkoutData?.customerInfo?.phone) {
-        try {
-          await supabase
-            .from('customer_sessions')
-            .update({
-              customer_name: checkoutData.customerInfo.name,
-              customer_phone: checkoutData.customerInfo.phone
-            })
-            .eq('session_id', sessionId)
-          
-          console.log('✅ Customer session updated with customer details')
-        } catch (sessionError) {
-          console.warn('Failed to update customer session:', sessionError)
-          // Continue with order creation even if session update fails
-        }
-      }
-
-      console.log('📝 Order data prepared:', orderData)
-      
-      const order = await OrderService.createOrder(orderData)
-      
-      console.log('✅ Order created successfully:', order)
-      
-      // Clear cart and close modals
-      useCartStore.getState().clearCart()
-      setShowCheckout(false)
-      setShowCart(false)
-      
-      // Show order tracking
-      setCurrentOrder(order)
-      setShowOrderTracking(true)
-      
-      toast.success(`Order #${order.order_number} placed successfully!`)
-    } catch (error) {
-      console.error('❌ Checkout error:', error)
-      
-      // Show specific error messages
-      if (error.message.includes('customer_id')) {
-        toast.error('Database configuration issue. Please contact support.')
-      } else if (error.message.includes('PGRST')) {
-        toast.error('Database connection issue. Please try again.')
-      } else {
-        toast.error(`Failed to place order: ${error.message}`)
-      }
-    } finally {
-      setLoading(false)
-    }
+  const handleCheckoutSuccess = (orderData) => {
+    // Called when CheckoutModal successfully creates an order
+    console.log('✅ Order completed successfully:', orderData)
+    
+    // Close checkout modal
+    setShowCheckout(false)
+    setShowCart(false)
+    
+    // Show order tracking
+    setCurrentOrder(orderData)
+    setShowOrderTracking(true)
   }
 
   // Helper functions for new menu UI
@@ -925,7 +848,10 @@ const CustomerMenu = () => {
             key="checkout-modal"
             isOpen={showCheckout}
             onClose={() => setShowCheckout(false)}
-            onConfirm={handleCheckout}
+            onSuccess={handleCheckoutSuccess}
+            restaurantId={restaurantId}
+            tableId={finalTableId}
+            sessionId={sessionId}
           />
         )}
 
