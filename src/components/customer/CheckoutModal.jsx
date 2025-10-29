@@ -6,20 +6,21 @@ import {
   XMarkIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'
-import CartService from '../../services/cartService'
-import OrderService from '../../services/orderService'
-import PaymentService from '../../services/paymentService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
 import customerService from '../../services/customerService'
 import realtimeService from '../../services/realtimeService'
+import useCartStore from '../../stores/useCartStore'
 import { supabase } from '../../config/supabase'
 import toast from 'react-hot-toast'
 
-const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) => {
+const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sessionId }) => {
   const [loading, setLoading] = useState(false)
   const [selectedTip, setSelectedTip] = useState(0)
-  const [cartSummary, setCartSummary] = useState(null)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderData, setOrderData] = useState(null)
+  
+  // Use cart store instead of separate cart service
+  const { cart, getCartTotal, getCartWithTax, clearCart } = useCartStore()
   
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
@@ -31,22 +32,21 @@ const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) =>
 
   const tipAmounts = [10, 20, 30, 50, 100, 200]
 
-  // Load cart summary when modal opens
-  React.useEffect(() => {
-    if (isOpen && sessionId) {
-      loadCartSummary()
+  // Cart summary is now calculated from cart store
+  const cartSummary = React.useMemo(() => {
+    if (!cart || cart.length === 0) {
+      return { isEmpty: true, subtotal: 0, taxAmount: 0, total: 0 }
     }
-  }, [isOpen, sessionId])
-
-  const loadCartSummary = async () => {
-    try {
-      const summary = await CartService.getCartSummary(sessionId)
-      setCartSummary(summary)
-    } catch (error) {
-      console.error('Error loading cart:', error)
-      toast.error('Failed to load cart')
+    
+    const { subtotal, tax, total } = getCartWithTax(0.18) // 18% GST
+    return {
+      isEmpty: false,
+      subtotal,
+      taxAmount: tax,
+      total,
+      items: cart
     }
-  }
+  }, [cart, getCartWithTax])
 
   const handleSubmit = async () => {
     if (!customerInfo.name || !customerInfo.phone) {
@@ -54,7 +54,7 @@ const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) =>
       return
     }
 
-    if (!cartSummary || cartSummary.isEmpty) {
+    if (!cart || cart.length === 0) {
       toast.error('Your cart is empty')
       return
     }
@@ -71,11 +71,17 @@ const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) =>
         customer_email: customerInfo.email
       })
 
-      // Step 2: Create order with complete workflow (includes staff assignment)
-      const orderResult = await OrderService.createOrder({
+      // Step 2: Create order using UnifiedOrderService with cart items
+      const orderResult = await UnifiedOrderService.createOrder({
+        source: 'customer',
         restaurantId,
         tableId,
-        sessionId,
+        cartItems: cart,
+        customerInfo: {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          email: customerInfo.email
+        },
         specialInstructions: customerInfo.specialInstructions,
         paymentMethod: customerInfo.paymentMethod,
         tipAmount: selectedTip
@@ -86,68 +92,66 @@ const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) =>
       }
 
       console.log('✅ Order created successfully:', orderResult.order_number)
+      
+      // Clear cart only after successful order creation
+      clearCart()
+      
+      // Payment is handled within UnifiedOrderService
+      // For cash payments, staff will collect when ready
+      // For online payments, additional processing can be added here if needed
 
-      // Step 3: Process payment based on method
-      let paymentResult = null
-      if (customerInfo.paymentMethod === 'online') {
-        // Online payment processing
-        paymentResult = await PaymentService.processPayment({
-          orderId: orderResult.id,
-          amount: total,
-          paymentMethod: 'online',
-          transactionId: `TXN_${Date.now()}`
-        })
-
-        if (!paymentResult.success) {
-          throw new Error(paymentResult.error || 'Payment processing failed')
-        }
-      } else {
-        // Cash payment - notify staff for collection
-        paymentResult = await PaymentService.processPayment({
-          orderId: orderResult.id,
-          amount: total,
-          paymentMethod: 'cash',
-          staffId: orderResult.assigned_staff_id
-        })
-      }
-
-      // Step 4: Set success state with complete order data
+      // Step 3: Set success state with complete order data
       setOrderData({
         ...orderResult,
-        payment: paymentResult.data,
         customerInfo,
-        total,
+        total: cartSummary.total + selectedTip,
         paymentMethod: customerInfo.paymentMethod
       })
       setOrderSuccess(true)
 
-      // Step 5: Show appropriate success message
+      // Step 4: Show appropriate success message
       if (customerInfo.paymentMethod === 'cash') {
-        toast.success(`Order ${orderResult.order_number} placed! Staff will collect payment when ready.`)
+        toast.success(`Order #${orderResult.order_number} placed! Staff will collect payment when ready.`, {
+          icon: '🛎️',
+          duration: 4000
+        })
       } else {
-        toast.success(`Order ${orderResult.order_number} placed and payment processed!`)
+        toast.success(`Order #${orderResult.order_number} placed successfully!`, {
+          icon: '✅',
+          duration: 4000
+        })
       }
 
-      // Step 6: Start real-time order tracking
-      customerService.trackSessionOrder(sessionId, orderResult.id, {
-        onOrderAssigned: (data) => {
-          toast.success(`Order assigned to ${data.staffName}`)
-        },
-        onStatusUpdate: (data) => {
-          toast.success(`Order status: ${data.status}`)
-        },
-        onPaymentConfirmed: (data) => {
-          toast.success('Payment confirmed!')
-        }
-      })
+      // Step 5: Start real-time order tracking
+      try {
+        realtimeService.subscribeToOrderUpdates(orderResult.id, {
+          onStatusUpdate: (data) => {
+            toast.success(`Order status updated: ${data.status}`, {
+              icon: '📋'
+            })
+          },
+          onStaffAssigned: (data) => {
+            toast.success(`Order assigned to staff member`, {
+              icon: '👨‍🍳'
+            })
+          }
+        })
+      } catch (realtimeError) {
+        console.warn('Real-time tracking setup failed:', realtimeError)
+        // Continue without real-time updates
+      }
 
-      // Auto-close after 5 seconds for cash, 3 seconds for online
-      const closeDelay = customerInfo.paymentMethod === 'cash' ? 5000 : 3000
+      // Call success callback with order data
+      if (onSuccess) {
+        onSuccess(orderResult)
+      }
+      
+      // Auto-close after 3 seconds
       setTimeout(() => {
         onClose()
         setOrderSuccess(false)
         setOrderData(null)
-      }, closeDelay)
+      }, 3000)
 
     } catch (error) {
       console.error('❌ Complete checkout workflow failed:', error)
@@ -173,7 +177,7 @@ const CheckoutModal = ({ isOpen, onClose, restaurantId, tableId, sessionId }) =>
     }
   }
 
-  // Calculate totals
+  // Calculate totals from cart summary
   const subtotal = cartSummary?.subtotal || 0
   const tax = cartSummary?.taxAmount || 0
   const total = subtotal + tax + selectedTip

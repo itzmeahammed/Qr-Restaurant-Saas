@@ -40,7 +40,8 @@ import {
 } from 'recharts'
 import { supabase } from '../config/supabase'
 import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
-import OrderService from '../services/orderService'
+import UnifiedOrderService from '../services/unifiedOrderService'
+import NotificationService from '../services/notificationService'
 import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
@@ -110,6 +111,7 @@ const OwnerDashboard = () => {
   const [categories, setCategories] = useState([])
   const [tables, setTables] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   // Handle logout function
   const handleLogout = async () => {
@@ -153,6 +155,73 @@ const OwnerDashboard = () => {
     console.log('User available, checking restaurant setup')
     checkRestaurantSetup()
   }, [authLoading, user?.id, restaurant?.id]) // Simplified dependencies to prevent multiple calls
+
+  // Setup real-time notifications for restaurant owner
+  useEffect(() => {
+    if (!user?.id || !restaurant?.id) return
+
+    console.log('🔔 Setting up owner notifications for restaurant:', restaurant.id)
+    
+    // Subscribe to notifications for this restaurant owner
+    const notificationSub = NotificationService.subscribeToNotifications(
+      user.id,
+      'owner',
+      (notification) => {
+        console.log('📨 Owner notification received:', notification)
+        
+        // Add to notifications list
+        setNotifications(prev => [notification, ...prev.slice(0, 49)]) // Keep last 50
+        setUnreadNotifications(prev => prev + 1)
+        
+        // Show toast notification based on type
+        if (notification.notification_type === 'new_order') {
+          toast.success(`New order placed at Table ${notification.metadata?.table_number || 'N/A'}!`, {
+            icon: '🍽️',
+            duration: 5000
+          })
+        } else if (notification.notification_type === 'order_assigned') {
+          toast.success(`Order assigned to ${notification.metadata?.staff_name || 'staff'}`, {
+            icon: '👨‍🍳',
+            duration: 4000
+          })
+        } else if (notification.notification_type === 'no_staff_available') {
+          toast.error(`No staff available for new order! Please check staff availability.`, {
+            icon: '⚠️',
+            duration: 6000
+          })
+        } else if (notification.notification_type === 'order_accepted') {
+          toast.success(`Order accepted by ${notification.metadata?.staff_name || 'staff'}`, {
+            icon: '✅',
+            duration: 3000
+          })
+        } else if (notification.notification_type === 'order_rejected') {
+          toast.warning(`Order rejected by ${notification.metadata?.staff_name || 'staff'} - reassigning...`, {
+            icon: '↩️',
+            duration: 4000
+          })
+        }
+      }
+    )
+
+    // Load existing notifications
+    const loadNotifications = async () => {
+      try {
+        const notifications = await NotificationService.getNotifications(user.id, 'owner')
+        setNotifications(notifications)
+        setUnreadNotifications(notifications.filter(n => !n.is_read).length)
+      } catch (error) {
+        console.error('Error loading notifications:', error)
+      }
+    }
+
+    loadNotifications()
+
+    return () => {
+      if (notificationSub) {
+        NotificationService.unsubscribeFromNotifications(user.id)
+      }
+    }
+  }, [user?.id, restaurant?.id])
 
 
   const checkRestaurantSetup = async () => {
@@ -1526,8 +1595,29 @@ const OwnerDashboard = () => {
         user={user}
         profile={profile}
         notifications={notifications}
+        unreadNotifications={unreadNotifications}
         setActiveTab={setActiveTab}
         handleLogout={handleLogout}
+        onMarkNotificationRead={async (notificationId) => {
+          try {
+            await NotificationService.markAsRead(notificationId)
+            setNotifications(prev => 
+              prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+            )
+            setUnreadNotifications(prev => Math.max(0, prev - 1))
+          } catch (error) {
+            console.error('Error marking notification as read:', error)
+          }
+        }}
+        onMarkAllNotificationsRead={async () => {
+          try {
+            await NotificationService.markAllAsRead(user.id, 'owner')
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+            setUnreadNotifications(0)
+          } catch (error) {
+            console.error('Error marking all notifications as read:', error)
+          }
+        }}
       />
 
 
