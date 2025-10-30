@@ -40,7 +40,8 @@ import {
 } from 'recharts'
 import { supabase } from '../config/supabase'
 import { uploadImageToStorage, compressImage } from '../utils/storageUtils'
-import OrderService from '../services/orderService'
+import UnifiedOrderService from '../services/unifiedOrderService'
+import NotificationService from '../services/notificationService'
 import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
@@ -110,6 +111,7 @@ const OwnerDashboard = () => {
   const [categories, setCategories] = useState([])
   const [tables, setTables] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   // Handle logout function
   const handleLogout = async () => {
@@ -153,6 +155,73 @@ const OwnerDashboard = () => {
     console.log('User available, checking restaurant setup')
     checkRestaurantSetup()
   }, [authLoading, user?.id, restaurant?.id]) // Simplified dependencies to prevent multiple calls
+
+  // Setup real-time notifications for restaurant owner
+  useEffect(() => {
+    if (!user?.id || !restaurant?.id) return
+
+    console.log('🔔 Setting up owner notifications for restaurant:', restaurant.id)
+    
+    // Subscribe to notifications for this restaurant owner
+    const notificationSub = NotificationService.subscribeToNotifications(
+      user.id,
+      'owner',
+      (notification) => {
+        console.log('📨 Owner notification received:', notification)
+        
+        // Add to notifications list
+        setNotifications(prev => [notification, ...prev.slice(0, 49)]) // Keep last 50
+        setUnreadNotifications(prev => prev + 1)
+        
+        // Show toast notification based on type
+        if (notification.notification_type === 'new_order') {
+          toast.success(`New order placed at Table ${notification.metadata?.table_number || 'N/A'}!`, {
+            icon: '🍽️',
+            duration: 5000
+          })
+        } else if (notification.notification_type === 'order_assigned') {
+          toast.success(`Order assigned to ${notification.metadata?.staff_name || 'staff'}`, {
+            icon: '👨‍🍳',
+            duration: 4000
+          })
+        } else if (notification.notification_type === 'no_staff_available') {
+          toast.error(`No staff available for new order! Please check staff availability.`, {
+            icon: '⚠️',
+            duration: 6000
+          })
+        } else if (notification.notification_type === 'order_accepted') {
+          toast.success(`Order accepted by ${notification.metadata?.staff_name || 'staff'}`, {
+            icon: '✅',
+            duration: 3000
+          })
+        } else if (notification.notification_type === 'order_rejected') {
+          toast.warning(`Order rejected by ${notification.metadata?.staff_name || 'staff'} - reassigning...`, {
+            icon: '↩️',
+            duration: 4000
+          })
+        }
+      }
+    )
+
+    // Load existing notifications
+    const loadNotifications = async () => {
+      try {
+        const notifications = await NotificationService.getNotifications(user.id, 'owner')
+        setNotifications(notifications)
+        setUnreadNotifications(notifications.filter(n => !n.is_read).length)
+      } catch (error) {
+        console.error('Error loading notifications:', error)
+      }
+    }
+
+    loadNotifications()
+
+    return () => {
+      if (notificationSub) {
+        NotificationService.unsubscribeFromNotifications(user.id)
+      }
+    }
+  }, [user?.id, restaurant?.id])
 
 
   const checkRestaurantSetup = async () => {
@@ -415,7 +484,7 @@ const OwnerDashboard = () => {
       
       // Fetch staff performance for notifications
       const { data: staffPerformance } = await supabase
-        .from('staff')
+        .from('users')
         .select('id, total_orders_completed, user_id')
         .eq('restaurant_id', restaurantId)
         .gte('total_orders_completed', 5)
@@ -478,7 +547,7 @@ const OwnerDashboard = () => {
           }
 
           const { data: staffData, error: staffError } = await supabase
-        .from('staff')
+        .from('users')
         .select('is_available')
         .eq('restaurant_id', restaurantId)
 
@@ -607,7 +676,7 @@ const OwnerDashboard = () => {
       // In unified system, staff are linked directly to user ID (restaurant owner)
       // Query staff table where restaurant_id equals the user ID
       const { data: staffData, error } = await supabase
-        .from('staff')
+        .from('users')
         .select('*')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false })
@@ -822,7 +891,7 @@ const OwnerDashboard = () => {
       }
       
       let { data: staffRecord, error: staffError } = await supabase
-        .from('staff')
+        .from('users')
         .insert(staffInsertData)
         .select('*')
         .single()
@@ -847,7 +916,7 @@ const OwnerDashboard = () => {
           }
           
           const { data: retryStaffRecord, error: retryStaffError } = await supabase
-            .from('staff')
+            .from('users')
             .insert(staffInsertDataWithoutUser)
             .select('*')
             .single()
@@ -955,7 +1024,7 @@ const OwnerDashboard = () => {
       
       // Step 1: Update staff record in database
       const { data, error } = await supabase
-        .from('staff')
+        .from('users')
         .update(staffUpdates)
         .eq('id', staffId)
         .select('*')
@@ -969,7 +1038,7 @@ const OwnerDashboard = () => {
           delete staffUpdatesWithoutUserId.user_id
           
           const { data: retryData, error: retryError } = await supabase
-            .from('staff')
+            .from('users')
             .update(staffUpdatesWithoutUserId)
             .eq('id', staffId)
             .select('*')
@@ -1028,7 +1097,7 @@ const OwnerDashboard = () => {
               // Link the auth user to staff record with error handling
               try {
                 const { error: linkError } = await supabase
-                  .from('staff')
+                  .from('users')
                   .update({ user_id: authData.user.id })
                   .eq('id', staffId)
                 
@@ -1109,7 +1178,7 @@ const OwnerDashboard = () => {
       if (!authError && authData?.user?.id) {
         // Link the auth user to staff record
         await supabase
-          .from('staff')
+          .from('users')
           .update({ user_id: authData.user.id })
           .eq('id', staffId)
         
@@ -1145,7 +1214,7 @@ const OwnerDashboard = () => {
       console.log('Deleting staff:', staffId)
       
       const { error } = await supabase
-        .from('staff')
+        .from('users')
         .delete()
         .eq('id', staffId)
 
@@ -1526,8 +1595,29 @@ const OwnerDashboard = () => {
         user={user}
         profile={profile}
         notifications={notifications}
+        unreadNotifications={unreadNotifications}
         setActiveTab={setActiveTab}
         handleLogout={handleLogout}
+        onMarkNotificationRead={async (notificationId) => {
+          try {
+            await NotificationService.markAsRead(notificationId)
+            setNotifications(prev => 
+              prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+            )
+            setUnreadNotifications(prev => Math.max(0, prev - 1))
+          } catch (error) {
+            console.error('Error marking notification as read:', error)
+          }
+        }}
+        onMarkAllNotificationsRead={async () => {
+          try {
+            await NotificationService.markAllAsRead(user.id, 'owner')
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+            setUnreadNotifications(0)
+          } catch (error) {
+            console.error('Error marking all notifications as read:', error)
+          }
+        }}
       />
 
 

@@ -19,6 +19,11 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [showChat, setShowChat] = useState(false)
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, text: '👋 Hi! How can we help you today?', sender: 'bot', time: new Date() },
+    { id: 2, text: "I'm here to assist with any questions about Ordyrr! 🍽️", sender: 'bot', time: new Date() }
+  ])
   const navigate = useNavigate()
 
   // Hide/show FAB on scroll
@@ -182,77 +187,167 @@ const FloatingActionButton = ({ onQRScan, onLocationSearch }) => {
         )}
       </AnimatePresence>
 
-      {/* Chat Modal */}
+      {/* Chat Modal - Ordyrr Brand Style */}
       <AnimatePresence>
         {showChat && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-end p-4"
+            className="fixed inset-0 z-50 flex items-end justify-end p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
           >
             <motion.div
               initial={{ opacity: 0, y: 100, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.9 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm h-96 flex flex-col"
+              className="rounded-[2rem] shadow-[8px_8px_0_0_rgba(0,0,0,1)] border-4 border-black w-full max-w-sm h-[500px] flex flex-col overflow-hidden"
+              style={{ backgroundColor: BRAND_LIME }}
             >
-              {/* Chat Header */}
-              <div className="bg-blue-500 text-white p-4 rounded-t-2xl flex items-center justify-between">
+              {/* Chat Header - Ordyrr Style */}
+              <div className="p-6 flex items-center justify-between border-b-4 border-black" style={{ backgroundColor: BRAND_BLACK }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                    <ChatBubbleLeftRightIcon className="w-4 h-4" />
-                  </div>
+                  <motion.div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center border-4 border-black shadow-[4px_4px_0_0_rgba(198,255,61,0.3)]"
+                    style={{ backgroundColor: BRAND_LIME }}
+                    animate={{ rotate: [0, 5, -5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <ChatBubbleLeftRightIcon className="w-6 h-6 text-black" />
+                  </motion.div>
                   <div>
-                    <h3 className="font-semibold">Live Support</h3>
-                    <p className="text-xs text-blue-100">Online now</p>
+                    <h3 className="text-xl font-black tracking-tight" style={{ color: BRAND_LIME }}>LIVE SUPPORT 💬</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#10B981' }}></div>
+                      <p className="text-sm font-bold" style={{ color: BRAND_LIME, opacity: 0.8 }}>Online now</p>
+                    </div>
                   </div>
                 </div>
                 <motion.button
-                  whileHover={{ scale: 1.1 }}
+                  whileHover={{ scale: 1.1, rotate: 90 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setShowChat(false)}
-                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center border-4 border-black shadow-[4px_4px_0_0_rgba(198,255,61,0.3)] transition-all"
+                  style={{ backgroundColor: BRAND_LIME }}
                 >
-                  <XMarkIcon className="w-4 h-4" />
+                  <XMarkIcon className="w-5 h-5 text-black" />
                 </motion.button>
               </div>
 
-              {/* Chat Messages */}
-              <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-100 rounded-2xl p-3 max-w-xs"
-                >
-                  <p className="text-sm text-gray-800">👋 Hi! How can we help you today?</p>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="bg-gray-100 rounded-2xl p-3 max-w-xs"
-                >
-                  <p className="text-sm text-gray-800">I'm here to assist with any questions about QR Restaurant!</p>
-                </motion.div>
+              {/* Chat Messages - Ordyrr Style */}
+              <div className="flex-1 p-4 space-y-3 overflow-y-auto" style={{ backgroundColor: '#FFFFFF' }}>
+                {chatMessages.map((msg, index) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, x: msg.sender === 'bot' ? -20 : 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`rounded-2xl p-4 max-w-xs border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] ${
+                      msg.sender === 'user' ? 'ml-auto' : ''
+                    }`}
+                    style={{ 
+                      backgroundColor: msg.sender === 'bot' ? '#FFFFFF' : BRAND_LIME 
+                    }}
+                  >
+                    <p className="text-sm font-bold text-black">{msg.text}</p>
+                  </motion.div>
+                ))}
+                
+                {/* Quick Actions */}
+                {chatMessages.length <= 2 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="space-y-2 pt-2"
+                  >
+                    <p className="text-xs font-black text-black/60 uppercase tracking-wide">Quick Actions:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { emoji: '📱', text: 'Scan QR' },
+                        { emoji: '🏪', text: 'Find Food' },
+                        { emoji: '📞', text: 'Call Us' },
+                        { emoji: '❓', text: 'Help' }
+                      ].map((action, i) => (
+                        <motion.button
+                          key={i}
+                          whileHover={{ scale: 1.05, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            const actionMsg = {
+                              id: chatMessages.length + 1,
+                              text: `I need help with: ${action.text}`,
+                              sender: 'user',
+                              time: new Date()
+                            }
+                            setChatMessages([...chatMessages, actionMsg])
+                            
+                            setTimeout(() => {
+                              const botMsg = {
+                                id: chatMessages.length + 2,
+                                text: `Great! I can help you with ${action.text}. A support agent will assist you shortly! 💚`,
+                                sender: 'bot',
+                                time: new Date()
+                              }
+                              setChatMessages(prev => [...prev, botMsg])
+                            }, 1000)
+                          }}
+                          className="px-3 py-2 rounded-xl font-black text-xs border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] transition-all"
+                          style={{ backgroundColor: BRAND_LIME, color: BRAND_BLACK }}
+                        >
+                          {action.emoji} {action.text}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
-              {/* Chat Input */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex gap-2">
+              {/* Chat Input - Ordyrr Style */}
+              <div className="p-4 border-t-4 border-black" style={{ backgroundColor: BRAND_LIME }}>
+                <form onSubmit={(e) => {
+                  e.preventDefault()
+                  if (chatMessage.trim()) {
+                    // Add user message
+                    const userMsg = {
+                      id: chatMessages.length + 1,
+                      text: chatMessage,
+                      sender: 'user',
+                      time: new Date()
+                    }
+                    setChatMessages([...chatMessages, userMsg])
+                    setChatMessage('')
+                    
+                    // Simulate bot response after 1 second
+                    setTimeout(() => {
+                      const botMsg = {
+                        id: chatMessages.length + 2,
+                        text: "Thanks for your message! A support agent will assist you shortly. For immediate help, check our Quick Actions above! 💚",
+                        sender: 'bot',
+                        time: new Date()
+                      }
+                      setChatMessages(prev => [...prev, botMsg])
+                    }, 1000)
+                  }
+                }} className="flex gap-2">
                   <input
                     type="text"
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-4 py-3 border-4 border-black rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-black/20 shadow-[4px_4px_0_0_rgba(0,0,0,1)] bg-white text-black placeholder-black/50"
                   />
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
+                    type="submit"
+                    whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-all"
+                    disabled={!chatMessage.trim()}
+                    className="px-6 py-3 rounded-2xl text-sm font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: BRAND_BLACK, color: BRAND_LIME }}
                   >
-                    Send
+                    SEND ➤
                   </motion.button>
-                </div>
+                </form>
               </div>
             </motion.div>
           </motion.div>

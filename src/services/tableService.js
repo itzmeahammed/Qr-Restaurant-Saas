@@ -113,7 +113,7 @@ class TableService {
   }
 
   // Reserve table by staff for customer without mobile
-  async reserveTableByStaff(tableId, restaurantId, staffId, customerInfo) {
+  async reserveTableByStaff(tableId, customerInfo, restaurantId, staffId) {
     try {
       console.log('🔍 Starting staff table reservation:', {
         tableId,

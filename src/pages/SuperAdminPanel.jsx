@@ -32,11 +32,487 @@ import {
   Line
 } from 'recharts'
 import { supabase } from '../config/supabase'
-import OrderService from '../services/orderService'
+import UnifiedOrderService from '../services/unifiedOrderService'
 import useOrderStore from '../stores/useOrderStore'
 import useAuthStore from '../stores/useAuthStore'
 import toast from 'react-hot-toast'
 import { useConfirmation } from '../contexts/ConfirmationContext'
+import { MagnifyingGlassIcon, FunnelIcon, ShoppingBagIcon, CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline'
+
+// Customers Tab Component
+const CustomersTab = () => {
+  const [customers, setCustomers] = useState([])
+  const [filteredCustomers, setFilteredCustomers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filters, setFilters] = useState({
+    sortBy: 'recent', // recent, orders, spending
+    minOrders: 0,
+    dateFrom: '',
+    dateTo: ''
+  })
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [showCustomerDetails, setShowCustomerDetails] = useState(false)
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+
+  useEffect(() => {
+    applyFilters()
+  }, [searchQuery, filters, customers])
+
+  const fetchCustomers = async () => {
+    setLoading(true)
+    try {
+      // Fetch all customer sessions with orders
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('customer_sessions')
+        .select(`
+          *,
+          orders (
+            id,
+            total_amount,
+            created_at,
+            payment_status,
+            restaurant_id,
+            order_items (
+              id,
+              menu_item_id,
+              quantity,
+              price,
+              menu_items (name, image_url)
+            )
+          ),
+          tables (
+            table_number,
+            restaurant_id,
+            users!tables_restaurant_id_fkey (restaurant_name)
+          )
+        `)
+
+      if (sessionsError) throw sessionsError
+
+      // Group by customer (email/phone)
+      const customerMap = {}
+      
+      sessions?.forEach(session => {
+        const key = session.customer_email || session.customer_phone || session.id
+        
+        if (!customerMap[key]) {
+          customerMap[key] = {
+            id: key,
+            name: session.customer_name || 'Anonymous',
+            email: session.customer_email,
+            phone: session.customer_phone,
+            sessions: [],
+            orders: [],
+            totalOrders: 0,
+            totalSpent: 0,
+            lastOrderDate: null,
+            restaurants: new Set()
+          }
+        }
+
+        customerMap[key].sessions.push(session)
+        
+        session.orders?.forEach(order => {
+          if (order.payment_status === 'completed') {
+            customerMap[key].orders.push({
+              ...order,
+              restaurantName: session.tables?.users?.restaurant_name || 'Unknown',
+              tableNumber: session.tables?.table_number
+            })
+            customerMap[key].totalOrders++
+            customerMap[key].totalSpent += parseFloat(order.total_amount || 0)
+            customerMap[key].restaurants.add(session.tables?.users?.restaurant_name || 'Unknown')
+            
+            const orderDate = new Date(order.created_at)
+            if (!customerMap[key].lastOrderDate || orderDate > customerMap[key].lastOrderDate) {
+              customerMap[key].lastOrderDate = orderDate
+            }
+          }
+        })
+      })
+
+      const customersArray = Object.values(customerMap).map(c => ({
+        ...c,
+        restaurants: Array.from(c.restaurants),
+        orders: c.orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      }))
+
+      setCustomers(customersArray)
+      setFilteredCustomers(customersArray)
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+      toast.error('Failed to load customers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...customers]
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(c => 
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.phone?.includes(searchQuery)
+      )
+    }
+
+    // Min orders filter
+    if (filters.minOrders > 0) {
+      filtered = filtered.filter(c => c.totalOrders >= filters.minOrders)
+    }
+
+    // Date filter
+    if (filters.dateFrom) {
+      filtered = filtered.filter(c => 
+        c.lastOrderDate && new Date(c.lastOrderDate) >= new Date(filters.dateFrom)
+      )
+    }
+
+    if (filters.dateTo) {
+      filtered = filtered.filter(c => 
+        c.lastOrderDate && new Date(c.lastOrderDate) <= new Date(filters.dateTo + 'T23:59:59')
+      )
+    }
+
+    // Sort
+    if (filters.sortBy === 'recent') {
+      filtered.sort((a, b) => (b.lastOrderDate || 0) - (a.lastOrderDate || 0))
+    } else if (filters.sortBy === 'orders') {
+      filtered.sort((a, b) => b.totalOrders - a.totalOrders)
+    } else if (filters.sortBy === 'spending') {
+      filtered.sort((a, b) => b.totalSpent - a.totalSpent)
+    }
+
+    setFilteredCustomers(filtered)
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const formatDate = (date) => {
+    if (!date) return 'Never'
+    return new Date(date).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-amber-500 mx-auto"></div>
+        <p className="mt-4 text-xl font-black text-black">LOADING CUSTOMERS...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Stats */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl sm:text-3xl font-black text-black uppercase">Customer Analytics</h2>
+        <div className="flex items-center gap-3">
+          <div className="px-4 py-2 bg-black rounded-full border-4 border-black">
+            <span className="text-sm font-black text-amber-400">TOTAL: {customers.length}</span>
+          </div>
+          <div className="px-4 py-2 bg-white rounded-full border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+            <span className="text-sm font-black text-green-600">ACTIVE: {filteredCustomers.length}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="bg-amber-50 rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-black/60" />
+            <input
+              type="text"
+              placeholder="Search by name, email, or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-14 pr-4 py-3 border-4 border-black rounded-full font-bold text-black placeholder-black/40 focus:outline-none focus:ring-4 focus:ring-amber-400"
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <FunnelIcon className="h-5 w-5 text-black" />
+              <span className="font-black text-black text-sm">FILTERS:</span>
+            </div>
+
+            <select
+              value={filters.sortBy}
+              onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+              className="px-4 py-2 border-4 border-black rounded-full font-bold focus:outline-none focus:ring-4 focus:ring-amber-400"
+            >
+              <option value="recent">Recent Orders</option>
+              <option value="orders">Most Orders</option>
+              <option value="spending">Highest Spending</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Min Orders"
+              value={filters.minOrders || ''}
+              onChange={(e) => setFilters({ ...filters, minOrders: parseInt(e.target.value) || 0 })}
+              className="px-4 py-2 border-4 border-black rounded-full font-bold w-32 focus:outline-none focus:ring-4 focus:ring-amber-400"
+            />
+
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              className="px-4 py-2 border-4 border-black rounded-full font-bold focus:outline-none focus:ring-4 focus:ring-amber-400"
+            />
+
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              className="px-4 py-2 border-4 border-black rounded-full font-bold focus:outline-none focus:ring-4 focus:ring-amber-400"
+            />
+
+            {(searchQuery || filters.minOrders > 0 || filters.dateFrom || filters.dateTo) && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  setSearchQuery('')
+                  setFilters({ sortBy: 'recent', minOrders: 0, dateFrom: '', dateTo: '' })
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-full font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
+              >
+                CLEAR
+              </motion.button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Cards */}
+      <div className="grid grid-cols-1 gap-4">
+        {filteredCustomers.map((customer) => (
+          <motion.div
+            key={customer.id}
+            whileHover={{ y: -4, rotate: 0.5 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              setSelectedCustomer(customer)
+              setShowCustomerDetails(true)
+            }}
+            className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] transition-all cursor-pointer"
+          >
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              {/* Customer Info */}
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-black mb-2">{customer.name}</h3>
+                <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-black/60 mb-3">
+                  {customer.email && <span>📧 {customer.email}</span>}
+                  {customer.phone && <span>📱 {customer.phone}</span>}
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-blue-50 rounded-xl border-4 border-black">
+                    <p className="text-xs font-bold text-black/60 uppercase">Lifetime Orders</p>
+                    <p className="text-2xl font-black text-blue-600">{customer.totalOrders}</p>
+                  </div>
+                  
+                  <div className="p-3 bg-green-50 rounded-xl border-4 border-black">
+                    <p className="text-xs font-bold text-black/60 uppercase">Total Spent</p>
+                    <p className="text-2xl font-black text-green-600">{formatCurrency(customer.totalSpent)}</p>
+                  </div>
+                  
+                  <div className="p-3 bg-purple-50 rounded-xl border-4 border-black">
+                    <p className="text-xs font-bold text-black/60 uppercase">Avg Order</p>
+                    <p className="text-2xl font-black text-purple-600">
+                      {formatCurrency(customer.totalOrders > 0 ? customer.totalSpent / customer.totalOrders : 0)}
+                    </p>
+                  </div>
+                  
+                  <div className="p-3 bg-amber-50 rounded-xl border-4 border-black">
+                    <p className="text-xs font-bold text-black/60 uppercase">Last Order</p>
+                    <p className="text-sm font-black text-amber-600">{formatDate(customer.lastOrderDate)}</p>
+                  </div>
+                </div>
+
+                {/* Restaurants */}
+                {customer.restaurants.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-black/60">RESTAURANTS:</span>
+                    {customer.restaurants.slice(0, 3).map((restaurant, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-amber-100 rounded-full text-xs font-black text-black border-2 border-black">
+                        {restaurant}
+                      </span>
+                    ))}
+                    {customer.restaurants.length > 3 && (
+                      <span className="px-3 py-1 bg-black rounded-full text-xs font-black text-amber-400 border-2 border-black">
+                        +{customer.restaurants.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* View Details Button */}
+              <motion.button
+                whileHover={{ scale: 1.05, rotate: 3 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedCustomer(customer)
+                  setShowCustomerDetails(true)
+                }}
+                className="px-6 py-3 bg-black text-amber-400 rounded-full font-black border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all whitespace-nowrap"
+              >
+                VIEW DETAILS
+              </motion.button>
+            </div>
+          </motion.div>
+        ))}
+
+        {filteredCustomers.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-2xl border-4 border-black">
+            <p className="text-xl font-black text-black/60">NO CUSTOMERS FOUND</p>
+            <p className="text-sm font-bold text-black/40 mt-2">Try adjusting your filters</p>
+          </div>
+        )}
+      </div>
+
+      {/* Customer Details Modal */}
+      <AnimatePresence>
+        {showCustomerDetails && selectedCustomer && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              {/* Modal Header */}
+              <div className="bg-black text-white p-6 rounded-t-xl sticky top-0 z-10 border-b-4 border-black">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-amber-400">{selectedCustomer.name}</h2>
+                    <p className="text-sm font-bold text-white/70">{selectedCustomer.email || selectedCustomer.phone}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCustomerDetails(false)}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-xl border-4 border-black text-center">
+                    <ShoppingBagIcon className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-3xl font-black text-blue-600">{selectedCustomer.totalOrders}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase">Total Orders</p>
+                  </div>
+                  
+                  <div className="p-4 bg-green-50 rounded-xl border-4 border-black text-center">
+                    <CurrencyRupeeIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-3xl font-black text-green-600">{formatCurrency(selectedCustomer.totalSpent)}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase">Total Spent</p>
+                  </div>
+                  
+                  <div className="p-4 bg-purple-50 rounded-xl border-4 border-black text-center">
+                    <CalendarIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                    <p className="text-lg font-black text-purple-600">{formatDate(selectedCustomer.lastOrderDate)}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase">Last Order</p>
+                  </div>
+                  
+                  <div className="p-4 bg-amber-50 rounded-xl border-4 border-black text-center">
+                    <MapPinIcon className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+                    <p className="text-3xl font-black text-amber-600">{selectedCustomer.restaurants.length}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase">Restaurants</p>
+                  </div>
+                </div>
+
+                {/* Order History */}
+                <div>
+                  <h3 className="text-xl font-black text-black uppercase mb-4">Order History ({selectedCustomer.orders.length})</h3>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {selectedCustomer.orders.map((order, idx) => (
+                      <div key={idx} className="p-4 bg-white rounded-xl border-4 border-black">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-3 py-1 bg-black rounded-full text-xs font-black text-amber-400">
+                                #{order.id.slice(0, 8)}
+                              </span>
+                              <span className="text-xs font-bold text-black/60">
+                                {new Date(order.created_at).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                            <p className="font-black text-black">{order.restaurantName}</p>
+                            {order.tableNumber && (
+                              <p className="text-sm font-bold text-black/60">Table #{order.tableNumber}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-black text-green-600">{formatCurrency(order.total_amount)}</p>
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        {order.order_items && order.order_items.length > 0 && (
+                          <div className="mt-3 pt-3 border-t-2 border-black/10">
+                            <p className="text-xs font-bold text-black/60 uppercase mb-2">Items Ordered:</p>
+                            <div className="space-y-2">
+                              {order.order_items.map((item, itemIdx) => (
+                                <div key={itemIdx} className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    {item.menu_items?.image_url && (
+                                      <img 
+                                        src={item.menu_items.image_url} 
+                                        alt={item.menu_items.name}
+                                        className="w-10 h-10 object-cover rounded-lg border-2 border-black"
+                                      />
+                                    )}
+                                    <span className="font-bold text-black">
+                                      {item.quantity}x {item.menu_items?.name || 'Item'}
+                                    </span>
+                                  </div>
+                                  <span className="font-black text-amber-600">₹{item.price}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 const SuperAdminPanel = () => {
   const navigate = useNavigate()
@@ -198,45 +674,97 @@ const SuperAdminPanel = () => {
 
   const fetchRestaurants = async () => {
     try {
-      const { data } = await supabase
+      // Fetch restaurant owners
+      const { data: restaurantOwners, error: ownersError } = await supabase
         .from('users')
+        .select('*')
         .eq('role', 'restaurant_owner')
-        .select(`
-          *,
-          orders(total_amount, status, created_at),
-          staff(id, position, user_id),
-          tables(id, table_number, capacity),
-          menu_items(id, name, price, is_available),
-          categories(id, name)
-        `)
         .order('created_at', { ascending: false })
 
-      const enrichedRestaurants = data?.map(restaurant => ({
-        ...restaurant,
-        totalRevenue: restaurant.orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0,
-        totalOrders: restaurant.orders?.length || 0,
-        totalStaff: restaurant.staff?.length || 0,
-        totalTables: restaurant.tables?.length || 0,
-        totalMenuItems: restaurant.menu_items?.length || 0,
-        totalCategories: restaurant.categories?.length || 0,
-        activeStaff: restaurant.staff?.length || 0,
-        availableTables: restaurant.tables?.length || 0,
-        availableMenuItems: restaurant.menu_items?.filter(m => m.is_available).length || 0,
-        todayOrders: restaurant.orders?.filter(o => {
-          const orderDate = new Date(o.created_at).toDateString()
-          const today = new Date().toDateString()
-          return orderDate === today
-        }).length || 0,
-        todayRevenue: restaurant.orders?.filter(o => {
-          const orderDate = new Date(o.created_at).toDateString()
-          const today = new Date().toDateString()
-          return orderDate === today
-        }).reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0
-      }))
+      if (ownersError) throw ownersError
 
-      setRestaurants(enrichedRestaurants || [])
+      // Fetch all related data for each restaurant
+      const enrichedRestaurants = await Promise.all(
+        (restaurantOwners || []).map(async (restaurant) => {
+          // Fetch orders
+          const { data: orders } = await supabase
+            .from('orders')
+            .select('total_amount, status, created_at, payment_method, payment_status')
+            .eq('restaurant_id', restaurant.id)
+
+          // Fetch tables
+          const { data: tables } = await supabase
+            .from('tables')
+            .select('id, table_number, capacity, is_active')
+            .eq('restaurant_id', restaurant.id)
+
+          // Fetch menu items
+          const { data: menuItems } = await supabase
+            .from('menu_items')
+            .select('id, name, price, is_available')
+            .eq('restaurant_id', restaurant.id)
+
+          // Fetch categories
+          const { data: categories } = await supabase
+            .from('categories')
+            .select('id, name')
+            .eq('restaurant_id', restaurant.id)
+
+          // Fetch staff
+          const { data: staff } = await supabase
+            .from('users')
+            .select('id, full_name, position, is_available')
+            .eq('restaurant_id', restaurant.id)
+            .eq('role', 'staff')
+
+          // Calculate metrics
+          const completedOrders = orders?.filter(o => o.payment_status === 'completed') || []
+          const totalRevenue = completedOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0)
+          const platformCommission = totalRevenue * 0.03 // 3% commission
+          
+          const today = new Date().toDateString()
+          const todayOrders = completedOrders.filter(o => new Date(o.created_at).toDateString() === today)
+          const todayRevenue = todayOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0)
+
+          return {
+            id: restaurant.id,
+            name: restaurant.restaurant_name || restaurant.full_name || 'Unnamed Restaurant',
+            email: restaurant.email,
+            phone: restaurant.restaurant_phone || restaurant.phone,
+            address: restaurant.restaurant_address || 'No address',
+            cuisine_type: restaurant.cuisine_type || 'Multi-cuisine',
+            is_active: restaurant.is_active,
+            is_open: restaurant.is_open,
+            logo_url: restaurant.logo_url,
+            created_at: restaurant.created_at,
+            totalRevenue,
+            platformCommission,
+            restaurantEarnings: totalRevenue - platformCommission,
+            totalOrders: completedOrders.length,
+            totalStaff: staff?.length || 0,
+            totalTables: tables?.length || 0,
+            totalMenuItems: menuItems?.length || 0,
+            totalCategories: categories?.length || 0,
+            activeStaff: staff?.filter(s => s.is_available).length || 0,
+            availableTables: tables?.filter(t => t.is_active).length || 0,
+            availableMenuItems: menuItems?.filter(m => m.is_available).length || 0,
+            todayOrders: todayOrders.length,
+            todayRevenue,
+            todayCommission: todayRevenue * 0.03,
+            orders: orders || [],
+            tables: tables || [],
+            menuItems: menuItems || [],
+            categories: categories || [],
+            staff: staff || []
+          }
+        })
+      )
+
+      setRestaurants(enrichedRestaurants)
+      console.log('Fetched restaurants:', enrichedRestaurants.length)
     } catch (error) {
       console.error('Error fetching restaurants:', error)
+      toast.error('Failed to load restaurants')
     }
   }
 
@@ -465,43 +993,56 @@ const SuperAdminPanel = () => {
   const tabs = [
     { id: 'overview', name: 'Overview', icon: ChartBarIcon },
     { id: 'restaurants', name: 'Restaurants', icon: BuildingStorefrontIcon },
+    { id: 'customers', name: 'Customers', icon: UsersIcon },
     { id: 'users', name: 'Users', icon: UsersIcon },
     { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
     { id: 'settings', name: 'Settings', icon: Cog6ToothIcon }
   ]
 
-  const COLORS = ['#f97316', '#e879f9', '#fb923c', '#fbbf24']
+  const BRAND_ORANGE = '#F59E0B'
+  const BRAND_BLACK = '#1F2937'
+  const COLORS = [BRAND_ORANGE, '#fb923c', '#fbbf24', '#f97316']
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-500"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-amber-500 mx-auto"></div>
+          <p className="mt-4 text-xl font-black text-black">LOADING...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 to-orange-600 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="min-h-screen bg-white">
+      {/* Header - Restaurant Landing Page Style */}
+      <header className="relative z-40 bg-white border-b-4 border-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Super Admin Panel</h1>
-              <p className="text-red-100">Platform-wide management and analytics</p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right text-white">
-                <p className="font-medium">{user?.user_metadata?.full_name || 'Super Admin'}</p>
-                <p className="text-sm text-red-100">{user?.email}</p>
+            {/* Logo/Title */}
+            <motion.div 
+              className="relative"
+              whileHover={{ y: -2 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <div className="bg-black rounded-2xl px-6 py-3 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all">
+                <h1 className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">SUPER ADMIN</h1>
+                <p className="text-xs font-bold text-white/70 mt-1">Platform Control Center</p>
+              </div>
+            </motion.div>
+
+            {/* User Info & Actions */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="hidden sm:block text-right">
+                <p className="font-black text-black text-sm">{user?.user_metadata?.full_name || 'Super Admin'}</p>
+                <p className="text-xs font-bold text-black/60">{user?.email}</p>
               </div>
               
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-                  <UserCircleIcon className="h-6 w-6 text-red-600" />
-                </div>
-                
+              <motion.div
+                whileHover={{ scale: 1.05, rotate: 3 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 <button
                   onClick={async () => {
                     try {
@@ -512,38 +1053,38 @@ const SuperAdminPanel = () => {
                       toast.error('Failed to logout')
                     }
                   }}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 sm:px-6 sm:py-3 bg-black rounded-full font-black text-sm border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] active:shadow-[2px_2px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all text-amber-400 flex items-center gap-2"
                 >
                   <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                  <span className="hidden sm:block">Logout</span>
+                  <span className="hidden sm:block">LOGOUT</span>
                 </button>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Enhanced Navigation Tabs */}
-      <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 border-b border-neutral-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4">
+      {/* Navigation Tabs - Restaurant Landing Page Style */}
+      <div className="bg-white border-b-4 border-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-center py-4">
             {/* Tab Navigation */}
-            <div className="flex items-center space-x-1 bg-white rounded-xl p-1 shadow-sm mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
               {tabs.map((tab) => (
-                <button
+                <motion.button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-black text-xs sm:text-sm border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] active:shadow-[2px_2px_0_0_rgba(0,0,0,1)] active:translate-y-1 transition-all ${
                     activeTab === tab.id
-                      ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md transform scale-105'
-                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                      ? 'bg-black text-amber-400'
+                      : 'bg-white text-black hover:bg-amber-50'
                   }`}
                 >
-                  <tab.icon className={`h-5 w-5 ${
-                    activeTab === tab.id ? 'text-white' : 'text-neutral-500'
-                  }`} />
-                  <span className="hidden sm:block">{tab.name}</span>
-                </button>
+                  <tab.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="hidden sm:block uppercase">{tab.name}</span>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -551,25 +1092,26 @@ const SuperAdminPanel = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="space-y-6 sm:space-y-8">
+            {/* Stats Cards - Restaurant Landing Page Style */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="card"
+                whileHover={{ y: -4, rotate: 1 }}
+                className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary-100 rounded-xl">
-                    <BuildingStorefrontIcon className="h-6 w-6 text-primary-500" />
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-4 bg-amber-100 rounded-2xl border-4 border-black">
+                    <BuildingStorefrontIcon className="h-8 w-8 text-amber-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">{stats.totalRestaurants}</p>
-                    <p className="text-sm text-neutral-600">Total Restaurants</p>
-                    <p className="text-xs text-success">{stats.activeRestaurants} active</p>
+                    <p className="text-3xl font-black text-black">{stats.totalRestaurants}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase mt-1">Restaurants</p>
+                    <p className="text-xs font-bold text-green-600 mt-1">{stats.activeRestaurants} Active</p>
                   </div>
                 </div>
               </motion.div>
@@ -578,16 +1120,17 @@ const SuperAdminPanel = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="card"
+                whileHover={{ y: -4, rotate: -1 }}
+                className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-accent-100 rounded-xl">
-                    <CurrencyRupeeIcon className="h-6 w-6 text-accent-500" />
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-4 bg-green-100 rounded-2xl border-4 border-black">
+                    <CurrencyRupeeIcon className="h-8 w-8 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">₹{stats.totalRevenue.toFixed(0)}</p>
-                    <p className="text-sm text-neutral-600">Total Revenue</p>
-                    <p className="text-xs text-neutral-500">Platform-wide</p>
+                    <p className="text-3xl font-black text-black">₹{(stats.totalRevenue / 1000).toFixed(0)}K</p>
+                    <p className="text-xs font-bold text-black/60 uppercase mt-1">Revenue</p>
+                    <p className="text-xs font-bold text-black/40 mt-1">Platform-wide</p>
                   </div>
                 </div>
               </motion.div>
@@ -596,16 +1139,17 @@ const SuperAdminPanel = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="card"
+                whileHover={{ y: -4, rotate: 1 }}
+                className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-secondary-100 rounded-xl">
-                    <ChartBarIcon className="h-6 w-6 text-secondary-500" />
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-4 bg-blue-100 rounded-2xl border-4 border-black">
+                    <ChartBarIcon className="h-8 w-8 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">{stats.totalOrders}</p>
-                    <p className="text-sm text-neutral-600">Total Orders</p>
-                    <p className="text-xs text-neutral-500">All time</p>
+                    <p className="text-3xl font-black text-black">{stats.totalOrders}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase mt-1">Orders</p>
+                    <p className="text-xs font-bold text-black/40 mt-1">All Time</p>
                   </div>
                 </div>
               </motion.div>
@@ -614,18 +1158,17 @@ const SuperAdminPanel = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="card"
+                whileHover={{ y: -4, rotate: -1 }}
+                className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-warning/20 rounded-xl">
-                    <UsersIcon className="h-6 w-6 text-warning" />
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-4 bg-purple-100 rounded-2xl border-4 border-black">
+                    <UsersIcon className="h-8 w-8 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">{stats.totalUsers}</p>
-                    <p className="text-sm text-neutral-600">Total Users</p>
-                    <p className="text-xs text-neutral-500">
-                      {stats.totalOwners} owners, {stats.totalStaff} staff, {stats.totalCustomers} customers
-                    </p>
+                    <p className="text-3xl font-black text-black">{stats.totalUsers}</p>
+                    <p className="text-xs font-bold text-black/60 uppercase mt-1">Users</p>
+                    <p className="text-xs font-bold text-black/40 mt-1">{stats.totalOwners} Owners</p>
                   </div>
                 </div>
               </motion.div>
@@ -634,16 +1177,17 @@ const SuperAdminPanel = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="card"
+                whileHover={{ y: -4, rotate: 1 }}
+                className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-success/20 rounded-xl">
-                    <CheckCircleIcon className="h-6 w-6 text-success" />
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-4 bg-green-100 rounded-2xl border-4 border-black">
+                    <CheckCircleIcon className="h-8 w-8 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">99.9%</p>
-                    <p className="text-sm text-neutral-600">Uptime</p>
-                    <p className="text-xs text-success">Last 30 days</p>
+                    <p className="text-3xl font-black text-black">99.9%</p>
+                    <p className="text-xs font-bold text-black/60 uppercase mt-1">Uptime</p>
+                    <p className="text-xs font-bold text-green-600 mt-1">Last 30 Days</p>
                   </div>
                 </div>
               </motion.div>
@@ -813,10 +1357,15 @@ const SuperAdminPanel = () => {
         {/* Restaurants Tab */}
         {activeTab === 'restaurants' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-neutral-900">Restaurant Management</h2>
-              <div className="text-sm text-neutral-600">
-                Total: {restaurants.length} | Active: {restaurants.filter(r => r.is_active).length}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-black uppercase">Restaurant Management</h2>
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 bg-black rounded-full border-4 border-black">
+                  <span className="text-sm font-black text-amber-400">TOTAL: {restaurants.length}</span>
+                </div>
+                <div className="px-4 py-2 bg-white rounded-full border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+                  <span className="text-sm font-black text-green-600">ACTIVE: {restaurants.filter(r => r.is_active).length}</span>
+                </div>
               </div>
             </div>
 
@@ -824,12 +1373,10 @@ const SuperAdminPanel = () => {
               {restaurants.map((restaurant) => (
                 <motion.div 
                   key={restaurant.id} 
-                  className="card hover:shadow-lg transition-shadow cursor-pointer"
-                  whileHover={{ y: -2 }}
-                  onClick={() => {
-                    setSelectedRestaurant(restaurant)
-                    setShowRestaurantModal(true)
-                  }}
+                  className="bg-white rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] transition-all cursor-pointer"
+                  whileHover={{ y: -4, rotate: 0.5 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate(`/admin/restaurant/${restaurant.id}`)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
@@ -842,18 +1389,22 @@ const SuperAdminPanel = () => {
                         <p className="text-sm text-neutral-500">{restaurant.cuisine_type} • {restaurant.email}</p>
                         
                         {/* Detailed Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
                           <div className="text-center p-2 bg-blue-50 rounded-lg">
                             <p className="text-lg font-bold text-blue-600">₹{restaurant.totalRevenue.toFixed(0)}</p>
                             <p className="text-xs text-blue-500">Total Revenue</p>
                           </div>
+                          <div className="text-center p-2 bg-red-50 rounded-lg">
+                            <p className="text-lg font-bold text-red-600">₹{restaurant.platformCommission.toFixed(0)}</p>
+                            <p className="text-xs text-red-500">Our Commission (3%)</p>
+                          </div>
                           <div className="text-center p-2 bg-green-50 rounded-lg">
-                            <p className="text-lg font-bold text-green-600">{restaurant.totalOrders}</p>
-                            <p className="text-xs text-green-500">Total Orders</p>
+                            <p className="text-lg font-bold text-green-600">₹{restaurant.restaurantEarnings.toFixed(0)}</p>
+                            <p className="text-xs text-green-500">Restaurant Earnings</p>
                           </div>
                           <div className="text-center p-2 bg-purple-50 rounded-lg">
-                            <p className="text-lg font-bold text-purple-600">{restaurant.totalStaff}</p>
-                            <p className="text-xs text-purple-500">Staff Members</p>
+                            <p className="text-lg font-bold text-purple-600">{restaurant.totalOrders}</p>
+                            <p className="text-xs text-purple-500">Total Orders</p>
                           </div>
                           <div className="text-center p-2 bg-orange-50 rounded-lg">
                             <p className="text-lg font-bold text-orange-600">{restaurant.totalTables}</p>
@@ -862,15 +1413,21 @@ const SuperAdminPanel = () => {
                         </div>
                         
                         {/* Today's Stats */}
-                        <div className="flex items-center gap-4 mt-3 text-sm">
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                        <div className="flex items-center gap-3 mt-3 text-sm flex-wrap">
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded font-medium">
                             Today: {restaurant.todayOrders} orders
                           </span>
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
                             ₹{restaurant.todayRevenue.toFixed(0)} revenue
                           </span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded font-medium">
+                            ₹{restaurant.todayCommission.toFixed(0)} commission
+                          </span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
                             {restaurant.totalMenuItems} menu items
+                          </span>
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-medium">
+                            {restaurant.totalStaff} staff
                           </span>
                         </div>
                       </div>
@@ -916,6 +1473,11 @@ const SuperAdminPanel = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === 'customers' && (
+          <CustomersTab />
         )}
 
         {/* Analytics Tab */}
