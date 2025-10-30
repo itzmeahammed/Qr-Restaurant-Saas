@@ -39,37 +39,18 @@ const OrderTracking = ({ sessionId, isOpen, onClose }) => {
     try {
       setLoading(true)
       
-      // Get customer orders using supabase directly
-      const { data: customerOrders, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(*),
-          tables(table_number),
-          users!orders_assigned_staff_id_fkey(full_name),
-          payment_transactions(*)
-        `)
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      
-      // Orders already include payment information from the join
-      const enrichedOrders = customerOrders.map(order => {
-        return {
-          ...order,
-          payment_info: order.payment_transactions?.length > 0 ? order.payment_transactions[0] : null
-        }
-      })
-      
-      setOrders(enrichedOrders)
+      // Use the new UnifiedOrderService method for customer order tracking
+      const customerOrders = await UnifiedOrderService.getCustomerOrdersBySession(sessionId)
+
+      console.log('📋 Customer orders loaded:', customerOrders?.length || 0)
+      setOrders(customerOrders || [])
       
       // Set the most recent order as current
-      if (enrichedOrders.length > 0) {
-        setCurrentOrder(enrichedOrders[0])
+      if (customerOrders && customerOrders.length > 0) {
+        setCurrentOrder(customerOrders[0])
       }
     } catch (error) {
-      console.error('Error loading customer orders:', error)
+      console.error('❌ Error loading customer orders:', error)
     } finally {
       setLoading(false)
     }
@@ -77,53 +58,15 @@ const OrderTracking = ({ sessionId, isOpen, onClose }) => {
 
   const setupRealtimeSubscription = async () => {
     try {
-      // Subscribe to session updates for order and payment changes
-      const subscription = customerService.trackSessionOrder(sessionId, null, {
-        onOrderUpdate: async (orderUpdate) => {
-          console.log('Order update received:', orderUpdate)
-          
-          // Enrich with payment info if needed
-          let enrichedUpdate = orderUpdate
-          try {
-            const paymentInfo = await PaymentService.getPaymentHistory(orderUpdate.id)
-            enrichedUpdate = {
-              ...orderUpdate,
-              payment_info: paymentInfo.length > 0 ? paymentInfo[0] : null
-            }
-          } catch (error) {
-            console.warn('Failed to enrich order update with payment info')
-          }
-          
-          // Update orders list
-          setOrders(prevOrders => 
-            prevOrders.map(order => 
-              order.id === enrichedUpdate.id ? { ...order, ...enrichedUpdate } : order
-            )
-          )
-          
-          // Update current order if it matches
-          setCurrentOrder(prevOrder => 
-            prevOrder?.id === enrichedUpdate.id ? { ...prevOrder, ...enrichedUpdate } : prevOrder
-          )
-        },
-        onOrderAssigned: (data) => {
-          console.log('Order assigned:', data)
-          // This will be handled by onOrderUpdate
-        },
-        onStatusUpdate: (data) => {
-          console.log('Status update:', data)
-          // This will be handled by onOrderUpdate
-        },
-        onPaymentConfirmed: (data) => {
-          console.log('Payment confirmed:', data)
-          // Refresh payment info for the order
-          loadCustomerOrders()
-        }
+      // Subscribe to customer order updates using UnifiedOrderService
+      const subscription = UnifiedOrderService.subscribeToCustomerOrders(sessionId, (payload) => {
+        console.log('📨 Customer order update received:', payload)
+        loadCustomerOrders() // Refresh orders
       })
       
       setSubscription(subscription)
     } catch (error) {
-      console.error('Error setting up realtime subscription:', error)
+      console.error('❌ Error setting up realtime subscription:', error)
     }
   }
 

@@ -70,9 +70,10 @@ class PerformanceMonitorService {
    */
   static async logToDatabase(performanceData) {
     try {
-      await supabase
+      const { error } = await supabase
         .from('performance_logs')
         .insert({
+          operation_id: `${performanceData.type}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
           operation_type: performanceData.type,
           duration_ms: performanceData.duration,
           success: performanceData.success,
@@ -80,8 +81,20 @@ class PerformanceMonitorService {
           metadata: performanceData.metadata,
           created_at: performanceData.completedAt
         })
+      
+      if (error) {
+        // Check if it's a table not found error
+        if (error.code === 'PGRST205' || error.message?.includes('performance_logs')) {
+          console.warn('⚠️ Performance logs table not found - run database_fixes.sql to create it')
+          return // Gracefully continue without logging
+        }
+        throw error
+      }
+      
+      console.log('📊 Performance data logged to database')
     } catch (error) {
-      console.warn('⚠️ Failed to log performance data:', error.message)
+      console.warn('⚠️ Failed to log performance data to database:', error.message)
+      // Continue execution - performance logging is not critical for app functionality
     }
   }
 

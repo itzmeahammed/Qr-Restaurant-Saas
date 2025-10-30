@@ -284,19 +284,37 @@ const StaffOrderingFlow = ({ restaurantId, staffId, onClose }) => {
 
       const pointsEarned = Math.floor(order.total_amount * 0.1) // 10% of order value as points
       
-      // Get or create customer ID from the order - use proper UUID format
+      // Get customer ID from the order (should be set by UnifiedOrderService)
       let customerId = order.customer_id
       
-      // If no customer_id in order, generate a proper UUID
+      // If no customer_id in order, try to create customer record
+      if (!customerId && customerInfo.email) {
+        try {
+          console.log('👤 Creating customer record for loyalty points:', customerInfo)
+          
+          const { data: customerResult, error: customerError } = await supabase
+            .rpc('get_or_create_guest_customer', {
+              p_email: customerInfo.email,
+              p_phone: customerInfo.phone,
+              p_full_name: customerInfo.name
+            })
+          
+          if (!customerError && customerResult) {
+            customerId = customerResult
+            console.log('✅ Customer record created for loyalty:', customerId)
+          } else {
+            console.warn('⚠️ Could not create customer for loyalty points:', customerError)
+            return // Skip loyalty points if no customer
+          }
+        } catch (error) {
+          console.warn('⚠️ Error creating customer for loyalty points:', error)
+          return // Skip loyalty points if error
+        }
+      }
+      
       if (!customerId) {
-        // Generate a UUID v4 format for customer_id
-        customerId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          const r = Math.random() * 16 | 0
-          const v = c === 'x' ? r : (r & 0x3 | 0x8)
-          return v.toString(16)
-        })
-        
-        console.log('🆔 Generated new customer UUID:', customerId)
+        console.log('ℹ️ No customer ID available, skipping loyalty points')
+        return
       }
 
       // Check if loyalty account exists

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   MagnifyingGlassIcon,
@@ -6,17 +6,75 @@ import {
   EyeIcon,
   CheckIcon,
   XMarkIcon,
-  ClockIcon
+  ClockIcon,
+  UserIcon,
+  MapPinIcon,
+  CurrencyRupeeIcon,
+  CalendarIcon,
+  ShoppingBagIcon,
+  PhoneIcon
 } from '@heroicons/react/24/outline'
+import UnifiedOrderService from '../../services/unifiedOrderService'
+import useAuthStore from '../../stores/useAuthStore'
+import toast from 'react-hot-toast'
 
-const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
+const OrdersTab = () => {
+  const { user } = useAuthStore()
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [updatingOrder, setUpdatingOrder] = useState(null)
+
+  // Fetch orders on component mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchOrders()
+    }
+  }, [user?.id])
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true)
+      console.log('🔄 Fetching restaurant orders for owner:', user.id)
+      
+      const fetchedOrders = await UnifiedOrderService.getRestaurantOrders(user.id)
+      console.log('📋 Fetched orders:', fetchedOrders)
+      
+      setOrders(fetchedOrders || [])
+    } catch (error) {
+      console.error('❌ Error fetching orders:', error)
+      toast.error('Failed to load orders')
+      setOrders([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      setUpdatingOrder(orderId)
+      console.log('🔄 Updating order status:', { orderId, newStatus })
+      
+      await UnifiedOrderService.updateOrderStatus(orderId, newStatus, user.id, 'owner')
+      
+      // Refresh orders after update
+      await fetchOrders()
+      
+      toast.success(`Order ${newStatus} successfully`)
+    } catch (error) {
+      console.error('❌ Error updating order:', error)
+      toast.error('Failed to update order status')
+    } finally {
+      setUpdatingOrder(null)
+    }
+  }
 
   const filteredOrders = orders.filter(order => {
+    const customerName = order.customers?.full_name || order.customer_name || ''
     const matchesSearch = order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+                         customerName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -84,9 +142,16 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
         </div>
       </div>
 
-      {/* Orders Grid */}
-      <div className="grid gap-4 md:gap-6">
-        {filteredOrders.length > 0 ? filteredOrders.map((order, index) => (
+      {/* Loading State */}
+      {loading ? (
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-neutral-200 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-neutral-600">Loading orders...</p>
+        </div>
+      ) : (
+        /* Orders Grid */
+        <div className="grid gap-4 md:gap-6">
+          {filteredOrders.length > 0 ? filteredOrders.map((order, index) => (
           <motion.div
             key={order.id}
             initial={{ opacity: 0, y: 20 }}
@@ -104,22 +169,126 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <span className="text-neutral-500">Customer:</span>
-                    <p className="font-medium">{order.customer_name}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                  {/* Customer Info */}
+                  <div className="flex items-start gap-2">
+                    <UserIcon className="h-4 w-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-neutral-500 text-xs">Customer:</span>
+                      <p className="font-medium">{order.customers?.full_name || order.customer_name || 'Guest'}</p>
+                      {order.customers?.phone && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <PhoneIcon className="h-3 w-3 text-neutral-400" />
+                          <p className="text-xs text-neutral-400">{order.customers.phone}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-neutral-500">Staff:</span>
-                    <p className="font-medium">{order.users?.full_name || 'Unassigned'}</p>
+                  
+                  {/* Table Info */}
+                  <div className="flex items-start gap-2">
+                    <MapPinIcon className="h-4 w-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-neutral-500 text-xs">Table:</span>
+                      <p className="font-medium text-blue-600">
+                        {order.tables?.table_number ? `Table ${order.tables.table_number}` : 'No Table'}
+                      </p>
+                      {order.tables?.location && (
+                        <p className="text-xs text-neutral-400">{order.tables.location}</p>
+                      )}
+                      {order.tables?.capacity && (
+                        <p className="text-xs text-neutral-400">Capacity: {order.tables.capacity}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-neutral-500">Amount:</span>
-                    <p className="font-bold text-orange-600">₹{order.total_amount}</p>
+                  
+                  {/* Staff Info */}
+                  <div className="flex items-start gap-2">
+                    <UserIcon className="h-4 w-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-neutral-500 text-xs">Assigned Staff:</span>
+                      <p className="font-medium">
+                        {order.assigned_staff?.full_name || order.users?.full_name || 'Unassigned'}
+                      </p>
+                      {order.assigned_staff?.position && (
+                        <p className="text-xs text-neutral-400">{order.assigned_staff.position}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-neutral-500">Time:</span>
-                    <p className="font-medium">{new Date(order.created_at).toLocaleString()}</p>
+                  
+                  {/* Order Details */}
+                  <div className="flex items-start gap-2">
+                    <CurrencyRupeeIcon className="h-4 w-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-neutral-500 text-xs">Amount:</span>
+                      <p className="font-bold text-orange-600">₹{order.total_amount}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <CalendarIcon className="h-3 w-3 text-neutral-400" />
+                        <p className="text-xs text-neutral-400">
+                          {new Date(order.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Order Items Preview */}
+                {order.order_items && order.order_items.length > 0 && (
+                  <div className="mt-3 p-3 bg-neutral-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShoppingBagIcon className="h-4 w-4 text-neutral-500" />
+                      <span className="text-sm font-medium text-neutral-700">
+                        {order.order_items.length} item{order.order_items.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {order.order_items.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs">
+                          <span className="text-neutral-600">
+                            {item.quantity}x {item.item_name}
+                          </span>
+                          <span className="text-neutral-500">₹{item.total_price}</span>
+                        </div>
+                      ))}
+                      {order.order_items.length > 3 && (
+                        <p className="text-xs text-neutral-400">+{order.order_items.length - 3} more items</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Order Tracking Timeline */}
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Order Timeline</h4>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">Created:</span>
+                      <span className="text-blue-600">{new Date(order.created_at).toLocaleTimeString()}</span>
+                    </div>
+                    {order.assigned_at && (
+                      <div className="flex justify-between">
+                        <span className="text-blue-700">Assigned:</span>
+                        <span className="text-blue-600">{new Date(order.assigned_at).toLocaleTimeString()}</span>
+                      </div>
+                    )}
+                    {order.started_at && (
+                      <div className="flex justify-between">
+                        <span className="text-blue-700">Started:</span>
+                        <span className="text-blue-600">{new Date(order.started_at).toLocaleTimeString()}</span>
+                      </div>
+                    )}
+                    {order.ready_at && (
+                      <div className="flex justify-between">
+                        <span className="text-blue-700">Ready:</span>
+                        <span className="text-blue-600">{new Date(order.ready_at).toLocaleTimeString()}</span>
+                      </div>
+                    )}
+                    {order.completed_at && (
+                      <div className="flex justify-between">
+                        <span className="text-blue-700">Completed:</span>
+                        <span className="text-blue-600">{new Date(order.completed_at).toLocaleTimeString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -134,12 +303,17 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
                   <span className="hidden sm:inline">View</span>
                 </button>
                 
-                {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                {order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'completed' && (
                   <button
-                    onClick={() => onUpdateOrderStatus(order.id, getNextStatus(order.status))}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
+                    onClick={() => handleUpdateOrderStatus(order.id, getNextStatus(order.status))}
+                    disabled={updatingOrder === order.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 rounded-lg transition-colors"
                   >
-                    <CheckIcon className="h-4 w-4" />
+                    {updatingOrder === order.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <CheckIcon className="h-4 w-4" />
+                    )}
                     <span className="hidden sm:inline">
                       {getNextStatus(order.status) === 'assigned' && 'Assign'}
                       {getNextStatus(order.status) === 'preparing' && 'Start Prep'}
@@ -151,8 +325,9 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
                 
                 {order.status === 'pending' && (
                   <button
-                    onClick={() => onUpdateOrderStatus(order.id, 'cancelled')}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
+                    disabled={updatingOrder === order.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 disabled:text-red-400 rounded-lg transition-colors"
                   >
                     <XMarkIcon className="h-4 w-4" />
                     <span className="hidden sm:inline">Cancel</span>
@@ -172,7 +347,8 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
             </p>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Order Detail Modal */}
       {selectedOrder && (
@@ -204,7 +380,13 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-neutral-500">Customer</label>
-                  <p className="font-medium">{selectedOrder.customer_name}</p>
+                  <p className="font-medium">{selectedOrder.customers?.full_name || selectedOrder.customer_name || 'Guest'}</p>
+                  {selectedOrder.customers?.phone && (
+                    <p className="text-sm text-neutral-600">{selectedOrder.customers.phone}</p>
+                  )}
+                  {selectedOrder.customers?.email && (
+                    <p className="text-sm text-neutral-600">{selectedOrder.customers.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-neutral-500">Total Amount</label>
@@ -217,10 +399,60 @@ const OrdersTab = ({ orders, onUpdateOrderStatus }) => {
                 <p className="font-medium">{new Date(selectedOrder.created_at).toLocaleString()}</p>
               </div>
               
-              {selectedOrder.notes && (
+              {/* Table Information */}
+              {selectedOrder.tables && (
                 <div>
-                  <label className="text-sm font-medium text-neutral-500">Notes</label>
-                  <p className="text-neutral-700 bg-neutral-50 p-3 rounded-lg">{selectedOrder.notes}</p>
+                  <label className="text-sm font-medium text-neutral-500">Table Information</label>
+                  <div className="bg-neutral-50 p-3 rounded-lg">
+                    <p className="font-medium">Table {selectedOrder.tables.table_number}</p>
+                    {selectedOrder.tables.location && (
+                      <p className="text-sm text-neutral-600">Location: {selectedOrder.tables.location}</p>
+                    )}
+                    {selectedOrder.tables.capacity && (
+                      <p className="text-sm text-neutral-600">Capacity: {selectedOrder.tables.capacity} people</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Staff Information */}
+              {(selectedOrder.assigned_staff || selectedOrder.users) && (
+                <div>
+                  <label className="text-sm font-medium text-neutral-500">Assigned Staff</label>
+                  <div className="bg-neutral-50 p-3 rounded-lg">
+                    <p className="font-medium">{selectedOrder.assigned_staff?.full_name || selectedOrder.users?.full_name}</p>
+                    {selectedOrder.assigned_staff?.position && (
+                      <p className="text-sm text-neutral-600">Position: {selectedOrder.assigned_staff.position}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Order Items */}
+              {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-neutral-500">Order Items</label>
+                  <div className="bg-neutral-50 p-3 rounded-lg space-y-2">
+                    {selectedOrder.order_items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{item.item_name}</p>
+                          <p className="text-sm text-neutral-600">Quantity: {item.quantity}</p>
+                          {item.special_instructions && (
+                            <p className="text-xs text-neutral-500">Note: {item.special_instructions}</p>
+                          )}
+                        </div>
+                        <p className="font-medium">₹{item.total_price}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {selectedOrder.special_instructions && (
+                <div>
+                  <label className="text-sm font-medium text-neutral-500">Special Instructions</label>
+                  <p className="text-neutral-700 bg-neutral-50 p-3 rounded-lg">{selectedOrder.special_instructions}</p>
                 </div>
               )}
             </div>

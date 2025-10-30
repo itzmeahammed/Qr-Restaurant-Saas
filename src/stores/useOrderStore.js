@@ -217,21 +217,30 @@ const useOrderStore = create((set, get) => ({
   // ==================== STAFF ORDER OPERATIONS ====================
 
   /**
-   * Fetch orders for staff
+   * Fetch staff assigned orders (focused view with server-side filtering)
    */
-  fetchStaffOrders: async (staffId, filters = {}) => {
-    set({ loading: true, error: null })
+  fetchStaffOrders: async (staffId, restaurantId, statusFilters = null) => {
     try {
-      // Get staff orders using UnifiedOrderService
-      const orders = await UnifiedOrderService.getStaffOrders(staffId, filters)
-      set({ orders, filters })
-      return orders
+      set({ loading: true, error: null });
+      console.log('🔍 Fetching staff assigned orders:', { staffId, restaurantId, statusFilters });
+      
+      // Pass status filters to the API for server-side filtering
+      const orders = await UnifiedOrderService.getStaffAssignedOrders(staffId, restaurantId, statusFilters);
+      
+      set({ 
+        orders: orders, // Use 'orders' for consistency with component
+        staffOrders: orders,
+        loading: false 
+      });
+      
+      return orders;
     } catch (error) {
-      set({ error: error.message })
-      toast.error(error.message)
-      throw error
-    } finally {
-      set({ loading: false })
+      console.error('❌ Error fetching staff orders:', error);
+      set({ 
+        error: error.message,
+        loading: false 
+      });
+      throw error;
     }
   },
 
@@ -292,11 +301,11 @@ const useOrderStore = create((set, get) => ({
   /**
    * Subscribe to staff order updates
    */
-  subscribeToStaffOrders: (staffId, callback) => {
-    // Use NotificationService for staff order subscriptions
-    const subscription = NotificationService.subscribeToStaffOrders(staffId, (payload) => {
+  subscribeToStaffOrders: (staffId, restaurantId, callback) => {
+    // Use NotificationService for staff order subscriptions with correct parameters
+    const subscription = NotificationService.subscribeToStaffOrders(staffId, restaurantId, (payload) => {
       // Refresh orders list
-      get().fetchStaffOrders(staffId, get().filters)
+      get().fetchStaffOrders(staffId, restaurantId, get().filters)
       
       if (callback) callback(payload)
     })
