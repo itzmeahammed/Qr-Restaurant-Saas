@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ShoppingCartIcon, 
@@ -6,16 +6,29 @@ import {
   MinusIcon,
   XMarkIcon,
   TrashIcon,
-  SparklesIcon
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import useCartStore from '../../stores/useCartStore'
+import { supabase } from '../../config/supabase'
 
-const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0 }) => {
-  const { cart, updateQuantity, removeFromCart, getCartTotal, getCartCount } = useCartStore()
+// Ordyrr Brand Colors
+const BRAND_GREEN = '#00E676'
+const ACTION_GREEN = '#00C853'
+const DARK_TEXT = '#212121'
+const MEDIUM_GRAY = '#666666'
+
+const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCustomer, isAuthenticated, restaurantId, allMenuItems = [] }) => {
+  const { cart, updateQuantity, removeFromCart, getCartTotal, getCartCount, addToCart } = useCartStore()
 
   const subtotal = getCartTotal()
-  const tax = subtotal * 0.18
-  const total = subtotal + tax + selectedTip
+  const platformFee = subtotal * 0.015 // 1.5% platform fee
+  const total = subtotal + platformFee + selectedTip
+
+  // Get suggested items (items not in cart)
+  const cartItemIds = cart.map(item => item.id)
+  const suggestedItems = allMenuItems
+    .filter(item => !cartItemIds.includes(item.id) && item.is_available)
+    .slice(0, 6)
 
   return (
     <AnimatePresence>
@@ -30,7 +43,7 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0 }) => {
             onClick={onClose}
           />
 
-          {/* Awesome Mobile Cart Sidebar */}
+          {/* Cart Sidebar */}
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -38,189 +51,226 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0 }) => {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed right-0 top-0 h-full w-full sm:max-w-md bg-white z-50 shadow-2xl flex flex-col"
           >
-            {/* Swipe Handle */}
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
-            </div>
 
-            {/* Awesome Header */}
-            <div className="bg-gradient-to-r from-black to-gray-800 text-white p-6 relative overflow-hidden">
-              <div className="absolute inset-0 bg-black/20"></div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <motion.div
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm"
-                    >
-                      <ShoppingCartIcon className="w-6 h-6 text-white" />
-                    </motion.div>
-                    <div>
-                      <h2 className="text-2xl font-black tracking-tight">YOUR CART</h2>
-                      <p className="text-white/80 font-medium">{getCartCount()} delicious items</p>
-                    </div>
-                  </div>
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={onClose}
-                    className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/30 transition-all"
-                  >
-                    <XMarkIcon className="w-5 h-5 text-white" />
-                  </motion.button>
-                </div>
-                
-                {subtotal > 0 && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="bg-white/10 backdrop-blur-md rounded-2xl p-3 mt-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/80">Subtotal</span>
-                      <span className="text-xl font-bold text-white">₹{subtotal.toFixed(2)}</span>
-                    </div>
-                  </motion.div>
-                )}
+            {/* Header - Clean White Style */}
+            <div className="bg-white border-b border-gray-200">
+              <div className="p-4 flex items-center gap-4">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={onClose}
+                  className="w-10 h-10 flex items-center justify-center"
+                >
+                  <ArrowLeftIcon className="w-6 h-6" style={{ color: DARK_TEXT }} />
+                </motion.button>
+                <h2 className="text-xl font-bold" style={{ color: DARK_TEXT }}>Checkout</h2>
               </div>
-              
-              {/* Decorative Elements */}
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
-              <div className="absolute -bottom-2 -left-2 w-16 h-16 bg-white/5 rounded-full blur-lg"></div>
             </div>
 
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+            {/* Cart Items - Scrollable */}
+            <div className="flex-1 overflow-y-auto bg-white">
               {cart.length === 0 ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-16"
+                  className="text-center py-16 px-4"
                 >
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.2, type: "spring", bounce: 0.4 }}
-                    className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+                    className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${BRAND_GREEN} 0%, ${ACTION_GREEN} 100%)` }}
                   >
-                    <ShoppingCartIcon className="w-12 h-12 text-gray-400" />
+                    <ShoppingCartIcon className="w-12 h-12 text-white" />
                   </motion.div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Your cart is empty</h3>
-                  <p className="text-gray-600 mb-6">Add some delicious items to get started!</p>
+                  <h3 className="text-xl font-black mb-2" style={{ color: DARK_TEXT }}>Your cart is empty</h3>
+                  <p className="mb-6" style={{ color: MEDIUM_GRAY }}>Add some delicious items to get started!</p>
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onClose}
-                    className="px-6 py-3 bg-black text-white rounded-2xl font-semibold hover:bg-gray-800 transition-all"
+                    className="px-8 py-3 text-white rounded-xl font-bold shadow-lg"
+                    style={{ backgroundColor: ACTION_GREEN }}
                   >
                     Browse Menu
                   </motion.button>
                 </motion.div>
               ) : (
-                <div className="space-y-4">
-                  {cart.map((item, index) => (
-                    <motion.div 
-                      key={item.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-center gap-4">
+                <>
+                  {/* Delivery Info */}
+                  <div className="p-4 bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <span className="text-sm">⏱</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: DARK_TEXT }}>Delivery in 17 minutes</p>
+                        <p className="text-xs" style={{ color: MEDIUM_GRAY }}>{cart.length} items</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cart Items List */}
+                  <div className="p-4 space-y-3">
+                    {cart.map((item, index) => (
+                      <div key={item.id} className="flex gap-3">
                         {/* Item Image */}
-                        <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover rounded-2xl" />
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
-                            <SparklesIcon className="w-8 h-8 text-gray-400" />
+                            <span className="text-2xl">🍽️</span>
                           )}
                         </div>
                         
                         {/* Item Details */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 truncate">{item.name}</h4>
-                          <p className="text-sm text-gray-600 truncate">{item.description}</p>
-                          <p className="text-lg font-bold text-black mt-1">₹{item.price}</p>
-                        </div>
-                        
-                        {/* Quantity Controls */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 bg-gray-100 rounded-2xl p-1">
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                              className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all"
-                            >
-                              <MinusIcon className="w-4 h-4 text-gray-600" />
-                            </motion.button>
-                            
-                            <span className="w-8 text-center font-bold text-gray-900">{item.quantity}</span>
-                            
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="w-8 h-8 bg-black rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all"
-                            >
-                              <PlusIcon className="w-4 h-4 text-white" />
-                            </motion.button>
+                          <h4 className="font-bold text-sm mb-0.5" style={{ color: DARK_TEXT }}>{item.name}</h4>
+                          <p className="text-xs mb-1" style={{ color: MEDIUM_GRAY }}>1 piece</p>
+                          <div className="flex items-center gap-1 text-xs mb-2" style={{ color: MEDIUM_GRAY }}>
+                            <span>⏱</span>
+                            <span>15 mins</span>
                           </div>
-                          
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center hover:bg-red-200 transition-all"
+                        </div>
+
+                        {/* Quantity & Price */}
+                        <div className="flex flex-col items-end justify-between">
+                          <div 
+                            className="flex items-center justify-between"
+                            style={{ 
+                              backgroundColor: '#00C853',
+                              borderRadius: '8px',
+                              padding: '4px 10px',
+                              minWidth: '75px',
+                              boxShadow: '0 3px 0 0 #000000'
+                            }}
                           >
-                            <TrashIcon className="w-4 h-4 text-red-500" />
-                          </motion.button>
+                            <button
+                              onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                              className="text-black font-bold text-base leading-none"
+                            >
+                              −
+                            </button>
+                            <span className="text-black font-bold text-base px-1.5">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="text-black font-bold text-base leading-none"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <p className="font-bold text-sm mt-1" style={{ color: DARK_TEXT }}>₹{(item.price * item.quantity).toFixed(0)}</p>
                         </div>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
+                    ))}
+
+                    {/* Add More Items */}
+                    <button
+                      onClick={onClose}
+                      className="w-full py-2 text-center font-semibold text-sm"
+                      style={{ color: ACTION_GREEN }}
+                    >
+                      + Add more items
+                    </button>
+                  </div>
+
+                  {/* You Might Also Like - Horizontal Scrolling */}
+                  <div className="border-t">
+                    <h4 className="px-4 pt-4 mb-3 font-black italic uppercase text-base" style={{ color: DARK_TEXT }}>
+                      MORE DELICIOUS ITEMS<span style={{ color: ACTION_GREEN }}>.</span>
+                    </h4>
+                    <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-4">
+                      {suggestedItems.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="bg-white rounded-2xl overflow-hidden flex-shrink-0"
+                          style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.08)', width: '160px' }}
+                        >
+                          {/* Food Image */}
+                          <div className="relative bg-gray-100" style={{ height: '110px', borderRadius: '16px 16px 0 0' }}>
+                            {item.image_url ? (
+                              <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-4xl">🍽️</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Content */}
+                          <div className="p-2.5">
+                            <div className="flex items-center gap-1 mb-1.5">
+                              <div className="w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: '#4CAF50' }}>
+                                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#4CAF50' }}></div>
+                              </div>
+                              <span className="text-[10px] font-medium" style={{ color: DARK_TEXT }}>⏱ 16 mins</span>
+                              <span className="text-[10px] font-medium" style={{ color: MEDIUM_GRAY }}>2 cups</span>
+                            </div>
+
+                            <h5 className="font-bold text-xs mb-1.5 line-clamp-2" style={{ color: DARK_TEXT }}>{item.name}</h5>
+
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-sm" style={{ color: DARK_TEXT }}>₹{item.price}</p>
+                              <button
+                                onClick={() => addToCart(item)}
+                                className="px-3 py-1 text-xs font-bold text-black"
+                                style={{ 
+                                  backgroundColor: '#00C853',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 2px 0 0 #000000'
+                                }}
+                              >
+                                ADD
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
             {/* Checkout Section */}
             {cart.length > 0 && (
-              <div className="bg-white border-t border-gray-200 p-6">
+              <div className="bg-white border-t p-4">
                 {/* Bill Summary */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-gray-600">
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
                     <span>Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
+                    <span style={{ color: DARK_TEXT }}>₹{subtotal.toFixed(0)}</span>
                   </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Tax (18%)</span>
-                    <span>₹{tax.toFixed(2)}</span>
+                  <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
+                    <span>Platform Fee (1.5%)</span>
+                    <span style={{ color: DARK_TEXT }}>₹{platformFee.toFixed(0)}</span>
                   </div>
                   {selectedTip > 0 && (
-                    <div className="flex justify-between text-gray-600">
+                    <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
                       <span>Tip</span>
-                      <span>₹{selectedTip.toFixed(2)}</span>
+                      <span style={{ color: DARK_TEXT }}>₹{selectedTip}</span>
                     </div>
                   )}
-                  <div className="border-t border-gray-200 pt-3">
-                    <div className="flex justify-between text-xl font-bold text-black">
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-black text-lg" style={{ color: DARK_TEXT }}>
                       <span>Total</span>
-                      <span>₹{total.toFixed(2)}</span>
+                      <span>₹{total.toFixed(0)}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Checkout Button */}
                 <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={onCheckout}
-                  className="w-full bg-gradient-to-r from-black to-gray-800 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                  className="w-full text-black py-3.5 font-bold text-sm uppercase flex items-center justify-center gap-2"
+                  style={{ 
+                    backgroundColor: '#00C853',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 0 0 #000000'
+                  }}
                 >
-                  <SparklesIcon className="w-6 h-6" />
-                  <span>Proceed to Checkout</span>
+                  <ShoppingCartIcon className="w-5 h-5" />
+                  <span>{isAuthenticated ? 'Select payment option' : 'Proceed to Checkout'}</span>
                   <motion.div
                     animate={{ x: [0, 4, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity }}

@@ -1,0 +1,132 @@
+import React from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  XMarkIcon,
+  ArrowLeftIcon,
+  UserIcon,
+  ClockIcon,
+  GiftIcon
+} from '@heroicons/react/24/outline'
+
+// Ordyrr Brand Colors
+const ACTION_GREEN = '#00C853'
+const DARK_TEXT = '#212121'
+const MEDIUM_GRAY = '#666666'
+
+const ProfileModal = ({ isOpen, onClose, currentCustomer, loyaltyPoints, onViewOrders, onLogout }) => {
+  if (!currentCustomer) return null
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden"
+          >
+            {/* Header with Green Background */}
+            <div className="p-4" style={{ background: 'linear-gradient(135deg, #00E676 0%, #00C853 100%)' }}>
+              <div className="flex items-center justify-between mb-4">
+                <button onClick={onClose} className="p-2">
+                  <ArrowLeftIcon className="w-5 h-5 text-white" />
+                </button>
+                <h3 className="text-lg font-bold text-white uppercase">Profile</h3>
+                <button onClick={onClose} className="p-2">
+                  <XMarkIcon className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              {/* Profile Avatar & Name */}
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-3">
+                  <UserIcon className="w-10 h-10" style={{ color: ACTION_GREEN }} />
+                </div>
+                <h4 className="text-xl font-bold text-white">{currentCustomer.full_name || currentCustomer.name}</h4>
+                <p className="text-sm text-white/90">{currentCustomer.email}</p>
+              </div>
+            </div>
+
+            {/* Loyalty Points Card */}
+            <div className="px-4 py-3">
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: MEDIUM_GRAY }}>Loyalty Points</p>
+                  <p className="text-3xl font-black" style={{ color: '#F59E0B' }}>{loyaltyPoints || 0}</p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <GiftIcon className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Information */}
+            <div className="px-4 py-3">
+              <h5 className="text-sm font-bold mb-3" style={{ color: DARK_TEXT }}>Account Information</h5>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: MEDIUM_GRAY }}>Name:</span>
+                  <span className="font-semibold" style={{ color: DARK_TEXT }}>{currentCustomer.full_name || currentCustomer.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: MEDIUM_GRAY }}>Email:</span>
+                  <span className="font-semibold" style={{ color: DARK_TEXT }}>{currentCustomer.email}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: MEDIUM_GRAY }}>Phone:</span>
+                  <span className="font-semibold" style={{ color: DARK_TEXT }}>{currentCustomer.phone}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: MEDIUM_GRAY }}>Member Since:</span>
+                  <span className="font-semibold" style={{ color: DARK_TEXT }}>
+                    {new Date(currentCustomer.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="px-4 pb-4 space-y-3">
+              {/* Order History Button */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={onViewOrders}
+                className="w-full py-3 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2"
+                style={{ 
+                  backgroundColor: ACTION_GREEN,
+                  boxShadow: '0 4px 0 0 #000000'
+                }}
+              >
+                <ClockIcon className="w-5 h-5" />
+                <span>View Order History</span>
+              </motion.button>
+
+              {/* Logout Button */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={onLogout}
+                className="w-full py-3 text-white font-bold text-sm rounded-xl"
+                style={{ 
+                  backgroundColor: '#EF4444',
+                  boxShadow: '0 4px 0 0 #000000'
+                }}
+              >
+                Logout
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export default ProfileModal
