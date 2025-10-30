@@ -22,9 +22,11 @@ import CustomerLoader from '../components/customer/CustomerLoader'
 import CustomerNavHeader from '../components/customer/CustomerNavHeader'
 import CustomerBreadcrumbs from '../components/customer/CustomerBreadcrumbs'
 import MobileMenu from '../components/customer/MobileMenu'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo green.png'
 
-// Brand colors
+// Brand colors - Matching Menu Page
+const BRAND_GREEN = '#00E676' // Header background
+const ACTION_GREEN = '#00C853' // Buttons, active states
 const BRAND_LIME = '#C6FF3D'
 const BRAND_BLACK = '#2D2D2D'
 
@@ -332,117 +334,123 @@ const RestaurantDiscovery = () => {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: BRAND_LIME }}>
-      {/* Playful Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <motion.div 
-          className="absolute top-20 right-10 w-32 h-32 rounded-full border-4 border-black/5"
-          animate={{ y: [0, -20, 0], rotate: [0, 180, 360] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute bottom-32 left-10 w-24 h-24 rounded-full bg-black/5"
-          animate={{ y: [0, 20, 0], scale: [1, 1.2, 1] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        />
-        
-        {/* Dot Pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='2' fill='%232D2D2D'/%3E%3C/svg%3E")`,
-        }} />
-      </div>
-
-      {/* Sleek Mobile-Friendly Navbar */}
-      <motion.div 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="sticky top-0 z-50 bg-black border-b-2 border-black"
+    <div className="min-h-screen bg-white">
+      {/* Vibrant Green Header - Matching Menu Page */}
+      <div 
+        className="relative overflow-hidden"
+        style={{ 
+          background: `linear-gradient(135deg, ${BRAND_GREEN} 0%, #00D966 100%)`,
+          minHeight: '200px',
+          borderBottomLeftRadius: '24px',
+          borderBottomRightRadius: '24px'
+        }}
       >
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
+        {/* Decorative sparkles */}
+        <div className="absolute inset-0 opacity-30">
+          {[...Array(15)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute bg-white rounded-full animate-pulse"
+              style={{
+                width: Math.random() * 6 + 3 + 'px',
+                height: Math.random() * 6 + 3 + 'px',
+                top: Math.random() * 100 + '%',
+                left: Math.random() * 100 + '%',
+                animationDelay: Math.random() * 2 + 's'
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Navigation Bar */}
+        <div className="relative z-10 px-4 pt-3">
+          <div className="flex items-center justify-between mb-4">
             {/* Back Button */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/customer')}
-              className="w-11 h-11 rounded-full bg-white border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_rgba(198,255,61,1)] hover:shadow-[3px_3px_0_0_rgba(198,255,61,1)] transition-all"
+              className="w-10 h-10 bg-white flex items-center justify-center rounded-full"
+              style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.1)' }}
             >
               <ArrowLeftIcon className="w-5 h-5 text-black" />
             </motion.button>
             
             {/* Logo */}
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
-              className="flex items-center"
-            >
-              <img src={logo} alt="Ordyrr" className="h-9 w-auto" />
-            </motion.div>
+            <img src={logo} alt="Ordyrr" className="h-12" />
             
             {/* Filter Button */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowMobileMenu(true)}
-              className="w-11 h-11 rounded-full bg-white border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_rgba(198,255,61,1)] hover:shadow-[3px_3px_0_0_rgba(198,255,61,1)] transition-all"
+              className="w-10 h-10 bg-white flex items-center justify-center rounded-full"
+              style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.1)' }}
             >
               <FunnelIcon className="w-5 h-5 text-black" />
             </motion.button>
           </div>
         </div>
-      </motion.div>
 
-      {/* Mobile-Friendly Search and Filters */}
-      <div className="px-4 py-4">
-        {/* Sleeker Search Bar */}
-        <div className="relative mb-4">
+        {/* Header Title */}
+        <div className="relative z-10 px-4 pb-6">
+          <h1 
+            className="font-black uppercase leading-none mb-2"
+            style={{ 
+              fontSize: '32px',
+              letterSpacing: '-0.5px',
+              color: '#2C2C2C',
+              fontStyle: 'italic'
+            }}
+          >
+            DISCOVER<br/>RESTAURANTS
+          </h1>
+          <p className="text-sm font-normal" style={{ color: '#424242' }}>
+            {filteredRestaurants.length} amazing places
+          </p>
+        </div>
+      </div>
+
+      {/* Search and Filters Section - White Background */}
+      <div className="bg-white px-4 py-4 sticky top-0 z-40" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
+        {/* Search Bar */}
+        <div className="relative mb-3">
           <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search restaurants..."
-            className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-lime-400 focus:border-transparent shadow-sm text-base"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent text-sm"
           />
         </div>
 
-        {/* Sleeker Cuisine Filter Chips */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-5 overflow-x-auto scrollbar-hide"
-        >
-          <div className="flex gap-2 pb-2">
+        {/* Cuisine Filter Chips */}
+        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
+          <div className="flex gap-2 pb-1">
             {cuisineTypes.map((cuisine) => (
               <motion.button
                 key={cuisine.id}
-                whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setSelectedCuisine(cuisine.id)}
-                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap border-2 border-black transition-all shadow-[2px_2px_0_0_rgba(0,0,0,1)] ${
+                className={`px-4 py-2 rounded-full font-semibold text-xs whitespace-nowrap transition-all ${
                   selectedCuisine === cuisine.id
-                    ? 'bg-black text-lime-400'
-                    : 'bg-white text-black hover:bg-gray-50'
+                    ? 'text-white border-2'
+                    : 'bg-white text-gray-700 border border-gray-300'
                 }`}
-                style={selectedCuisine === cuisine.id ? { color: BRAND_LIME } : {}}
+                style={selectedCuisine === cuisine.id ? { 
+                  backgroundColor: ACTION_GREEN,
+                  borderColor: ACTION_GREEN,
+                  boxShadow: '0px 2px 6px rgba(0,200,83,0.3)'
+                } : {}}
               >
                 {cuisine.name.toUpperCase()}
               </motion.button>
             ))}
           </div>
-        </motion.div>
-
-        {/* Results Count */}
-        <p className="text-sm font-medium text-gray-700 mb-3">
-          {filteredRestaurants.length} restaurants found
-          {searchQuery && ` for "${searchQuery}"`}
-        </p>
+        </div>
       </div>
 
-      {/* Sleek Mobile-Friendly Restaurant Cards */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 pb-8">
+      {/* Restaurant Cards */}
+      <div className="bg-gray-50 px-4 py-4 min-h-screen">
         {loading ? (
           <CustomerLoader />
         ) : (
@@ -467,11 +475,11 @@ const RestaurantDiscovery = () => {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none'
-                      e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-lime-400 to-lime-500"><span class="text-6xl">🍽️</span></div>'
+                      e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-green-500"><span class="text-6xl">🍽️</span></div>'
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-lime-400 to-lime-500">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-green-500">
                     <span className="text-6xl">🍽️</span>
                   </div>
                 )}
@@ -483,9 +491,11 @@ const RestaurantDiscovery = () => {
                 <div className="absolute top-3 left-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border border-black shadow-[1px_1px_0_0_rgba(0,0,0,1)] ${
                     isCurrentlyOpen(restaurant)
-                      ? 'bg-lime-400 text-black'
+                      ? 'text-white'
                       : 'bg-red-500 text-white'
-                  }`}>
+                  }`}
+                    style={isCurrentlyOpen(restaurant) ? { backgroundColor: ACTION_GREEN } : {}}
+                  >
                     {isCurrentlyOpen(restaurant) ? '● OPEN' : '● CLOSED'}
                   </span>
                 </div>
@@ -511,9 +521,9 @@ const RestaurantDiscovery = () => {
                     {(restaurant.restaurant_name || restaurant.name || restaurant.business_name || 'Restaurant')?.toUpperCase()}
                   </h3>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1 rounded-full px-2.5 py-1 border border-black" style={{ backgroundColor: BRAND_LIME }}>
-                      <StarSolidIcon className="w-4 h-4 text-black" />
-                      <span className="text-black font-bold text-xs">{restaurant.rating || '4.2'}</span>
+                    <div className="flex items-center gap-1 rounded-full px-2.5 py-1 border border-black text-white" style={{ backgroundColor: ACTION_GREEN }}>
+                      <StarSolidIcon className="w-4 h-4 text-white" />
+                      <span className="text-white font-bold text-xs">{restaurant.rating || '4.2'}</span>
                     </div>
                     <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 border border-black">
                       <ClockIcon className="w-4 h-4 text-black" />
@@ -537,7 +547,7 @@ const RestaurantDiscovery = () => {
                   {/* Bottom Actions */}
                   <div className="flex items-center gap-2">
                     {/* Cuisine Badge */}
-                    <span className="px-3 py-1.5 bg-black text-xs font-bold rounded-full capitalize border border-black" style={{ color: BRAND_LIME }}>
+                    <span className="px-3 py-1.5 bg-black text-xs font-bold rounded-full capitalize border border-black" style={{ color: ACTION_GREEN }}>
                       {restaurant.cuisine_type}
                     </span>
 
@@ -546,8 +556,8 @@ const RestaurantDiscovery = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={(e) => handleViewMenu(restaurant, e)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all text-black"
-                      style={{ backgroundColor: BRAND_LIME }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all text-white"
+                      style={{ backgroundColor: ACTION_GREEN }}
                     >
                       <EyeIcon className="w-4 h-4" />
                       <span>VIEW MENU</span>
