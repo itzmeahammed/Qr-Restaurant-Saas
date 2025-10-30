@@ -111,13 +111,13 @@ const StaffRestaurantApplication = ({ user, onApplicationSubmitted }) => {
 
       // Check if user already has an application for this restaurant
       const { data: existingApplication, error: checkError } = await supabase
-        .from('staff_applications')
-        .select('id, status')
-        .eq('user_id', user.id)
-        .eq('restaurant_id', restaurant.id)
-        .single()
+      .from('staff_applications')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .eq('restaurant_id', restaurant.id)
+      .maybeSingle()
 
-      if (checkError && checkError.code !== 'PGRST116') {
+      if (checkError) {
         console.error('Error checking existing application:', checkError)
         toast.error('Error checking existing applications')
         return

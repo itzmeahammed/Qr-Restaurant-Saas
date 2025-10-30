@@ -8,9 +8,10 @@ import {
   ArrowRightIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
-import CartService from '../../services/cartService'
-import OrderService from '../../services/orderService'
+import UnifiedOrderService from '../../services/unifiedOrderService'
+import useCartStore from '../../stores/useCartStore'
 import PaymentService from '../../services/paymentService'
+import { supabase } from '../../config/supabase'
 import customerService from '../../services/customerService'
 import StaffAssignmentService from '../../services/staffAssignmentService'
 import realtimeService from '../../services/realtimeService'
@@ -64,26 +65,31 @@ const CompleteWorkflowIntegrationTest = () => {
         if (!testData.sessionId) throw new Error('No session ID')
         
         // Add multiple items to cart
-        await CartService.addToCart(testData.sessionId, {
-          menuItemId: 'test-item-1',
-          quantity: 2,
-          specialInstructions: 'Extra spicy'
-        })
+        const { addToCart, getCartTotal, clearCart } = useCartStore.getState()
         
-        await CartService.addToCart(testData.sessionId, {
-          menuItemId: 'test-item-2',
-          quantity: 1,
-          specialInstructions: 'No onions'
-        })
+        // Clear any existing cart items
+        clearCart()
         
-        // Verify cart storage
-        const cartSummary = await CartService.getCartSummary(testData.sessionId)
+        // Add test items to cart
+        addToCart({
+          id: 'test-item-1',
+          name: 'Test Pizza',
+          price: 299
+        }, 2)
+        addToCart({
+          id: 'test-item-2', 
+          name: 'Test Burger',
+          price: 199
+        }, 1)
+        
+        const cartTotal = getCartTotal()
+        const cartSummary = { total: cartTotal, items: useCartStore.getState().cart }
         
         return { 
-          success: cartSummary.itemCount >= 2, 
+          success: cartSummary.items.length >= 2, 
           data: { 
-            itemCount: cartSummary.itemCount,
-            subtotal: cartSummary.subtotal,
+            itemCount: cartSummary.items.length,
+            subtotal: cartSummary.total,
             total: cartSummary.total
           }
         }
@@ -115,13 +121,19 @@ const CompleteWorkflowIntegrationTest = () => {
       test: async () => {
         if (!testData.sessionId) throw new Error('No session ID')
         
-        const orderResult = await OrderService.createOrder({
+        const orderResult = await UnifiedOrderService.createOrder({
+          source: 'customer',
           restaurantId: testData.restaurantId,
           tableId: testData.tableId,
-          sessionId: testData.sessionId,
-          specialInstructions: 'Test order - complete workflow verification',
+          cartItems: useCartStore.getState().cart,
+          customerInfo: {
+            name: 'Integration Test Customer',
+            phone: '9876543210',
+            email: 'test@example.com'
+          },
+          specialInstructions: 'Integration test order',
           paymentMethod: 'cash',
-          tipAmount: 50
+          tipAmount: 25
         })
         
         setTestData(prev => ({ 
@@ -353,7 +365,19 @@ const CompleteWorkflowIntegrationTest = () => {
       description: 'Verify all components work together seamlessly',
       test: async () => {
         // Get order details to verify complete workflow
-        const orderDetails = await OrderService.getOrderDetails(testData.orderId)
+        // Get order details using supabase directly
+        const { data: orderDetails, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items(*),
+            tables(table_number),
+            users!orders_assigned_staff_id_fkey(full_name)
+          `)
+          .eq('id', testData.orderId)
+          .single()
+        
+        if (error) throw error
         const paymentHistory = await PaymentService.getPaymentHistory(testData.orderId)
         const sessionDetails = await customerService.getCustomerSession(testData.sessionId)
         

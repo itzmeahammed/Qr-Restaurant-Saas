@@ -27,7 +27,8 @@ const StaffOverview = ({
   restaurantInfo, 
   staffSession,
   loading = false,
-  onRefresh
+  onRefresh,
+  onStartOrdering
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
@@ -342,21 +343,21 @@ const StaffOverview = ({
         <motion.button
           whileHover={{ scale: 1.02, y: -2 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => setActiveTab('performance')}
-          className="relative flex flex-col items-center justify-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-md sm:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 overflow-hidden"
+          onClick={onStartOrdering}
+          className="relative flex flex-col items-center justify-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md sm:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 overflow-hidden"
         >
           <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
           <div className="absolute top-0 right-0 w-12 sm:w-20 h-12 sm:h-20 bg-white/10 rounded-full -translate-y-6 sm:-translate-y-10 translate-x-6 sm:translate-x-10"></div>
           <motion.div
-            whileHover={{ y: -1 }}
-            transition={{ duration: 0.2 }}
+            whileHover={{ rotate: 15 }}
+            transition={{ duration: 0.3 }}
             className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg relative z-10"
           >
-            <ChartBarIcon className="h-6 w-6 sm:h-8 sm:w-8" />
+            <UserIcon className="h-6 w-6 sm:h-8 sm:w-8" />
           </motion.div>
           <div className="text-center relative z-10">
-            <p className="font-bold text-lg sm:text-xl mb-1">Performance</p>
-            <p className="text-xs sm:text-sm opacity-90 font-medium">Stats & analytics</p>
+            <p className="font-bold text-lg sm:text-xl mb-1">Assist Order</p>
+            <p className="text-xs sm:text-sm opacity-90 font-medium">Help customers</p>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
         </motion.button>
