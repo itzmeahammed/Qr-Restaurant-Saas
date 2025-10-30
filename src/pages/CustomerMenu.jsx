@@ -13,9 +13,12 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   StarIcon,
-  FireIcon
+  FireIcon,
+  UserCircleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
+import bcrypt from 'bcryptjs'
 import { supabase } from '../config/supabase'
 import useCartStore from '../stores/useCartStore'
 import UnifiedOrderService from '../services/unifiedOrderService'
@@ -170,6 +173,14 @@ const CustomerMenu = () => {
   const [loading, setLoading] = useState(true)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showProfile, setShowProfile] = useState(false)
+  
+  // Customer authentication states
+  const [currentCustomer, setCurrentCustomer] = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState('login') // 'login' or 'signup'
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0)
   
   // New menu UI states
   const [selectedFilters, setSelectedFilters] = useState([])
@@ -190,6 +201,7 @@ const CustomerMenu = () => {
   useEffect(() => {
     initializeCustomerSession()
     fetchRestaurantData()
+    restoreSession() // Check for existing session
     
     return () => {
       // Cleanup realtime connections safely
@@ -399,6 +411,201 @@ const CustomerMenu = () => {
     // Show order tracking
     setCurrentOrder(orderData)
     setShowOrderTracking(true)
+  }
+
+  // Session Management
+  const saveSession = (customer) => {
+    try {
+      localStorage.setItem('ordyrr_customer', JSON.stringify({
+        id: customer.id,
+        email: customer.email,
+        full_name: customer.full_name,
+        phone: customer.phone,
+        timestamp: new Date().toISOString()
+      }))
+    } catch (error) {
+      console.error('Error saving session:', error)
+    }
+  }
+
+  const restoreSession = async () => {
+    try {
+      const savedSession = localStorage.getItem('ordyrr_customer')
+      if (!savedSession) return
+
+      const sessionData = JSON.parse(savedSession)
+      
+      // Verify customer still exists
+      const { data: customer, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', sessionData.id)
+        .maybeSingle()
+
+      if (customer && !error) {
+        setCurrentCustomer(customer)
+        setIsAuthenticated(true)
+        await fetchLoyaltyPoints(customer.id)
+        console.log('✅ Session restored:', customer.full_name)
+      } else {
+        localStorage.removeItem('ordyrr_customer')
+      }
+    } catch (error) {
+      console.error('Error restoring session:', error)
+      localStorage.removeItem('ordyrr_customer')
+    }
+  }
+
+  const clearSession = () => {
+    localStorage.removeItem('ordyrr_customer')
+    setCurrentCustomer(null)
+    setIsAuthenticated(false)
+    setLoyaltyPoints(0)
+  }
+
+  // Fetch loyalty points for a customer
+  const fetchLoyaltyPoints = async (customerId) => {
+    try {
+      // Fetch all loyalty point transactions for the customer
+      const { data, error } = await supabase
+        .from('loyalty_points')
+        .select('points_earned, points_redeemed')
+        .eq('customer_id', customerId)
+        .eq('restaurant_id', restaurantId)
+
+      if (error) {
+        console.error('Error fetching loyalty points:', error)
+        setLoyaltyPoints(0)
+        return
+      }
+
+      // Calculate total points: sum of all earned points minus redeemed points
+      const totalPoints = (data || []).reduce((total, transaction) => {
+        const earned = transaction.points_earned || 0
+        const redeemed = transaction.points_redeemed || 0
+        return total + earned - redeemed
+      }, 0)
+
+      setLoyaltyPoints(totalPoints)
+      console.log('✅ Loyalty points calculated:', totalPoints, 'from', data?.length || 0, 'transactions')
+    } catch (error) {
+      console.error('Error fetching loyalty points:', error)
+      setLoyaltyPoints(0)
+    }
+  }
+
+  // Authentication Functions
+  const handleLogin = async (email, password) => {
+    try {
+      // Find customer by email
+      const { data: customer, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (!customer || error) {
+        toast.error('Account not found')
+        return false
+      }
+
+      // Verify password
+      const passwordHash = customer.dietary_preferences?.password_hash
+      if (!passwordHash) {
+        toast.error('Account has no password set')
+        return false
+      }
+
+      const isValid = await bcrypt.compare(password, passwordHash)
+      if (!isValid) {
+        toast.error('Incorrect password')
+        return false
+      }
+
+      // Success
+      setCurrentCustomer(customer)
+      setIsAuthenticated(true)
+      saveSession(customer)
+      await fetchLoyaltyPoints(customer.id)
+      setShowAuthModal(false)
+      setShowMobileMenu(true)
+      toast.success(`Welcome back, ${customer.full_name}!`)
+      return true
+    } catch (error) {
+      console.error('Login error:', error)
+      toast.error('Login failed')
+      return false
+    }
+  }
+
+  const handleSignup = async (fullName, email, phone, password) => {
+    try {
+      // Check if email exists
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('email')
+        .eq('email', email)
+
+      if (existing && existing.length > 0) {
+        toast.error('Email already registered')
+        return false
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 10)
+
+      // Create customer
+      const { data: newCustomer, error } = await supabase
+        .from('customers')
+        .insert([{
+          email,
+          phone,
+          full_name: fullName,
+          is_guest: false,
+          total_orders: 0,
+          total_spent: 0,
+          loyalty_tier: 'bronze',
+          dietary_preferences: { password_hash: passwordHash }
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Award signup bonus
+      await supabase
+        .from('loyalty_points')
+        .insert([{
+          customer_id: newCustomer.id,
+          restaurant_id: restaurantId,
+          points_earned: 100,
+          points_redeemed: 0,
+          current_balance: 100,
+          transaction_type: 'signup_bonus',
+          description: 'Welcome bonus - 100 loyalty points',
+          tier: 'bronze'
+        }])
+
+      // Success
+      setCurrentCustomer(newCustomer)
+      setIsAuthenticated(true)
+      saveSession(newCustomer)
+      setLoyaltyPoints(100) // New signup gets 100 points
+      setShowAuthModal(false)
+      setShowMobileMenu(true)
+      toast.success('🎉 Account created! You earned 100 loyalty points!')
+      return true
+    } catch (error) {
+      console.error('Signup error:', error)
+      toast.error('Signup failed')
+      return false
+    }
+  }
+
+  const handleLogout = () => {
+    clearSession()
+    setShowMobileMenu(false)
+    toast.success('Logged out successfully')
   }
 
   // Helper functions for new menu UI
@@ -624,18 +831,21 @@ const CustomerMenu = () => {
               className="h-12"
             />
             
-            {/* Search Button - White Circle with Curved Edge */}
+            {/* Profile Button - White Circle with Curved Edge */}
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => {/* Open search */}}
-              className="w-10 h-10 bg-white flex items-center justify-center"
+              onClick={() => setShowMobileMenu(true)}
+              className="w-10 h-10 bg-white flex items-center justify-center relative"
               style={{ 
                 boxShadow: '0px 2px 8px rgba(0,0,0,0.1)',
                 borderRadius: '50%',
                 clipPath: 'circle(50% at 50% 50%)'
               }}
             >
-              <MagnifyingGlassIcon className="w-5 h-5 text-black" />
+              <UserCircleIcon className="w-5 h-5 text-black" />
+              {isAuthenticated && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              )}
             </motion.button>
           </div>
         </div>
@@ -1412,6 +1622,10 @@ const CustomerMenu = () => {
               setShowCart(false)
               setShowCheckout(true)
             }}
+            currentCustomer={currentCustomer}
+            isAuthenticated={isAuthenticated}
+            restaurantId={restaurantId}
+            allMenuItems={menuItems}
           />
         )}
 
@@ -1425,6 +1639,7 @@ const CustomerMenu = () => {
             restaurantId={restaurantId}
             tableId={finalTableId}
             sessionId={sessionId}
+            currentCustomer={currentCustomer}
           />
         )}
 
@@ -1436,6 +1651,376 @@ const CustomerMenu = () => {
             isOpen={showOrderTracking}
             onClose={() => setShowOrderTracking(false)}
           />
+        )}
+
+        {/* Mobile Profile Menu */}
+        {showMobileMenu && (
+          <motion.div
+            key="mobile-menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black bg-opacity-50"
+            onClick={() => setShowMobileMenu(false)}
+          >
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-10 bg-gradient-to-r from-green-400 to-green-500 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-black text-white uppercase">Profile</h2>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowMobileMenu(false)}
+                    className="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center"
+                  >
+                    <XMarkIcon className="w-6 h-6 text-white" />
+                  </motion.button>
+                </div>
+
+                {/* User Info */}
+                {isAuthenticated && currentCustomer ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                      <UserCircleIcon className="w-10 h-10 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-lg">{currentCustomer.full_name}</p>
+                      <p className="text-white text-sm opacity-90">{currentCustomer.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                      <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-lg">Guest User</p>
+                      <p className="text-white text-sm opacity-90">Login to continue</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Menu Content */}
+              <div className="p-4">
+                {!isAuthenticated ? (
+                  /* Guest User - Show Login/Signup Options */
+                  <div className="space-y-3">
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setAuthMode('login')
+                        setShowAuthModal(true)
+                      }}
+                      className="w-full py-3 rounded-xl font-bold text-white"
+                      style={{ backgroundColor: ACTION_GREEN }}
+                    >
+                      Login to Your Account
+                    </motion.button>
+                    
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setAuthMode('signup')
+                        setShowAuthModal(true)
+                      }}
+                      className="w-full py-3 rounded-xl font-bold border-2"
+                      style={{ borderColor: ACTION_GREEN, color: ACTION_GREEN }}
+                    >
+                      Create New Account
+                    </motion.button>
+
+                    <div className="mt-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
+                      <p className="text-center text-sm font-semibold text-green-800">
+                        🎁 Sign up and get 100 loyalty points!
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Authenticated User - Show Profile Info */
+                  <div className="space-y-3">
+                    {/* Loyalty Points - Compact Yellow Card */}
+                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Loyalty Points</p>
+                        <p className="text-2xl font-black text-yellow-600">{loyaltyPoints}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <span className="text-xl">🎁</span>
+                      </div>
+                    </div>
+
+                    {/* Account Info - Minimal Design */}
+                    <div className="bg-white rounded-xl p-3 border border-gray-200">
+                      <h3 className="text-sm font-bold mb-2" style={{ color: '#212121' }}>Account Information</h3>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span style={{ color: '#666666' }}>Name:</span>
+                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.full_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: '#666666' }}>Email:</span>
+                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: '#666666' }}>Phone:</span>
+                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.phone || 'Not set'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: '#666666' }}>Member Since:</span>
+                          <span className="font-semibold" style={{ color: '#212121' }}>
+                            {new Date(currentCustomer.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Order History Button - Playful Boxy Design */}
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toast.success('Order history feature coming soon!')}
+                      className="w-full py-2.5 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2"
+                      style={{ 
+                        backgroundColor: '#00C853',
+                        boxShadow: '0 4px 0 0 #000000'
+                      }}
+                    >
+                      <ClockIcon className="w-4 h-4" />
+                      <span>View Order History</span>
+                    </motion.button>
+
+                    {/* Logout Button - Playful Boxy Design */}
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleLogout}
+                      className="w-full py-2.5 text-white font-bold text-sm rounded-xl"
+                      style={{ 
+                        backgroundColor: '#EF4444',
+                        boxShadow: '0 4px 0 0 #000000'
+                      }}
+                    >
+                      Logout
+                    </motion.button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Auth Modal (Login/Signup) */}
+        {showAuthModal && (
+          <motion.div
+            key="auth-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4"
+            onClick={() => setShowAuthModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-black uppercase" style={{ color: DARK_TEXT }}>
+                  {authMode === 'login' ? 'Login' : 'Sign Up'}
+                </h2>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowAuthModal(false)}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+                >
+                  <XMarkIcon className="w-5 h-5" style={{ color: DARK_TEXT }} />
+                </motion.button>
+              </div>
+
+              {authMode === 'login' ? (
+                /* Login Form */
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  const formData = new FormData(e.target)
+                  await handleLogin(formData.get('email'), formData.get('password'))
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Enter your email"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        name="password"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Enter your password"
+                      />
+                    </div>
+
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      type="submit"
+                      className="w-full py-3 rounded-xl font-bold text-white"
+                      style={{ backgroundColor: ACTION_GREEN }}
+                    >
+                      Login
+                    </motion.button>
+
+                    <div className="text-center">
+                      <p className="text-sm" style={{ color: MEDIUM_GRAY }}>
+                        Don't have an account?{' '}
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('signup')}
+                          className="font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                          Sign up
+                        </button>
+                      </p>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                /* Signup Form */
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  const formData = new FormData(e.target)
+                  const password = formData.get('password')
+                  const confirmPassword = formData.get('confirmPassword')
+                  
+                  if (password !== confirmPassword) {
+                    toast.error('Passwords do not match!')
+                    return
+                  }
+                  
+                  await handleSignup(
+                    formData.get('fullName'),
+                    formData.get('email'),
+                    formData.get('phone'),
+                    password
+                  )
+                }}>
+                  <div className="bg-gradient-to-r from-green-400 to-green-500 rounded-xl p-4 mb-6 text-center">
+                    <p className="text-white font-black text-lg">🎁 Get 100 Loyalty Points</p>
+                    <p className="text-white text-sm opacity-90">Join our loyalty program today!</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        name="fullName"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Enter your email"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Phone
+                      </label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Enter your phone number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        name="password"
+                        required
+                        minLength="6"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Create a password (min 6 characters)"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: DARK_TEXT }}>
+                        Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        required
+                        minLength="6"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+                        placeholder="Confirm your password"
+                      />
+                    </div>
+
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      type="submit"
+                      className="w-full py-3 rounded-xl font-bold text-white"
+                      style={{ backgroundColor: ACTION_GREEN }}
+                    >
+                      Sign Up & Get 100 Points
+                    </motion.button>
+
+                    <div className="text-center">
+                      <p className="text-sm" style={{ color: MEDIUM_GRAY }}>
+                        Already have an account?{' '}
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('login')}
+                          className="font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                          Login
+                        </button>
+                      </p>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

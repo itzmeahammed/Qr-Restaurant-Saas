@@ -4,7 +4,8 @@ import {
   CreditCardIcon,
   BanknotesIcon,
   XMarkIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import UnifiedOrderService from '../../services/unifiedOrderService'
 import customerService from '../../services/customerService'
@@ -13,24 +14,46 @@ import useCartStore from '../../stores/useCartStore'
 import { supabase } from '../../config/supabase'
 import toast from 'react-hot-toast'
 
-const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sessionId }) => {
+// Ordyrr Brand Colors
+const BRAND_GREEN = '#00E676'
+const ACTION_GREEN = '#00C853'
+const DARK_TEXT = '#212121'
+const MEDIUM_GRAY = '#666666'
+
+const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sessionId, currentCustomer }) => {
   const [loading, setLoading] = useState(false)
   const [selectedTip, setSelectedTip] = useState(0)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderData, setOrderData] = useState(null)
+  const [selectedPayment, setSelectedPayment] = useState('cash')
   
   // Use cart store instead of separate cart service
   const { cart, getCartTotal, getCartWithTax, clearCart } = useCartStore()
   
   const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    phone: '',
-    email: '',
+    name: currentCustomer?.name || '',
+    phone: currentCustomer?.phone || '',
+    email: currentCustomer?.email || '',
     paymentMethod: 'cash',
     specialInstructions: ''
   })
 
+  // Update customer info when currentCustomer changes
+  React.useEffect(() => {
+    if (currentCustomer) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: currentCustomer.name || '',
+        phone: currentCustomer.phone || '',
+        email: currentCustomer.email || ''
+      }))
+    }
+  }, [currentCustomer])
+
   const tipAmounts = [10, 20, 30, 50, 100, 200]
+  
+  // Check if user is logged in
+  const isLoggedIn = !!currentCustomer
 
   // Cart summary is now calculated from cart store
   const cartSummary = React.useMemo(() => {
@@ -49,8 +72,19 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   }, [cart, getCartWithTax])
 
   const handleSubmit = async () => {
-    if (!customerInfo.name || !customerInfo.phone) {
-      toast.error('Please fill in required fields')
+    // For logged-in users, use their stored information
+    const finalCustomerInfo = isLoggedIn ? {
+      name: currentCustomer?.full_name || currentCustomer?.name || currentCustomer?.customer_name || '',
+      phone: currentCustomer?.phone || currentCustomer?.customer_phone || '',
+      email: currentCustomer?.email || currentCustomer?.customer_email || '',
+      paymentMethod: selectedPayment || 'cash',
+      specialInstructions: ''
+    } : customerInfo
+
+    // Validate required fields
+    if (!finalCustomerInfo.name || !finalCustomerInfo.phone) {
+      toast.error('Customer information is missing. Please try logging in again.')
+      console.error('Missing customer info:', { currentCustomer, finalCustomerInfo })
       return
     }
 
@@ -63,12 +97,13 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
 
     try {
       console.log('🛒 Starting complete checkout workflow...')
+      console.log('Customer info:', finalCustomerInfo)
 
       // Step 1: Update customer session with customer info
       await customerService.updateCustomerSession(sessionId, {
-        customer_name: customerInfo.name,
-        customer_phone: customerInfo.phone,
-        customer_email: customerInfo.email
+        customer_name: finalCustomerInfo.name,
+        customer_phone: finalCustomerInfo.phone,
+        customer_email: finalCustomerInfo.email
       })
 
       // Step 2: Create order using UnifiedOrderService with cart items
@@ -78,12 +113,12 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
         tableId,
         cartItems: cart,
         customerInfo: {
-          name: customerInfo.name,
-          phone: customerInfo.phone,
-          email: customerInfo.email
+          name: finalCustomerInfo.name,
+          phone: finalCustomerInfo.phone,
+          email: finalCustomerInfo.email
         },
-        specialInstructions: customerInfo.specialInstructions,
-        paymentMethod: customerInfo.paymentMethod,
+        specialInstructions: finalCustomerInfo.specialInstructions,
+        paymentMethod: finalCustomerInfo.paymentMethod,
         tipAmount: selectedTip
       })
 
@@ -295,6 +330,124 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
     )
   }
 
+  // If user is logged in, show minimal payment selection
+  if (isLoggedIn) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="p-4 border-b flex items-center gap-3">
+                <button onClick={onClose} className="p-2">
+                  <ArrowLeftIcon className="w-5 h-5" style={{ color: DARK_TEXT }} />
+                </button>
+                <h3 className="text-base font-bold" style={{ color: DARK_TEXT }}>
+                  Bill total: ₹{(cartSummary.total + selectedTip).toFixed(0)}
+                </h3>
+              </div>
+
+              {/* Payment Options */}
+              <div className="p-4">
+                {/* Pay at Counter */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-bold mb-3" style={{ color: DARK_TEXT }}>Recommended</h4>
+                  <button
+                    onClick={() => setSelectedPayment('cash')}
+                    className={`w-full p-4 rounded-xl border-2 flex items-center justify-between transition-all ${
+                      selectedPayment === 'cash' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <BanknotesIcon className="w-6 h-6" style={{ color: ACTION_GREEN }} />
+                      </div>
+                      <span className="text-sm font-semibold" style={{ color: DARK_TEXT }}>Pay at Counter</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" 
+                      style={{ borderColor: selectedPayment === 'cash' ? ACTION_GREEN : '#E0E0E0' }}>
+                      {selectedPayment === 'cash' && (
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ACTION_GREEN }}></div>
+                      )}
+                    </div>
+                  </button>
+                </div>
+
+                {/* UPI Options - Coming Soon */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-bold mb-3" style={{ color: DARK_TEXT }}>UPI</h4>
+                  <div className="space-y-2 opacity-50 pointer-events-none">
+                    {['Paytm UPI', 'Google Pay UPI', 'PhonePe UPI'].map((option) => (
+                      <div key={option} className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span className="text-sm" style={{ color: DARK_TEXT }}>{option}</span>
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded" style={{ color: MEDIUM_GRAY }}>
+                          Coming Soon
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cards - Coming Soon */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-bold mb-3" style={{ color: DARK_TEXT }}>Cards</h4>
+                  <div className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between opacity-50">
+                    <span className="text-sm" style={{ color: DARK_TEXT }}>Add credit or debit cards</span>
+                    <span className="text-xs px-2 py-1 bg-gray-100 rounded" style={{ color: MEDIUM_GRAY }}>
+                      Coming Soon
+                    </span>
+                  </div>
+                </div>
+
+                {/* Wallets - Coming Soon */}
+                <div>
+                  <h4 className="text-sm font-bold mb-3" style={{ color: DARK_TEXT }}>Wallets</h4>
+                  <div className="space-y-2 opacity-50 pointer-events-none">
+                    {['Blinkit Money', 'Amazon Pay Balance', 'Mobikwik'].map((option) => (
+                      <div key={option} className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span className="text-sm" style={{ color: DARK_TEXT }}>{option}</span>
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded" style={{ color: MEDIUM_GRAY }}>
+                          Coming Soon
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Place Order Button */}
+              <div className="p-4 border-t">
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="w-full py-3.5 text-black font-bold text-sm uppercase rounded-xl disabled:opacity-50"
+                  style={{ 
+                    backgroundColor: '#00C853',
+                    boxShadow: '0 4px 0 0 #000000'
+                  }}
+                >
+                  {loading ? 'Processing...' : 'Place Order'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    )
+  }
+
+  // For non-logged-in users, show full form
   return (
     <AnimatePresence>
       <motion.div
