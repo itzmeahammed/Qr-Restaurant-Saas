@@ -105,7 +105,9 @@ class UnifiedOrderService {
     staffId = null, // For staff-assisted orders
     specialInstructions = '',
     paymentMethod = 'cash',
-    tipAmount = 0
+    tipAmount = 0,
+    discountAmount = 0,
+    firstOrderDiscountApplied = false
   }) {
     const operationId = `order_create_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
@@ -150,14 +152,15 @@ class UnifiedOrderService {
       
       console.log('💰 Subtotal calculated:', subtotal)
       
-      const taxRate = 0.18 // 18% GST
-      const taxAmount = subtotal * taxRate
-      const totalAmount = subtotal + taxAmount + tipAmount
+      const platformFeeRate = 0.015 // 1.5% platform fee (same as cart)
+      const platformFee = subtotal * platformFeeRate
+      const totalAmount = subtotal + platformFee + tipAmount - discountAmount
       
       console.log('📋 Order totals:', {
         subtotal: subtotal,
-        taxAmount: taxAmount,
+        platformFee: platformFee,
         tipAmount: tipAmount,
+        discountAmount: discountAmount,
         totalAmount: totalAmount
       })
 
@@ -210,9 +213,15 @@ class UnifiedOrderService {
 
       // Step 6: Create or get customer record for order
       let customerId = null
-      if (customerInfo?.email || customerInfo?.phone || customerInfo?.name) {
+      
+      // If customerId is provided (for logged-in users), use it directly
+      if (customerInfo?.customerId) {
+        customerId = customerInfo.customerId
+        console.log('✅ Using provided customer ID (logged-in user):', customerId)
+      } else if (customerInfo?.email || customerInfo?.phone || customerInfo?.name) {
+        // For guest customers, create or find customer record
         try {
-          console.log('📋 Step 4: Creating customer record...');
+          console.log('📋 Step 4: Creating guest customer record...');
           // Use Supabase function to get or create guest customer
           const { data: customerUuid, error: customerError } = await supabase
             .rpc('get_or_create_guest_customer', {
@@ -227,7 +236,7 @@ class UnifiedOrderService {
           }
           
           customerId = customerUuid;
-          console.log('✅ Customer record created/found:', customerId);
+          console.log('✅ Guest customer record created/found:', customerId);
         } catch (customerError) {
           console.warn('⚠️ Customer creation failed, continuing without customer_id:', customerError);
           // Continue without customer_id - order can still be created
@@ -243,8 +252,9 @@ class UnifiedOrderService {
         status: assignedStaffId ? 'assigned' : 'pending',
         order_type: source === 'staff' ? 'staff_assisted' : 'dine_in',
         subtotal: subtotal,
-        tax_amount: taxAmount,
+        tax_amount: platformFee, // Store platform fee in tax_amount field for backward compatibility
         tip_amount: tipAmount,
+        discount_amount: discountAmount,
         total_amount: totalAmount,
         payment_method: paymentMethod,
         payment_status: 'pending',
@@ -252,6 +262,7 @@ class UnifiedOrderService {
         assigned_staff_id: assignedStaffId,
         assigned_at: assignedStaffId ? new Date().toISOString() : null,
         estimated_preparation_time: this.calculatePreparationTime(cartItems)
+        // Note: Offer usage is tracked in customer_offers table, not in orders table
       };
 
       // Only add customer_id if we successfully created/found a customer
@@ -290,6 +301,67 @@ class UnifiedOrderService {
       if (itemsError) throw itemsError
 
       console.log('✅ Order items created')
+
+      // Step 8.5: Track offer usage if discount was applied
+      if (discountAmount > 0 && firstOrderDiscountApplied && customerId) {
+        console.log('💰 Recording offer usage:', {
+          discountAmount,
+          firstOrderDiscountApplied,
+          customerId,
+          orderId: order.id
+        })
+        
+        try {
+          // Get the first order offer
+          const { data: offer, error: offerError } = await supabase
+            .from('offers')
+            .select('id, offer_code')
+            .eq('offer_code', 'FIRST_ORDER_10')
+            .eq('is_active', true)
+            .single()
+          
+          if (offerError) {
+            console.error('❌ Failed to fetch offer:', offerError)
+            throw offerError
+          }
+          
+          if (!offer) {
+            console.error('❌ Offer not found: FIRST_ORDER_10')
+            throw new Error('Offer not found')
+          }
+          
+          console.log('✅ Found offer to record:', offer.offer_code, 'ID:', offer.id)
+          
+          // Record offer usage
+          const { data: insertedData, error: offerUsageError } = await supabase
+            .from('customer_offers')
+            .insert({
+              customer_id: customerId,
+              offer_id: offer.id,
+              order_id: order.id,
+              discount_amount: discountAmount
+            })
+            .select()
+          
+          if (offerUsageError) {
+            console.error('❌ Failed to track offer usage:', offerUsageError)
+            throw offerUsageError
+          }
+          
+          console.log('✅ Offer usage tracked successfully:', insertedData)
+        } catch (offerError) {
+          console.error('❌ CRITICAL: Error tracking offer usage:', offerError)
+          // This is critical - we should not silently fail
+          // The discount was applied but not tracked, which allows reuse
+          throw new Error(`Failed to track offer usage: ${offerError.message}`)
+        }
+      } else {
+        console.log('ℹ️ Skipping offer usage tracking:', {
+          discountAmount,
+          firstOrderDiscountApplied,
+          customerId: customerId || 'missing'
+        })
+      }
 
       // Step 9: Reserve table NOW (only after successful order creation)
       try {
@@ -804,6 +876,12 @@ class UnifiedOrderService {
     try {
       console.log('🔍 Fetching customer orders:', { sessionId, tableId, customerPhone });
       
+      // If no sessionId provided, return empty array
+      if (!sessionId && !tableId && !customerPhone) {
+        console.warn('⚠️ No search criteria provided for customer orders');
+        return [];
+      }
+      
       let query = supabase
         .from('orders')
         .select(`
@@ -814,7 +892,11 @@ class UnifiedOrderService {
             quantity,
             unit_price,
             total_price,
-            special_instructions
+            special_instructions,
+            menu_items (
+              name,
+              image_url
+            )
           ),
           tables (
             table_number,
@@ -832,29 +914,52 @@ class UnifiedOrderService {
 
       // Multiple ways to find customer orders
       if (sessionId) {
+        console.log('🔍 Searching by session_id:', sessionId);
         query = query.eq('session_id', sessionId);
       } else if (tableId && customerPhone) {
         // Find by table and phone for customers without session
+        console.log('🔍 Searching by table_id and phone:', { tableId, customerPhone });
         query = query.eq('table_id', tableId);
       }
 
       const { data: orders, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database error fetching customer orders:', error);
+        throw error;
+      }
 
+      console.log('📦 Raw orders from database:', orders?.length || 0);
+      
       // Filter by phone if provided
       let filteredOrders = orders || [];
       if (customerPhone && !sessionId) {
         filteredOrders = orders?.filter(order => 
           order.customers?.phone === customerPhone
         ) || [];
+        console.log('📞 Filtered by phone:', filteredOrders.length);
       }
 
       console.log('✅ Customer orders found:', filteredOrders.length);
+      
+      // Log order details for debugging
+      if (filteredOrders.length > 0) {
+        console.log('📋 Order details:', filteredOrders.map(o => ({
+          id: o.id,
+          order_number: o.order_number,
+          status: o.status,
+          session_id: o.session_id,
+          created_at: o.created_at
+        })));
+      } else {
+        console.warn('⚠️ No orders found matching criteria');
+      }
+      
       return filteredOrders;
     } catch (error) {
       console.error('❌ Error fetching customer orders:', error);
-      throw error;
+      // Return empty array instead of throwing to prevent UI from breaking
+      return [];
     }
   }
 

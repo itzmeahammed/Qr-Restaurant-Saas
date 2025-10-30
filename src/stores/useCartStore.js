@@ -12,7 +12,8 @@ const useCartStore = create(
       // Initialize cart session
       initializeSession: (restaurantId, tableId) => {
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        set({ sessionId, tableId, restaurantId, cart: [] })
+        // Don't clear cart on session init - preserve existing cart items
+        set({ sessionId, tableId, restaurantId })
         return sessionId
       },
 

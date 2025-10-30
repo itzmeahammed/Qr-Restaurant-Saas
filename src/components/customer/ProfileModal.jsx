@@ -5,15 +5,17 @@ import {
   ArrowLeftIcon,
   UserIcon,
   ClockIcon,
-  GiftIcon
+  GiftIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline'
+import ordyrrCoin from '../../assets/ordyrr coin.png'
 
 // Ordyrr Brand Colors
 const ACTION_GREEN = '#00C853'
 const DARK_TEXT = '#212121'
 const MEDIUM_GRAY = '#666666'
 
-const ProfileModal = ({ isOpen, onClose, currentCustomer, loyaltyPoints, onViewOrders, onLogout }) => {
+const ProfileModal = ({ isOpen, onClose, currentCustomer, loyaltyPoints, onViewOrders, onViewLiveOrders, onLogout }) => {
   if (!currentCustomer) return null
 
   return (
@@ -55,15 +57,15 @@ const ProfileModal = ({ isOpen, onClose, currentCustomer, loyaltyPoints, onViewO
               </div>
             </div>
 
-            {/* Loyalty Points Card */}
+            {/* Ordyrr Coin Card */}
             <div className="px-4 py-3">
               <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: MEDIUM_GRAY }}>Loyalty Points</p>
+                  <p className="text-xs font-semibold" style={{ color: MEDIUM_GRAY }}>Ordyrr Coin</p>
                   <p className="text-3xl font-black" style={{ color: '#F59E0B' }}>{loyaltyPoints || 0}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <GiftIcon className="w-6 h-6 text-yellow-600" />
+                  <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-8 h-8 object-contain" />
                 </div>
               </div>
             </div>
@@ -95,13 +97,27 @@ const ProfileModal = ({ isOpen, onClose, currentCustomer, loyaltyPoints, onViewO
 
             {/* Action Buttons */}
             <div className="px-4 pb-4 space-y-3">
+              {/* Live Order Tracking Button */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={onViewLiveOrders}
+                className="w-full py-3 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2"
+                style={{ 
+                  backgroundColor: ACTION_GREEN,
+                  boxShadow: '0 4px 0 0 #000000'
+                }}
+              >
+                <MapPinIcon className="w-5 h-5" />
+                <span>Track Live Orders</span>
+              </motion.button>
+
               {/* Order History Button */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={onViewOrders}
                 className="w-full py-3 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2"
                 style={{ 
-                  backgroundColor: ACTION_GREEN,
+                  backgroundColor: '#F59E0B',
                   boxShadow: '0 4px 0 0 #000000'
                 }}
               >
