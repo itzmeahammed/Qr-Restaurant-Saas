@@ -4,17 +4,100 @@ import realtimeService from './realtimeService'
 
 /**
  * Enhanced Customer Service for Complete Restaurant Workflow
- * Handles customer sessions, cart management, and order tracking
+ * Handles customer records, sessions, and order management for QR scan flow
  * 
- * COMPLETE WORKFLOW:
- * 1. Customer scans QR code → Create session
- * 2. Customer browses menu → Add items to cart (stored in DB)
- * 3. Customer places order → Order creation with staff assignment
+ * UPDATED WORKFLOW (Fixed for QR scan without login):
+ * 1. Customer scans QR code → Browse menu (NO session created yet)
+ * 2. Customer browses menu → Add items to cart (local storage)
+ * 3. Customer places order → Create customer record + session + order
  * 4. Real-time order tracking → WebSocket updates
  * 5. Payment handling → Pay now or pay later
- * 6. Order completion → Feedback and review
+ * 6. Order completion → Update customer stats and loyalty points
  */
 export const customerService = {
+  // ==================== CUSTOMER MANAGEMENT ====================
+  
+  /**
+   * Create or get guest customer for QR scan orders using database function
+   * @param {Object} customerData - Customer information
+   */
+  async createOrGetGuestCustomer(customerData) {
+    try {
+      const { email, phone, full_name } = customerData;
+      
+      console.log('🔍 Creating/getting guest customer:', { email, phone, full_name });
+      
+      // Use the database function for reliable customer creation
+      const { data: customerId, error } = await supabase
+        .rpc('get_or_create_guest_customer', {
+          p_email: email || null,
+          p_phone: phone || null,
+          p_full_name: full_name || 'Guest Customer'
+        });
+      
+      if (error) {
+        console.error('❌ Error in get_or_create_guest_customer RPC:', error);
+        throw error;
+      }
+      
+      console.log('✅ Customer created/found via RPC:', customerId);
+      return customerId;
+      
+    } catch (error) {
+      console.error('❌ Customer service error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update customer information
+   * @param {string} customerId - Customer UUID
+   * @param {Object} updateData - Data to update
+   * @returns {Promise<Object>} - Updated customer
+   */
+  async updateCustomer(customerId, updateData) {
+    try {
+      const { data: customer, error } = await supabase
+        .from('customers')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', customerId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      console.log('✅ Customer updated:', customer)
+      return customer
+    } catch (error) {
+      console.error('❌ Error updating customer:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Get customer by ID
+   * @param {string} customerId - Customer UUID
+   * @returns {Promise<Object>} - Customer data
+   */
+  async getCustomer(customerId) {
+    try {
+      const { data: customer, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', customerId)
+        .single()
+      
+      if (error) throw error
+      return customer
+    } catch (error) {
+      console.error('❌ Error getting customer:', error)
+      throw error
+    }
+  },
+
   // ==================== SESSION MANAGEMENT ====================
   
   /**

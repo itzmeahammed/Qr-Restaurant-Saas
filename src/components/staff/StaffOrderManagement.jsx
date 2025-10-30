@@ -41,18 +41,19 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   const [processingOrders, setProcessingOrders] = useState(new Set())
 
   useEffect(() => {
-    console.log('🔍 StaffOrderManagement useEffect:', { staffId, restaurantId, isOnline, filter })
+    console.log('🔍 StaffOrderManagement initial load:', { staffId, restaurantId, isOnline })
     
     if (restaurantId && staffId) {
       // Clear any previous errors
       clearError()
       
-      console.log('📋 Fetching staff orders with filter:', getStatusFilter(filter))
-      // Fetch staff orders using enhanced service
-      fetchStaffOrders(staffId, {
-        status: getStatusFilter(filter),
-        limit: 30
-      })
+      // Debug: Test the staff order query
+      UnifiedOrderService.debugStaffOrders(staffId, restaurantId)
+      
+      // Initial load with default filter (will be overridden by filter useEffect)
+      const initialFilter = getStatusFilter('pending')
+      console.log('📋 Initial fetch with filter:', initialFilter)
+      fetchStaffOrders(staffId, restaurantId, initialFilter)
       
       // Setup real-time notifications for staff
       const notificationSub = NotificationService.subscribeToNotifications(
@@ -64,16 +65,13 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
           
           // Refresh orders when new assignment comes in
           if (notification.notification_type === 'order_assigned') {
-            fetchStaffOrders(staffId, {
-              status: getStatusFilter(filter),
-              limit: 30
-            })
+            fetchStaffOrders(staffId, restaurantId, getStatusFilter(filter))
           }
         }
       )
       
       // Setup real-time subscription for order updates
-      const sub = subscribeToStaffOrders(staffId, (newOrder) => {
+      const sub = subscribeToStaffOrders(staffId, restaurantId, (newOrder) => {
         console.log('📨 New order notification:', newOrder)
         playNotificationSound()
         toast.success(`New order assigned: #${newOrder.order_number}`, {
@@ -96,30 +94,29 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     } else {
       console.warn('⚠️ Missing staffId or restaurantId')
     }
-  }, [restaurantId, filter, staffId])
+  }, [restaurantId, staffId]) // Removed filter from dependency to prevent duplicate calls
 
   const getStatusFilter = (filter) => {
     switch (filter) {
       case 'pending':
         return ['pending', 'assigned'] // Include assigned orders in pending tab
       case 'assigned':
-        return ['assigned', 'preparing', 'ready']
+        return ['assigned', 'accepted', 'preparing', 'ready']
       case 'completed':
         return ['delivered', 'cancelled', 'served', 'completed']
       default:
-        return null
+        return ['pending', 'assigned', 'accepted', 'preparing', 'ready'] // Default to active orders
     }
   }
 
+
+
   const handleRefresh = async () => {
-    if (!staffId) return
+    console.log('🔄 Refreshing orders...')
     
     setRefreshing(true)
     try {
-      await fetchStaffOrders(staffId, {
-        status: getStatusFilter(filter),
-        limit: 30
-      })
+      await fetchStaffOrders(staffId, restaurantId, getStatusFilter(filter))
       toast.success('Orders refreshed!')
     } catch (error) {
       toast.error('Failed to refresh orders')
@@ -154,36 +151,21 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     // Prevent multiple clicks
     if (processingOrders.has(orderId)) return
     
-    setProcessingOrders(prev => new Set(prev).add(orderId))
-
     try {
-      console.log('✅ Accepting order:', orderId, 'for staff:', staffId)
+      setProcessingOrders(prev => ({ ...prev, [orderId]: true }));
       
-      // Use UnifiedOrderService to accept order
-      const result = await UnifiedOrderService.acceptOrder(orderId, staffId)
+      await UnifiedOrderService.acceptOrder(orderId, staffId);
+      toast.success('Order accepted successfully!');
       
-      if (result.error) {
-        throw new Error(result.error.message)
-      }
-
-      toast.success('Order accepted successfully!', {
-        icon: '✅',
-        duration: 3000
-      })
-      
-      // Refresh orders to show updated status
-      await handleRefresh()
+      // Refresh assigned orders
+      await fetchStaffOrders(staffId, restaurantId, getStatusFilter(filter));
     } catch (error) {
-      console.error('❌ Error accepting order:', error)
-      toast.error(`Failed to accept order: ${error.message}`)
+      console.error('Error accepting order:', error);
+      toast.error('Failed to accept order: ' + error.message);
     } finally {
-      setProcessingOrders(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(orderId)
-        return newSet
-      })
+      setProcessingOrders(prev => ({ ...prev, [orderId]: false }));
     }
-  }
+  };
 
   const rejectOrder = async (orderId) => {
     if (!staffId) {
@@ -307,18 +289,19 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
     return 'low'
   }
 
-  const filteredOrders = orders.filter(order => {
-    if (filter === 'all') return true
-    if (filter === 'pending') return order.status === 'pending'
-    if (filter === 'assigned') return order.assigned_staff_id === staffId && ['assigned', 'preparing', 'ready'].includes(order.status)
-    if (filter === 'completed') return order.assigned_staff_id === staffId && order.status === 'delivered'
-    return true
-  })
+  // Trigger API call when filter changes
+  useEffect(() => {
+    if (restaurantId && staffId) {
+      const statusFilter = getStatusFilter(filter)
+      console.log('🔄 Filter changed, fetching orders with:', { filter, statusFilter })
+      fetchStaffOrders(staffId, restaurantId, statusFilter)
+    }
+  }, [filter, staffId, restaurantId])
 
   return (
-    <div className="h-full bg-gradient-to-br from-orange-50 via-white to-purple-50">
-      {/* Mobile-First Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 backdrop-blur-md bg-white/90">
+    <div className="h-full bg-gradient-to-br from-orange-50 via-white to-purple-50 flex flex-col">
+      {/* Fixed Header - removed sticky positioning to prevent overlap */}
+      <div className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
         <div className="px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
@@ -352,13 +335,13 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         </div>
       </div>
 
-      {/* Mobile-First Filter Tabs */}
-      <div className="px-4 sm:px-6 py-4 bg-white border-b border-gray-100">
+      {/* Filter Tabs */}
+      <div className="px-4 sm:px-6 py-4 bg-white border-b border-gray-100 flex-shrink-0">
         <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
           {[
-            { key: 'pending', label: 'Pending', icon: '🔔', count: orders.filter(o => o.status === 'pending').length },
+            { key: 'pending', label: 'Pending', icon: '🔔', count: orders.filter(o => ['pending', 'assigned'].includes(o.status)).length },
             { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', count: orders.filter(o => ['assigned', 'preparing', 'ready'].includes(o.status)).length },
-            { key: 'completed', label: 'Completed', icon: '✅', count: orders.filter(o => ['delivered', 'cancelled'].includes(o.status)).length }
+            { key: 'completed', label: 'Completed', icon: '✅', count: orders.filter(o => ['delivered', 'cancelled', 'completed'].includes(o.status)).length }
           ].map((tab) => (
             <motion.button
               key={tab.key}
@@ -385,7 +368,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         </div>
       </div>
 
-      {/* Mobile-First Orders List */}
+      {/* Orders List Container */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -444,7 +427,7 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
           </motion.div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
-            {filteredOrders.map((order, index) => {
+            {orders.map((order, index) => {
               const priority = getOrderPriority(order)
               const isProcessing = processingOrders.has(order.id)
               
@@ -493,13 +476,20 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                           <ClockIcon className="h-4 w-4" />
                           <span>{new Date(order.created_at).toLocaleTimeString()}</span>
                           <span className="text-gray-400">•</span>
-                          <span className="font-medium">Table {order.table_number || 'N/A'}</span>
+                          <span className="font-medium">Table {order.tables?.table_number || 'N/A'}</span>
                         </div>
                         
-                        {order.customer_name && (
+                        {order.customers?.full_name && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <UserIcon className="h-4 w-4" />
-                            <span>{order.customer_name}</span>
+                            <span>{order.customers.full_name}</span>
+                            {order.customers.phone && (
+                              <>
+                                <span className="text-gray-400">•</span>
+                                <PhoneIcon className="h-4 w-4" />
+                                <span>{order.customers.phone}</span>
+                              </>
+                            )}
                           </div>
                         )}
                         

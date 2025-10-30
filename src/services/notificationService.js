@@ -240,7 +240,80 @@ class NotificationService {
       if (error) throw error
       console.log('✅ Custom notification sent')
     } catch (error) {
-      console.error('❌ Error sending custom notification:', error)
+      console.error('❌ Error sending notification:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 👥 Subscribe to staff order updates
+   */
+  static subscribeToStaffOrders(staffId, restaurantId, callback) {
+    try {
+      const subscription = supabase
+        .channel(`staff-orders-${staffId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            filter: `restaurant_id=eq.${restaurantId}`
+          },
+          (payload) => {
+            console.log('📋 Staff order update received:', payload);
+            
+            // Call callback if provided
+            if (callback) {
+              callback(payload);
+            }
+          }
+        )
+        .subscribe();
+
+      this.subscriptions.set(`staff-orders-${staffId}`, subscription);
+      console.log(`✅ Subscribed to staff orders for:`, staffId);
+      
+      return subscription;
+    } catch (error) {
+      console.error('❌ Error subscribing to staff orders:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 🏪 Subscribe to restaurant order updates
+   */
+  static subscribeToRestaurantOrders(restaurantId, callback) {
+    try {
+      const subscription = supabase
+        .channel(`restaurant-orders-${restaurantId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            filter: `restaurant_id=eq.${restaurantId}`
+          },
+          (payload) => {
+            console.log('🏪 Restaurant order update received:', payload);
+            
+            // Call callback if provided
+            if (callback) {
+              callback(payload);
+            }
+          }
+        )
+        .subscribe();
+
+      this.subscriptions.set(`restaurant-orders-${restaurantId}`, subscription);
+      console.log(`✅ Subscribed to restaurant orders for:`, restaurantId);
+      
+      return subscription;
+    } catch (error) {
+      console.error('❌ Error subscribing to restaurant orders:', error);
+      return null;
     }
   }
 }

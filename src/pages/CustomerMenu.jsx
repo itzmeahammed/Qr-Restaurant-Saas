@@ -89,28 +89,12 @@ const CustomerMenu = () => {
         setSessionId(sessionToken)
         console.log('✅ Customer session initialized:', sessionToken)
         
-        // Reserve table if tableId is provided (QR scan)
-        if (finalTableId) {
-          try {
-            await tableService.reserveTableByCustomer(
-              finalTableId, 
-              restaurantId, 
-              sessionToken,
-              {} // Customer info will be added during checkout
-            )
-            toast.success(`Table ${tableNumber || 'reserved'} successfully!`, {
-              icon: '🪑',
-              duration: 3000
-            })
-          } catch (tableError) {
-            console.warn('Table reservation failed:', tableError)
-            // Don't block the customer experience if table reservation fails
-            if (tableError.message.includes('already reserved')) {
-              toast.error('This table is currently occupied. Please contact staff for assistance.', {
-                duration: 5000
-              })
-            }
-          }
+        // Show welcome message for QR scan (NO table reservation yet)
+        if (finalTableId && tableNumber) {
+          toast.success(`Welcome to Table ${tableNumber}! Browse our menu and place your order.`, {
+            icon: '🍽️',
+            duration: 4000
+          })
         }
         
         // Subscribe to real-time updates
