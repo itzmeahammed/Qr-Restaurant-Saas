@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { QrCodeIcon } from '@heroicons/react/24/outline'
+import logo from '../../assets/logo green.png'
 
 const CustomerLoader = ({ message = "Loading...", showLogo = true }) => {
   return (
@@ -11,9 +11,9 @@ const CustomerLoader = ({ message = "Loading...", showLogo = true }) => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5, type: "spring" }}
-            className="w-20 h-20 bg-black rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg"
+            className="mb-8"
           >
-            <QrCodeIcon className="w-10 h-10 text-white" />
+            <img src={logo} alt="Ordyrr" className="h-20 w-auto mx-auto" />
           </motion.div>
         )}
         
