@@ -22,8 +22,8 @@ import OrderService from '../services/orderService'
 import realtimeService from '../services/realtimeService'
 import tableService from '../services/tableService'
 import toast from 'react-hot-toast'
-import logo from '../assets/logo.png'
-import ordyrrLogo from '../assets/logo-bg.png'
+import logo from '../assets/logo green.png'
+import ordyrrLogo from '../assets/logo green.png'
 
 // Import 3D Food Icons
 import croissantIcon from '../assets/3D food icons/Croisant.png'
@@ -32,6 +32,18 @@ import pizzaIcon from '../assets/3D food icons/Pizza.png'
 import coffeeIcon from '../assets/3D food icons/Cofee.png'
 import cakeIcon from '../assets/3D food icons/Cake.png'
 import steakIcon from '../assets/3D food icons/Steak.png'
+
+// Import Food PNG Images for Header
+import croissantSandwich from '../assets/food png/Aloo_Paratha_with_curd_and_pickle-removebg-preview.png'
+import butterChicken from '../assets/food png/Butter_Chicken_with_Naan-removebg-preview.png'
+import lasagna from '../assets/food png/classic_Italian_lasagna_slice__night_dinner_-removebg-preview.png'
+import cupcake from '../assets/food png/fancy_cupcake__evening_snacks_-removebg-preview.png'
+import biryani from '../assets/food png/plate_of_Chicken_Biryani__meals_-removebg-preview.png'
+import rajmaChawal from '../assets/food png/Rajma_Chawal__Kidney_Beans_and_Rice_-removebg-preview.png'
+import samosas from '../assets/food png/Samosas-removebg-preview.png'
+import springRolls from '../assets/food png/spring_rolls_with_dipping_sauce__appetizer_-removebg-preview.png'
+import cookies from '../assets/food png/stack_of_cookies_for__snacks_-removebg-preview.png'
+import pokeBowl from '../assets/food png/vibrant_poke_bowl__afternoon_lunch_-removebg-preview.png'
 
 // Import components
 import CartSidebar from '../components/customer/CartSidebar'
@@ -71,6 +83,68 @@ const getCategoryIcon = (categoryName) => {
   return croissantIcon // default
 }
 
+// Helper function to get time of day period
+const getTimeOfDay = () => {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 11) return 'morning'
+  if (hour >= 11 && hour < 15) return 'afternoon'
+  if (hour >= 15 && hour < 18) return 'evening'
+  if (hour >= 18 && hour < 23) return 'night'
+  if (hour >= 23 || hour < 2) return 'latenight'
+  return 'morning' // default
+}
+
+// Helper function to get time-based tagline and image
+const getTimeBasedContent = () => {
+  const timeOfDay = getTimeOfDay()
+  
+  const timeBasedData = {
+    morning: {
+      tagline: 'ALL-DAY BREAKFAST',
+      subtitle: 'Start your day right',
+      image: croissantSandwich
+    },
+    afternoon: {
+      tagline: 'AFTERNOON DELIGHTS',
+      subtitle: 'Perfect lunch picks',
+      image: pokeBowl
+    },
+    evening: {
+      tagline: 'EVENING SNACKS',
+      subtitle: 'Light bites & treats',
+      image: cookies
+    },
+    night: {
+      tagline: 'DINNER SPECIALS',
+      subtitle: 'Hearty meals await',
+      image: butterChicken
+    },
+    latenight: {
+      tagline: 'LATE NIGHT CRAVINGS',
+      subtitle: 'Satisfy your hunger',
+      image: biryani
+    }
+  }
+  
+  return timeBasedData[timeOfDay] || timeBasedData.morning
+}
+
+// Helper function to get category food PNG image for header
+const getCategoryFoodImage = (categoryName) => {
+  const name = categoryName?.toLowerCase() || ''
+  if (name.includes('breakfast')) return croissantSandwich
+  if (name.includes('appetizer') || name.includes('starter')) return springRolls
+  if (name.includes('biryani') || name.includes('rice')) return biryani
+  if (name.includes('main') || name.includes('meal') || name.includes('dinner')) return butterChicken
+  if (name.includes('lunch')) return pokeBowl
+  if (name.includes('dessert') || name.includes('sweet')) return cupcake
+  if (name.includes('snack')) return cookies
+  if (name.includes('indian')) return rajmaChawal
+  if (name.includes('pasta') || name.includes('italian')) return lasagna
+  if (name.includes('fried') || name.includes('samosa')) return samosas
+  return croissantSandwich // default
+}
+
 const CustomerMenu = () => {
   const navigate = useNavigate()
   const { restaurantId, tableId } = useParams()
@@ -100,6 +174,16 @@ const CustomerMenu = () => {
   const [selectedFilters, setSelectedFilters] = useState([])
   const [favorites, setFavorites] = useState([])
   const [itemQuantities, setItemQuantities] = useState({})
+  const [timeBasedContent, setTimeBasedContent] = useState(getTimeBasedContent())
+  
+  // Update time-based content every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeBasedContent(getTimeBasedContent())
+    }, 60000) // Check every minute
+    
+    return () => clearInterval(interval)
+  }, [])
   const [currentSlide, setCurrentSlide] = useState(0)
 
   useEffect(() => {
@@ -652,7 +736,7 @@ const CustomerMenu = () => {
         {/* Category Hero Section - Compact */}
         <div className="relative z-10 px-4 pt-2 pb-4">
           <div className="flex items-center justify-between">
-            {/* Left: Category Title */}
+            {/* Left: Category Title - Time-based */}
             <div className="flex-1 pr-4" style={{ maxWidth: '55%' }}>
               <h1 
                 className="font-black uppercase leading-none mb-1.5"
@@ -664,22 +748,27 @@ const CustomerMenu = () => {
                   fontStyle: 'italic'
                 }}
               >
-                ALL-DAY<br/>BREAKFAST
+                {timeBasedContent.tagline.split(' ').map((word, i) => (
+                  <React.Fragment key={i}>
+                    {word}{i < timeBasedContent.tagline.split(' ').length - 1 && <br/>}
+                  </React.Fragment>
+                ))}
               </h1>
               <p className="text-sm font-normal" style={{ color: '#424242' }}>
                 {filteredItems.length} items
               </p>
             </div>
 
-            {/* Right: Circular Food Image */}
-            <div 
-              className="rounded-full border-3 border-white overflow-hidden flex-shrink-0 bg-white"
-              style={{ width: '110px', height: '110px', boxShadow: '0px 4px 16px rgba(0,0,0,0.15)' }}
-            >
+            {/* Right: Food Image - Time-based */}
+            <div className="relative flex-shrink-0" style={{ width: '160px', height: '160px' }}>
+              {/* Food Image */}
               <img
-                src={getCategoryIcon(activeCategory && categories.find(c => c.id === activeCategory)?.name)}
-                alt="Category"
-                className="w-full h-full object-contain p-2"
+                src={timeBasedContent.image}
+                alt={timeBasedContent.tagline}
+                className="w-full h-full object-contain"
+                style={{
+                  filter: 'drop-shadow(0px 8px 16px rgba(0,0,0,0.3)) drop-shadow(0px 4px 8px rgba(0,0,0,0.2))'
+                }}
               />
             </div>
           </div>
