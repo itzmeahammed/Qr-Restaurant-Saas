@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ShoppingCartIcon, 
@@ -19,10 +19,113 @@ const MEDIUM_GRAY = '#666666'
 
 const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCustomer, isAuthenticated, restaurantId, allMenuItems = [] }) => {
   const { cart, updateQuantity, removeFromCart, getCartTotal, getCartCount, addToCart } = useCartStore()
+  const [hasUsedFirstOrderDiscount, setHasUsedFirstOrderDiscount] = useState(false)
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false)
+  const [currentOffer, setCurrentOffer] = useState(null)
+  const hasShownPopup = useRef(false)
+  const popupTimeout = useRef(null)
+
+  // Check if customer has used the first order offer
+  useEffect(() => {
+    const checkOfferEligibility = async () => {
+      if (currentCustomer?.id) {
+        try {
+          console.log('🔍 Checking offer eligibility for customer:', currentCustomer.id)
+          
+          // Get the first order offer
+          const { data: offer, error: offerError } = await supabase
+            .from('offers')
+            .select('*')
+            .eq('offer_code', 'FIRST_ORDER_10')
+            .eq('is_active', true)
+            .single()
+          
+          if (offerError || !offer) {
+            console.log('❌ First order offer not found or inactive')
+            return
+          }
+          
+          console.log('✅ Found offer:', offer.offer_code, 'Offer ID:', offer.id)
+          setCurrentOffer(offer)
+          
+          // Check if customer has already used this offer
+          const { data: usageData, error: usageError } = await supabase
+            .from('customer_offers')
+            .select('*')
+            .eq('customer_id', currentCustomer.id)
+            .eq('offer_id', offer.id)
+          
+          console.log('📊 Customer offer usage check:', {
+            customer_id: currentCustomer.id,
+            offer_id: offer.id,
+            usageData,
+            usageError,
+            hasUsed: usageData && usageData.length > 0
+          })
+          
+          if (!usageError && usageData && usageData.length > 0) {
+            // Customer has already used this offer
+            console.log('🚫 Customer has already used this offer')
+            setHasUsedFirstOrderDiscount(true)
+          } else {
+            console.log('✅ Customer eligible for first order discount')
+            setHasUsedFirstOrderDiscount(false)
+          }
+        } catch (error) {
+          console.error('❌ Error checking offer eligibility:', error)
+        }
+      }
+    }
+    checkOfferEligibility()
+  }, [currentCustomer])
 
   const subtotal = getCartTotal()
+  
+  // Calculate automatic discount based on offer
+  let discount = 0
+  if (isAuthenticated && !hasUsedFirstOrderDiscount && currentOffer && subtotal >= (currentOffer.min_order_amount || 0)) {
+    // Calculate discount based on offer type
+    if (currentOffer.discount_type === 'percentage') {
+      discount = subtotal * (currentOffer.discount_value / 100)
+      // Apply max discount cap if specified
+      if (currentOffer.max_discount_amount) {
+        discount = Math.min(discount, currentOffer.max_discount_amount)
+      }
+    } else if (currentOffer.discount_type === 'fixed') {
+      discount = currentOffer.discount_value
+    }
+  }
+  
+  // Reset popup flag when cart sidebar opens
+  useEffect(() => {
+    if (isOpen) {
+      hasShownPopup.current = false
+    }
+  }, [isOpen])
+
+  // Show celebratory popup when discount is applied
+  useEffect(() => {
+    if (discount > 0 && !hasShownPopup.current && isOpen && isAuthenticated) {
+      hasShownPopup.current = true
+      setShowDiscountPopup(true)
+      // Auto-dismiss after 4 seconds
+      popupTimeout.current = setTimeout(() => {
+        setShowDiscountPopup(false)
+      }, 4000)
+    }
+  }, [discount, isOpen, isAuthenticated])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (popupTimeout.current) {
+        clearTimeout(popupTimeout.current)
+      }
+    }
+  }, [])
+  
   const platformFee = subtotal * 0.015 // 1.5% platform fee
-  const total = subtotal + platformFee + selectedTip
+  const total = subtotal + platformFee - discount + selectedTip
 
   // Get suggested items (items not in cart)
   const cartItemIds = cart.map(item => item.id)
@@ -244,6 +347,12 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
                     <span>Platform Fee (1.5%)</span>
                     <span style={{ color: DARK_TEXT }}>₹{platformFee.toFixed(0)}</span>
                   </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold" style={{ color: ACTION_GREEN }}>
+                      <span>🎉 First Order Discount (10%)</span>
+                      <span>-₹{discount.toFixed(0)}</span>
+                    </div>
+                  )}
                   {selectedTip > 0 && (
                     <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
                       <span>Tip</span>
@@ -281,6 +390,110 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
               </div>
             )}
           </motion.div>
+
+          {/* Celebratory Discount Popup - Minimal Design */}
+          <AnimatePresence>
+            {showDiscountPopup && discount > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+                onClick={() => setShowDiscountPopup(false)}
+              >
+                {/* Outer Sparkles - Burst Effect */}
+                {[...Array(30)].map((_, i) => {
+                  const angle = (i / 30) * 360
+                  const distance = 150 + Math.random() * 100
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ 
+                        x: 0, 
+                        y: 0, 
+                        scale: 0, 
+                        opacity: 0,
+                        rotate: 0
+                      }}
+                      animate={{
+                        x: Math.cos(angle * Math.PI / 180) * distance,
+                        y: Math.sin(angle * Math.PI / 180) * distance,
+                        scale: [0, 1.5, 1],
+                        opacity: [0, 1, 0],
+                        rotate: [0, 360]
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        delay: i * 0.02,
+                        ease: "easeOut"
+                      }}
+                      className="absolute"
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      <span className="text-yellow-400 text-2xl">✨</span>
+                    </motion.div>
+                  )
+                })}
+
+                {/* Popup Card - Minimal Design */}
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                  className="bg-white rounded-2xl p-6 max-w-xs w-full mx-4 relative z-10"
+                  style={{ boxShadow: '0 0 0 3px #000000' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Simple Content */}
+                  <div className="text-center">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                    >
+                      <span className="text-6xl block mb-3">🎉</span>
+                    </motion.div>
+                    
+                    <h3 className="text-xl font-black mb-2" style={{ color: '#00C853' }}>
+                      YAY!
+                    </h3>
+                    
+                    <p className="text-sm mb-2 font-semibold" style={{ color: '#00C853' }}>
+                      You saved
+                    </p>
+                    
+                    <p className="text-4xl font-black mb-2" style={{ color: '#00C853' }}>
+                      ₹{discount.toFixed(0)}
+                    </p>
+                    
+                    <p className="text-xs mb-5 font-medium" style={{ color: '#00C853' }}>
+                      First order discount applied! 🎊
+                    </p>
+                    
+                    {/* Playful Boxy Button */}
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (popupTimeout.current) {
+                          clearTimeout(popupTimeout.current)
+                        }
+                        setShowDiscountPopup(false)
+                      }}
+                      className="w-full py-3.5 font-black text-black text-sm uppercase rounded-xl"
+                      style={{ 
+                        backgroundColor: '#00C853',
+                        boxShadow: '0 4px 0 0 #000000'
+                      }}
+                    >
+                      AWESOME! 🎉
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>

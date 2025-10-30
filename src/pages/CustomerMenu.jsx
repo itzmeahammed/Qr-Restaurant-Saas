@@ -15,7 +15,8 @@ import {
   StarIcon,
   FireIcon,
   UserCircleIcon,
-  XMarkIcon
+  XMarkIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import bcrypt from 'bcryptjs'
@@ -28,6 +29,8 @@ import realtimeService from '../services/realtimeService'
 import toast from 'react-hot-toast'
 import logo from '../assets/logo green.png'
 import ordyrrLogo from '../assets/logo green.png'
+import ordyrrCoin from '../assets/ordyrr coin.png'
+import logoBg from '../assets/logo_bg.png'
 
 // Import 3D Food Icons
 import croissantIcon from '../assets/3D food icons/Croisant.png'
@@ -153,7 +156,7 @@ const CustomerMenu = () => {
   const navigate = useNavigate()
   const { restaurantId, tableId } = useParams()
   const [searchParams] = useSearchParams()
-  const { cart, addToCart, initializeSession, getCartCount } = useCartStore()
+  const { cart, addToCart, updateQuantity, initializeSession, getCartCount } = useCartStore()
   
   // Get table info from URL params or search params
   const tableNumber = searchParams.get('table')
@@ -188,6 +191,20 @@ const CustomerMenu = () => {
   const [itemQuantities, setItemQuantities] = useState({})
   const [timeBasedContent, setTimeBasedContent] = useState(getTimeBasedContent())
   
+  // Order history states
+  const [showOrderHistory, setShowOrderHistory] = useState(false)
+  const [orderHistory, setOrderHistory] = useState([])
+  const [loadingOrderHistory, setLoadingOrderHistory] = useState(false)
+  
+  // Sync itemQuantities with cart whenever cart changes
+  useEffect(() => {
+    const newQuantities = {}
+    cart.forEach(item => {
+      newQuantities[item.id] = item.quantity
+    })
+    setItemQuantities(newQuantities)
+  }, [cart])
+
   // Update time-based content every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -215,12 +232,13 @@ const CustomerMenu = () => {
 
   // Auto-slide carousel effect
   useEffect(() => {
+    const totalSlides = isAuthenticated ? 2 : 3 // 2 slides for authenticated, 3 for guests
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 3) // 3 slides total
+      setCurrentSlide((prev) => (prev + 1) % totalSlides)
     }, 4000) // Change slide every 4 seconds
 
     return () => clearInterval(interval)
-  }, [])
+  }, [isAuthenticated])
 
   const initializeCustomerSession = async () => {
     try {
@@ -494,6 +512,76 @@ const CustomerMenu = () => {
     }
   }
 
+  // Fetch order history for a customer
+  const fetchOrderHistory = async () => {
+    if (!currentCustomer?.id) {
+      toast.error('Please log in to view order history')
+      return
+    }
+
+    setLoadingOrderHistory(true)
+    try {
+      // Fetch orders with order items and related data
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            id,
+            order_id,
+            menu_item_id,
+            item_name,
+            quantity,
+            unit_price,
+            total_price,
+            special_instructions
+          ),
+          tables (
+            table_number,
+            location
+          )
+        `)
+        .eq('customer_id', currentCustomer.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      // Fetch menu item images separately for each order item
+      if (orders && orders.length > 0) {
+        for (const order of orders) {
+          if (order.order_items && order.order_items.length > 0) {
+            for (const item of order.order_items) {
+              if (item.menu_item_id) {
+                const { data: menuItem } = await supabase
+                  .from('menu_items')
+                  .select('name, image_url')
+                  .eq('id', item.menu_item_id)
+                  .single()
+                
+                if (menuItem) {
+                  item.menu_items = menuItem
+                }
+              }
+            }
+          }
+        }
+      }
+
+      console.log('✅ Order history fetched:', orders?.length || 0, 'orders')
+      setOrderHistory(orders || [])
+      setShowOrderHistory(true)
+    } catch (error) {
+      console.error('Error fetching order history:', error)
+      toast.error('Failed to load order history')
+    } finally {
+      setLoadingOrderHistory(false)
+    }
+  }
+
   // Authentication Functions
   const handleLogin = async (email, password) => {
     try {
@@ -582,7 +670,7 @@ const CustomerMenu = () => {
           points_redeemed: 0,
           current_balance: 100,
           transaction_type: 'signup_bonus',
-          description: 'Welcome bonus - 100 loyalty points',
+          description: 'Welcome bonus - 100 Ordyrr Coins',
           tier: 'bronze'
         }])
 
@@ -593,7 +681,7 @@ const CustomerMenu = () => {
       setLoyaltyPoints(100) // New signup gets 100 points
       setShowAuthModal(false)
       setShowMobileMenu(true)
-      toast.success('🎉 Account created! You earned 100 loyalty points!')
+      toast.success('🎉 Account created! You earned 100 Ordyrr Coins!')
       return true
     } catch (error) {
       console.error('Signup error:', error)
@@ -626,11 +714,25 @@ const CustomerMenu = () => {
   }
 
   const updateItemQuantity = (itemId, change) => {
+    // Update local UI state
     setItemQuantities(prev => {
       const current = prev[itemId] || 0
       const newQuantity = Math.max(0, current + change)
       return { ...prev, [itemId]: newQuantity }
     })
+    
+    // Update cart store (outside of setState to avoid warning)
+    const cartItem = cart.find(item => item.id === itemId)
+    if (cartItem) {
+      // Item already in cart, update quantity
+      updateQuantity(itemId, cartItem.quantity + change)
+    } else if (change > 0) {
+      // Item not in cart, add it
+      const menuItem = menuItems.find(item => item.id === itemId)
+      if (menuItem) {
+        addToCart(menuItem)
+      }
+    }
   }
 
   const handleAddToCartWithQuantity = (item) => {
@@ -940,8 +1042,8 @@ const CustomerMenu = () => {
                 </motion.div>
               )}
 
-              {/* Slide 2: Signup Offer */}
-              {currentSlide === 1 && (
+              {/* Slide 2: Signup Offer - Only show if NOT authenticated */}
+              {currentSlide === 1 && !isAuthenticated && (
                 <motion.div
                   key="slide-2"
                   initial={{ x: 300, opacity: 0 }}
@@ -959,7 +1061,7 @@ const CustomerMenu = () => {
                     {/* Offer Details */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base" style={{ color: DARK_TEXT }}>Sign Up & Get</h3>
-                      <p className="text-base font-bold" style={{ color: BRAND_GREEN }}>100 Loyalty Points</p>
+                      <p className="text-base font-bold" style={{ color: BRAND_GREEN }}>100 Ordyrr Coins</p>
                       <p className="text-xs mt-0.5" style={{ color: MEDIUM_GRAY }}>Join our loyalty program today!</p>
                     </div>
 
@@ -974,7 +1076,7 @@ const CustomerMenu = () => {
               )}
 
               {/* Slide 3: Order Discount Offer */}
-              {currentSlide === 2 && (
+              {currentSlide === (isAuthenticated ? 1 : 2) && (
                 <motion.div
                   key="slide-3"
                   initial={{ x: 300, opacity: 0 }}
@@ -1009,7 +1111,7 @@ const CustomerMenu = () => {
 
             {/* Slide Indicators */}
             <div className="flex justify-center gap-2 mt-3">
-              {[0, 1, 2].map((index) => (
+              {(isAuthenticated ? [0, 1] : [0, 1, 2]).map((index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}
@@ -1668,48 +1770,22 @@ const CustomerMenu = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl overflow-y-auto"
+              className="absolute right-0 top-0 bottom-0 w-full max-w-xs bg-white shadow-2xl overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
-              <div className="sticky top-0 z-10 bg-gradient-to-r from-green-400 to-green-500 p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-black text-white uppercase">Profile</h2>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowMobileMenu(false)}
-                    className="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center"
-                  >
-                    <XMarkIcon className="w-6 h-6 text-white" />
-                  </motion.button>
-                </div>
-
-                {/* User Info */}
-                {isAuthenticated && currentCustomer ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-                      <UserCircleIcon className="w-10 h-10 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold text-lg">{currentCustomer.full_name}</p>
-                      <p className="text-white text-sm opacity-90">{currentCustomer.email}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-                      <UserCircleIcon className="w-10 h-10 text-gray-400" />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold text-lg">Guest User</p>
-                      <p className="text-white text-sm opacity-90">Login to continue</p>
-                    </div>
-                  </div>
-                )}
+              {/* Close Button */}
+              <div className="sticky top-0 z-10 bg-white p-4 flex justify-end border-b border-gray-200">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowMobileMenu(false)}
+                  className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                >
+                  <XMarkIcon className="w-6 h-6" style={{ color: '#212121' }} />
+                </motion.button>
               </div>
 
               {/* Menu Content */}
-              <div className="p-4">
+              <div className="p-4 pt-2">
                 {!isAuthenticated ? (
                   /* Guest User - Show Login/Signup Options */
                   <div className="space-y-3">
@@ -1739,75 +1815,152 @@ const CustomerMenu = () => {
 
                     <div className="mt-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
                       <p className="text-center text-sm font-semibold text-green-800">
-                        🎁 Sign up and get 100 loyalty points!
+                        🎁 Sign up and get 100 Ordyrr Coins!
                       </p>
                     </div>
                   </div>
                 ) : (
                   /* Authenticated User - Show Profile Info */
-                  <div className="space-y-3">
-                    {/* Loyalty Points - Compact Yellow Card */}
-                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600">Loyalty Points</p>
-                        <p className="text-2xl font-black text-yellow-600">{loyaltyPoints}</p>
+                  <div className="space-y-6">
+                    {/* Your Account Section */}
+                    <div>
+                      <h2 className="text-xl font-bold mb-1" style={{ color: '#212121' }}>Your account</h2>
+                      <p className="text-sm mb-0.5" style={{ color: '#666666' }}>{currentCustomer.full_name}</p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-4 h-4" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <p className="text-sm" style={{ color: '#666666' }}>{currentCustomer.phone || 'No phone'}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                        <span className="text-xl">🎁</span>
+
+                      {/* Ordyrr Coins Card */}
+                      <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-10 h-10 object-contain" />
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: '#666666' }}>Ordyrr Coins</p>
+                            <p className="text-2xl font-black" style={{ color: '#F59E0B' }}>{loyaltyPoints}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Account Info - Minimal Design */}
-                    <div className="bg-white rounded-xl p-3 border border-gray-200">
-                      <h3 className="text-sm font-bold mb-2" style={{ color: '#212121' }}>Account Information</h3>
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between">
-                          <span style={{ color: '#666666' }}>Name:</span>
-                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.full_name}</span>
+                    {/* Your Information Section */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase mb-3" style={{ color: '#999999' }}>Your Information</h3>
+                      <div className="space-y-2">
+                        {/* Track Live Orders */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setShowProfile(false)
+                            setShowOrderTracking(true)
+                          }}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <MapPinIcon className="w-5 h-5" style={{ color: ACTION_GREEN }} />
+                            <span className="text-sm font-semibold" style={{ color: ACTION_GREEN }}>
+                              Track Live Orders
+                            </span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: ACTION_GREEN }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+
+                        {/* Order History */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={fetchOrderHistory}
+                          disabled={loadingOrderHistory}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ClockIcon className="w-5 h-5" style={{ color: '#666666' }} />
+                            <span className="text-sm font-normal" style={{ color: '#212121' }}>
+                              {loadingOrderHistory ? 'Loading...' : 'Your orders'}
+                            </span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: '#CCCCCC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+
+                        {/* Email Info */}
+                        <div className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm font-normal" style={{ color: '#212121' }}>Email</span>
+                          </div>
+                          <span className="text-xs" style={{ color: '#666666' }}>{currentCustomer.email}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span style={{ color: '#666666' }}>Email:</span>
-                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.email}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span style={{ color: '#666666' }}>Phone:</span>
-                          <span className="font-semibold" style={{ color: '#212121' }}>{currentCustomer.phone || 'Not set'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span style={{ color: '#666666' }}>Member Since:</span>
-                          <span className="font-semibold" style={{ color: '#212121' }}>
-                            {new Date(currentCustomer.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+
+                    {/* Other Information Section */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase mb-3" style={{ color: '#999999' }}>Other Information</h3>
+                      <div className="space-y-2">
+                        {/* Help and Support */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => toast.info('Help & Support - Coming soon!')}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-sm font-normal" style={{ color: '#212121' }}>Help and support</span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: '#CCCCCC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+
+                        {/* Member Since */}
+                        <div className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm font-normal" style={{ color: '#212121' }}>Member since</span>
+                          </div>
+                          <span className="text-xs" style={{ color: '#666666' }}>
+                            {new Date(currentCustomer.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                           </span>
                         </div>
+
+                        {/* Logout */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleLogout}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-red-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5" style={{ color: '#EF4444' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            <span className="text-sm font-normal" style={{ color: '#EF4444' }}>Log out</span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: '#CCCCCC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
                       </div>
                     </div>
 
-                    {/* Order History Button - Playful Boxy Design */}
-                    <motion.button
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => toast.success('Order history feature coming soon!')}
-                      className="w-full py-2.5 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2"
-                      style={{ 
-                        backgroundColor: '#00C853',
-                        boxShadow: '0 4px 0 0 #000000'
-                      }}
-                    >
-                      <ClockIcon className="w-4 h-4" />
-                      <span>View Order History</span>
-                    </motion.button>
-
-                    {/* Logout Button - Playful Boxy Design */}
-                    <motion.button
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleLogout}
-                      className="w-full py-2.5 text-white font-bold text-sm rounded-xl"
-                      style={{ 
-                        backgroundColor: '#EF4444',
-                        boxShadow: '0 4px 0 0 #000000'
-                      }}
-                    >
-                      Logout
-                    </motion.button>
+                    {/* Brand Logo at Bottom */}
+                    <div className="mt-8 mb-6 flex justify-center">
+                      <img 
+                        src={logoBg} 
+                        alt="Ordyrr" 
+                        className="h-24 opacity-60"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1923,7 +2076,7 @@ const CustomerMenu = () => {
                   )
                 }}>
                   <div className="bg-gradient-to-r from-green-400 to-green-500 rounded-xl p-4 mb-6 text-center">
-                    <p className="text-white font-black text-lg">🎁 Get 100 Loyalty Points</p>
+                    <p className="text-white font-black text-lg">🎁 Get 100 Ordyrr Coins</p>
                     <p className="text-white text-sm opacity-90">Join our loyalty program today!</p>
                   </div>
 
@@ -2019,6 +2172,193 @@ const CustomerMenu = () => {
                   </div>
                 </form>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Order History Modal */}
+      <AnimatePresence>
+        {showOrderHistory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={() => setShowOrderHistory(false)}
+          >
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b-2 border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                <div className="flex items-center gap-3">
+                  <ClockIcon className="w-6 h-6" style={{ color: ACTION_GREEN }} />
+                  <h2 className="text-xl font-black" style={{ color: DARK_TEXT }}>Order History</h2>
+                </div>
+                <button
+                  onClick={() => setShowOrderHistory(false)}
+                  className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                >
+                  <XMarkIcon className="w-6 h-6" style={{ color: DARK_TEXT }} />
+                </button>
+              </div>
+
+              {/* Order List */}
+              <div className="overflow-y-auto max-h-[calc(85vh-80px)] px-6 py-4">
+                {orderHistory.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                      <ClockIcon className="w-10 h-10 text-gray-400" />
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: DARK_TEXT }}>No Orders Yet</p>
+                    <p className="text-sm mt-2" style={{ color: MEDIUM_GRAY }}>
+                      Your order history will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orderHistory.map((order) => (
+                      <div
+                        key={order.id}
+                        className="border-2 border-gray-200 rounded-xl p-4 hover:border-green-300 transition-colors"
+                      >
+                        {/* Order Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="font-bold text-base" style={{ color: DARK_TEXT }}>
+                              Order #{order.order_number}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: MEDIUM_GRAY }}>
+                              {new Date(order.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                            {order.tables && (
+                              <p className="text-xs mt-0.5" style={{ color: MEDIUM_GRAY }}>
+                                Table {order.tables.table_number}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div
+                              className="inline-block px-3 py-1 rounded-full text-xs font-bold"
+                              style={{
+                                backgroundColor: 
+                                  order.status === 'completed' ? '#E8F5E9' :
+                                  order.status === 'cancelled' ? '#FFEBEE' :
+                                  order.status === 'preparing' ? '#FFF3E0' :
+                                  '#E3F2FD',
+                                color:
+                                  order.status === 'completed' ? '#2E7D32' :
+                                  order.status === 'cancelled' ? '#C62828' :
+                                  order.status === 'preparing' ? '#E65100' :
+                                  '#1565C0'
+                              }}
+                            >
+                              {order.status.toUpperCase()}
+                            </div>
+                            <p className="text-lg font-black mt-2" style={{ color: ACTION_GREEN }}>
+                              ₹{order.total_amount.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div className="space-y-2 border-t border-gray-200 pt-3">
+                          {order.order_items?.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-3">
+                              {item.menu_items?.image_url && (
+                                <img
+                                  src={item.menu_items.image_url}
+                                  alt={item.item_name}
+                                  className="w-12 h-12 rounded-lg object-cover"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate" style={{ color: DARK_TEXT }}>
+                                  {item.item_name}
+                                </p>
+                                <p className="text-xs" style={{ color: MEDIUM_GRAY }}>
+                                  Qty: {item.quantity} × ₹{item.unit_price.toFixed(2)}
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold" style={{ color: DARK_TEXT }}>
+                                ₹{item.total_price.toFixed(2)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Order Summary */}
+                        <div className="border-t border-gray-200 mt-3 pt-3 space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span style={{ color: MEDIUM_GRAY }}>Subtotal:</span>
+                            <span className="font-semibold" style={{ color: DARK_TEXT }}>
+                              ₹{order.subtotal.toFixed(2)}
+                            </span>
+                          </div>
+                          {order.tax_amount > 0 && (
+                            <div className="flex justify-between">
+                              <span style={{ color: MEDIUM_GRAY }}>Platform Fee (1.5%):</span>
+                              <span className="font-semibold" style={{ color: DARK_TEXT }}>
+                                ₹{order.tax_amount.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          {order.discount_amount > 0 && (
+                            <div className="flex justify-between">
+                              <span style={{ color: ACTION_GREEN }}>🎉 First Order Discount (10%):</span>
+                              <span className="font-semibold" style={{ color: ACTION_GREEN }}>
+                                -₹{order.discount_amount.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          {order.tip_amount > 0 && (
+                            <div className="flex justify-between">
+                              <span style={{ color: MEDIUM_GRAY }}>Tip:</span>
+                              <span className="font-semibold" style={{ color: DARK_TEXT }}>
+                                ₹{order.tip_amount.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between pt-1 border-t border-gray-200">
+                            <span className="font-bold" style={{ color: DARK_TEXT }}>Total:</span>
+                            <span className="font-black" style={{ color: ACTION_GREEN }}>
+                              ₹{order.total_amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Payment Info */}
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs">
+                          <span style={{ color: MEDIUM_GRAY }}>
+                            Payment: <span className="font-semibold capitalize">{order.payment_method}</span>
+                          </span>
+                          <span
+                            className="px-2 py-1 rounded-full font-semibold"
+                            style={{
+                              backgroundColor: order.payment_status === 'completed' ? '#E8F5E9' : '#FFF3E0',
+                              color: order.payment_status === 'completed' ? '#2E7D32' : '#E65100'
+                            }}
+                          >
+                            {order.payment_status === 'completed' ? 'Paid' : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}

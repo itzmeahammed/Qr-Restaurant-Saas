@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CreditCardIcon,
@@ -26,6 +26,12 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderData, setOrderData] = useState(null)
   const [selectedPayment, setSelectedPayment] = useState('cash')
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false)
+  const [discountAmount, setDiscountAmount] = useState(0)
+  const [hasUsedFirstOrderDiscount, setHasUsedFirstOrderDiscount] = useState(false)
+  const [currentOffer, setCurrentOffer] = useState(null)
+  const hasShownPopup = useRef(false)
+  const popupTimeout = useRef(null)
   
   // Use cart store instead of separate cart service
   const { cart, getCartTotal, getCartWithTax, clearCart } = useCartStore()
@@ -55,21 +61,125 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   // Check if user is logged in
   const isLoggedIn = !!currentCustomer
 
-  // Cart summary is now calculated from cart store
+  // Check if customer has used the first order offer
+  React.useEffect(() => {
+    const checkOfferEligibility = async () => {
+      if (currentCustomer?.id) {
+        try {
+          console.log('🔍 [CheckoutModal] Checking offer eligibility for customer:', currentCustomer.id)
+          
+          // Get the first order offer
+          const { data: offer, error: offerError } = await supabase
+            .from('offers')
+            .select('*')
+            .eq('offer_code', 'FIRST_ORDER_10')
+            .eq('is_active', true)
+            .single()
+          
+          if (offerError || !offer) {
+            console.log('❌ [CheckoutModal] First order offer not found or inactive')
+            return
+          }
+          
+          console.log('✅ [CheckoutModal] Found offer:', offer.offer_code, 'Offer ID:', offer.id)
+          setCurrentOffer(offer)
+          
+          // Check if customer has already used this offer
+          const { data: usageData, error: usageError } = await supabase
+            .from('customer_offers')
+            .select('*')
+            .eq('customer_id', currentCustomer.id)
+            .eq('offer_id', offer.id)
+          
+          console.log('📊 [CheckoutModal] Customer offer usage check:', {
+            customer_id: currentCustomer.id,
+            offer_id: offer.id,
+            usageData,
+            usageError,
+            hasUsed: usageData && usageData.length > 0
+          })
+          
+          if (!usageError && usageData && usageData.length > 0) {
+            // Customer has already used this offer
+            console.log('🚫 [CheckoutModal] Customer has already used this offer')
+            setHasUsedFirstOrderDiscount(true)
+          } else {
+            console.log('✅ [CheckoutModal] Customer eligible for first order discount')
+            setHasUsedFirstOrderDiscount(false)
+          }
+        } catch (error) {
+          console.error('❌ [CheckoutModal] Error checking offer eligibility:', error)
+        }
+      }
+    }
+    checkOfferEligibility()
+  }, [currentCustomer])
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (popupTimeout.current) {
+        clearTimeout(popupTimeout.current)
+      }
+    }
+  }, [])
+
+  // Reset popup flag when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      hasShownPopup.current = false
+    }
+  }, [isOpen])
+
+  // Cart summary with automatic discount calculation
   const cartSummary = React.useMemo(() => {
     if (!cart || cart.length === 0) {
-      return { isEmpty: true, subtotal: 0, taxAmount: 0, total: 0 }
+      return { isEmpty: true, subtotal: 0, platformFee: 0, total: 0, discount: 0 }
     }
     
-    const { subtotal, tax, total } = getCartWithTax(0.18) // 18% GST
+    const subtotal = getCartTotal()
+    const platformFee = subtotal * 0.015 // 1.5% platform fee (same as CartSidebar)
+    
+    // Calculate automatic discount based on offer
+    let discount = 0
+    if (isLoggedIn && !hasUsedFirstOrderDiscount && currentOffer && subtotal >= (currentOffer.min_order_amount || 0)) {
+      // Calculate discount based on offer type
+      if (currentOffer.discount_type === 'percentage') {
+        discount = subtotal * (currentOffer.discount_value / 100)
+        // Apply max discount cap if specified
+        if (currentOffer.max_discount_amount) {
+          discount = Math.min(discount, currentOffer.max_discount_amount)
+        }
+      } else if (currentOffer.discount_type === 'fixed') {
+        discount = currentOffer.discount_value
+      }
+    }
+    
+    const total = subtotal + platformFee - discount
+    
     return {
       isEmpty: false,
       subtotal,
-      taxAmount: tax,
+      platformFee,
+      discount,
       total,
       items: cart
     }
-  }, [cart, getCartWithTax])
+  }, [cart, getCartTotal, isLoggedIn, hasUsedFirstOrderDiscount, currentOffer])
+
+  // Show celebratory popup when discount is applied
+  React.useEffect(() => {
+    const discount = cartSummary?.discount || 0
+    if (discount > 0 && !hasShownPopup.current && isOpen && isLoggedIn) {
+      hasShownPopup.current = true
+      setDiscountAmount(discount)
+      setShowDiscountPopup(true)
+      // Auto-dismiss after 4 seconds
+      popupTimeout.current = setTimeout(() => {
+        setShowDiscountPopup(false)
+      }, 4000)
+    }
+  }, [cartSummary, isOpen, isLoggedIn])
 
   const handleSubmit = async () => {
     // For logged-in users, use their stored information
@@ -115,11 +225,14 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
         customerInfo: {
           name: finalCustomerInfo.name,
           phone: finalCustomerInfo.phone,
-          email: finalCustomerInfo.email
+          email: finalCustomerInfo.email,
+          customerId: isLoggedIn ? currentCustomer?.id : null // Pass customer ID for logged-in users
         },
         specialInstructions: finalCustomerInfo.specialInstructions,
         paymentMethod: finalCustomerInfo.paymentMethod,
-        tipAmount: selectedTip
+        tipAmount: selectedTip,
+        discountAmount: discount,
+        firstOrderDiscountApplied: discount > 0
       })
 
       if (!orderResult || !orderResult.id) {
@@ -214,8 +327,9 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
 
   // Calculate totals from cart summary
   const subtotal = cartSummary?.subtotal || 0
-  const tax = cartSummary?.taxAmount || 0
-  const total = subtotal + tax + selectedTip
+  const platformFee = cartSummary?.platformFee || 0
+  const discount = cartSummary?.discount || 0
+  const total = cartSummary?.total || 0
 
   if (!isOpen) return null
 
@@ -599,6 +713,12 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
                   <span>Tax (18%)</span>
                   <span>₹{tax.toFixed(2)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm font-semibold" style={{ color: ACTION_GREEN }}>
+                    <span>🎉 First Order Discount (10%)</span>
+                    <span>-₹{discount.toFixed(2)}</span>
+                  </div>
+                )}
                 {selectedTip > 0 && (
                   <div className="flex justify-between text-sm text-black">
                     <span>Tip</span>
@@ -632,6 +752,110 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
             </div>
           </div>
         </motion.div>
+
+        {/* Celebratory Discount Popup - Minimal Design */}
+        <AnimatePresence>
+          {showDiscountPopup && discountAmount > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+              onClick={() => setShowDiscountPopup(false)}
+            >
+              {/* Outer Sparkles - Burst Effect */}
+              {[...Array(30)].map((_, i) => {
+                const angle = (i / 30) * 360
+                const distance = 150 + Math.random() * 100
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ 
+                      x: 0, 
+                      y: 0, 
+                      scale: 0, 
+                      opacity: 0,
+                      rotate: 0
+                    }}
+                    animate={{
+                      x: Math.cos(angle * Math.PI / 180) * distance,
+                      y: Math.sin(angle * Math.PI / 180) * distance,
+                      scale: [0, 1.5, 1],
+                      opacity: [0, 1, 0],
+                      rotate: [0, 360]
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      delay: i * 0.02,
+                      ease: "easeOut"
+                    }}
+                    className="absolute"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <span className="text-yellow-400 text-2xl">✨</span>
+                  </motion.div>
+                )
+              })}
+
+              {/* Popup Card - Minimal Design */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                className="bg-white rounded-2xl p-6 max-w-xs w-full mx-4 relative z-10"
+                style={{ boxShadow: '0 0 0 3px #000000' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Simple Content */}
+                <div className="text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                  >
+                    <span className="text-6xl block mb-3">🎉</span>
+                  </motion.div>
+                  
+                  <h3 className="text-xl font-black mb-2" style={{ color: '#00C853' }}>
+                    YAY!
+                  </h3>
+                  
+                  <p className="text-sm mb-2 font-semibold" style={{ color: '#00C853' }}>
+                    You saved
+                  </p>
+                  
+                  <p className="text-4xl font-black mb-2" style={{ color: '#00C853' }}>
+                    ₹{discountAmount.toFixed(0)}
+                  </p>
+                  
+                  <p className="text-xs mb-5 font-medium" style={{ color: '#00C853' }}>
+                    First order discount applied! 🎊
+                  </p>
+                  
+                  {/* Playful Boxy Button */}
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (popupTimeout.current) {
+                        clearTimeout(popupTimeout.current)
+                      }
+                      setShowDiscountPopup(false)
+                    }}
+                    className="w-full py-3.5 font-black text-black text-sm uppercase rounded-xl"
+                    style={{ 
+                      backgroundColor: '#00C853',
+                      boxShadow: '0 4px 0 0 #000000'
+                    }}
+                  >
+                    AWESOME! 🎉
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </AnimatePresence>
   )
