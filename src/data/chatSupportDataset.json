@@ -1,0 +1,758 @@
+{
+  "categories": {
+    "qr_scanning": {
+      "name": "QR Code Scanning",
+      "icon": "📱",
+      "questions": [
+        {
+          "id": "qr_001",
+          "question": "How do I scan the QR code?",
+          "answer": "Simply open your phone's camera and point it at the QR code on your table. A notification will appear - tap it to open the menu. You can also use our 'SCAN QR' button on the homepage.",
+          "keywords": ["scan", "qr", "how to", "camera"]
+        },
+        {
+          "id": "qr_002",
+          "question": "The QR code is not scanning",
+          "answer": "Please ensure: 1) Your camera has permission to access 2) The QR code is well-lit 3) Hold your phone steady 4) Try cleaning your camera lens. If issues persist, use the 'Find Food' option to browse restaurants.",
+          "keywords": ["not scanning", "qr not working", "camera issue"]
+        },
+        {
+          "id": "qr_003",
+          "question": "Can I scan the QR code without downloading an app?",
+          "answer": "Yes! Ordyrr is completely web-based. No app download required. Just scan the QR code with your phone's camera and start ordering instantly.",
+          "keywords": ["no app", "download", "web-based"]
+        },
+        {
+          "id": "qr_004",
+          "question": "What if my phone camera doesn't work?",
+          "answer": "You can use the 'Find Food' option to search for restaurants by location, or ask your server for assistance. You can also try using a different phone or tablet.",
+          "keywords": ["camera broken", "camera not working"]
+        },
+        {
+          "id": "qr_005",
+          "question": "The QR code shows an error",
+          "answer": "This might happen if: 1) The QR code is damaged 2) It's not an Ordyrr QR code 3) The restaurant is temporarily offline. Please inform your server or try again in a few moments.",
+          "keywords": ["qr error", "invalid qr", "error message"]
+        }
+      ]
+    },
+    "ordering": {
+      "name": "Placing Orders",
+      "icon": "🛒",
+      "questions": [
+        {
+          "id": "ord_001",
+          "question": "How do I place an order?",
+          "answer": "After scanning the QR code: 1) Browse the menu 2) Tap items to add to cart 3) Customize if needed 4) Review your cart 5) Tap 'Place Order'. Your order goes directly to the kitchen!",
+          "keywords": ["place order", "how to order", "ordering"]
+        },
+        {
+          "id": "ord_002",
+          "question": "Can I customize my order?",
+          "answer": "Yes! Most items have customization options. Tap on an item, then select your preferences (spice level, toppings, cooking style, etc.) before adding to cart.",
+          "keywords": ["customize", "modify", "special request"]
+        },
+        {
+          "id": "ord_003",
+          "question": "How do I add special instructions?",
+          "answer": "When viewing an item, you'll see a 'Special Instructions' field. Add any dietary requirements, allergies, or preferences there. The kitchen will see your notes.",
+          "keywords": ["special instructions", "notes", "allergies"]
+        },
+        {
+          "id": "ord_004",
+          "question": "Can I order for multiple people?",
+          "answer": "Absolutely! Add items for everyone at your table to one cart. You can split the payment later or have one person pay for all.",
+          "keywords": ["multiple people", "group order", "table order"]
+        },
+        {
+          "id": "ord_005",
+          "question": "What's the minimum order amount?",
+          "answer": "There's no minimum order amount! Order as little or as much as you'd like. Some restaurants may have minimum delivery amounts, but dine-in orders have no minimum.",
+          "keywords": ["minimum order", "min amount"]
+        }
+      ]
+    },
+    "payment": {
+      "name": "Payment & Billing",
+      "icon": "💳",
+      "questions": [
+        {
+          "id": "pay_001",
+          "question": "What payment methods do you accept?",
+          "answer": "We accept all major credit/debit cards, UPI, digital wallets (Google Pay, PhonePe, Paytm), and cash. Payment methods may vary by restaurant.",
+          "keywords": ["payment", "pay", "methods", "upi", "card"]
+        },
+        {
+          "id": "pay_002",
+          "question": "Is it safe to pay online?",
+          "answer": "Absolutely! We use industry-standard encryption and secure payment gateways. Your card details are never stored on our servers. All transactions are PCI-DSS compliant.",
+          "keywords": ["safe", "secure", "payment security"]
+        },
+        {
+          "id": "pay_003",
+          "question": "Can I split the bill?",
+          "answer": "Yes! When checking out, select 'Split Bill' option. You can split equally or by items. Each person can pay their share using their preferred payment method.",
+          "keywords": ["split bill", "divide payment", "separate payment"]
+        },
+        {
+          "id": "pay_004",
+          "question": "Do you charge service fees?",
+          "answer": "Ordyrr doesn't charge any service fees for dine-in orders! You only pay for your food and applicable taxes. Some restaurants may add their own service charges.",
+          "keywords": ["service fee", "charges", "extra cost"]
+        },
+        {
+          "id": "pay_005",
+          "question": "Can I pay with cash?",
+          "answer": "Yes, you can choose 'Pay at Counter' or 'Cash on Table' when checking out. Your order will still go to the kitchen immediately.",
+          "keywords": ["cash", "pay later", "pay at counter"]
+        },
+        {
+          "id": "pay_006",
+          "question": "I was charged twice",
+          "answer": "Don't worry! If you see duplicate charges, one is likely a temporary authorization that will be released within 2-3 business days. If both charges settle, contact support immediately with your order ID.",
+          "keywords": ["double charge", "charged twice", "duplicate payment"]
+        },
+        {
+          "id": "pay_007",
+          "question": "Can I get a receipt?",
+          "answer": "Yes! After payment, you'll receive a digital receipt via email and SMS. You can also view it in 'My Orders' section. Request a printed receipt from your server if needed.",
+          "keywords": ["receipt", "bill", "invoice"]
+        },
+        {
+          "id": "pay_008",
+          "question": "How do I apply a discount code?",
+          "answer": "In your cart, look for 'Apply Coupon' or 'Promo Code' field. Enter your code and tap 'Apply'. The discount will reflect in your total before payment.",
+          "keywords": ["discount", "coupon", "promo code", "offer"]
+        },
+        {
+          "id": "pay_009",
+          "question": "My payment failed but money was deducted",
+          "answer": "If payment fails, any deducted amount is typically refunded within 5-7 business days. Check your order status in 'My Orders'. Contact support with transaction ID if not refunded.",
+          "keywords": ["payment failed", "money deducted", "refund"]
+        },
+        {
+          "id": "pay_010",
+          "question": "Can I tip the staff?",
+          "answer": "Yes! You can add a tip when checking out. Choose a percentage (10%, 15%, 20%) or enter a custom amount. Tips go directly to the restaurant staff.",
+          "keywords": ["tip", "gratuity", "service charge"]
+        }
+      ]
+    },
+    "menu": {
+      "name": "Menu & Items",
+      "icon": "🍽️",
+      "questions": [
+        {
+          "id": "menu_001",
+          "question": "How do I view the menu?",
+          "answer": "After scanning the QR code, the menu opens automatically! Browse by categories, use filters (Veg/Non-Veg/Bestsellers), or search for specific items.",
+          "keywords": ["view menu", "see menu", "browse"]
+        },
+        {
+          "id": "menu_002",
+          "question": "Are prices shown inclusive of taxes?",
+          "answer": "Prices shown are base prices. Taxes (GST/VAT) and any service charges are added at checkout. You'll see the complete breakdown before confirming your order.",
+          "keywords": ["price", "tax", "gst", "inclusive"]
+        },
+        {
+          "id": "menu_003",
+          "question": "Can I see nutritional information?",
+          "answer": "Yes! Tap on any item to see detailed nutritional info including calories, allergens, ingredients, and dietary tags (Vegan, Gluten-Free, etc.).",
+          "keywords": ["nutrition", "calories", "allergens", "ingredients"]
+        },
+        {
+          "id": "menu_004",
+          "question": "What does 'Chef's Special' mean?",
+          "answer": "'Chef's Special' items are signature dishes recommended by the restaurant. They're usually unique recipes or customer favorites worth trying!",
+          "keywords": ["chef special", "recommended", "signature"]
+        },
+        {
+          "id": "menu_005",
+          "question": "How do I filter vegetarian items?",
+          "answer": "Use the filter chips at the top of the menu. Tap 'Veg' to show only vegetarian items. You can also combine filters like 'Veg + Bestsellers'.",
+          "keywords": ["vegetarian", "veg", "filter"]
+        },
+        {
+          "id": "menu_006",
+          "question": "Are menu prices accurate?",
+          "answer": "Yes! Prices are updated in real-time by the restaurant. If you notice any discrepancy, please inform your server or contact support.",
+          "keywords": ["price accuracy", "correct price"]
+        },
+        {
+          "id": "menu_007",
+          "question": "Can I save favorite items?",
+          "answer": "Yes! Tap the heart icon on any item to add it to your favorites. Access them quickly from 'My Favorites' in your profile.",
+          "keywords": ["favorites", "save items", "bookmark"]
+        },
+        {
+          "id": "menu_008",
+          "question": "What if an item is out of stock?",
+          "answer": "Out of stock items are marked as 'Unavailable' and can't be added to cart. The restaurant updates availability in real-time. Try similar items or ask your server.",
+          "keywords": ["out of stock", "unavailable", "not available"]
+        },
+        {
+          "id": "menu_009",
+          "question": "Do you have combo meals?",
+          "answer": "Many restaurants offer combo meals and meal deals! Look for 'Combos' or 'Meal Deals' category in the menu. These often provide better value.",
+          "keywords": ["combo", "meal deal", "package"]
+        },
+        {
+          "id": "menu_010",
+          "question": "Can I see food images?",
+          "answer": "Yes! Most items have high-quality images. Tap on an item to see larger photos and detailed descriptions. Some items may have multiple images.",
+          "keywords": ["images", "photos", "pictures"]
+        }
+      ]
+    },
+    "order_tracking": {
+      "name": "Order Tracking",
+      "icon": "📍",
+      "questions": [
+        {
+          "id": "track_001",
+          "question": "How do I track my order?",
+          "answer": "After placing your order, you'll see real-time status updates: Order Received → Preparing → Ready → Served. Check 'My Orders' or you'll get notifications for each stage.",
+          "keywords": ["track order", "order status", "where is my order"]
+        },
+        {
+          "id": "track_002",
+          "question": "How long will my order take?",
+          "answer": "Estimated preparation time is shown when you place the order (usually 15-30 minutes). Actual time may vary based on kitchen workload and item complexity.",
+          "keywords": ["how long", "wait time", "preparation time"]
+        },
+        {
+          "id": "track_003",
+          "question": "Can I cancel my order?",
+          "answer": "You can cancel within 2 minutes of placing the order. After that, the kitchen starts preparing and cancellation isn't possible. Contact your server for assistance.",
+          "keywords": ["cancel order", "cancel", "stop order"]
+        },
+        {
+          "id": "track_004",
+          "question": "My order is taking too long",
+          "answer": "We apologize for the delay! Check your order status in 'My Orders'. If it's been over 45 minutes, please inform your server or contact support with your order ID.",
+          "keywords": ["delay", "taking long", "slow"]
+        },
+        {
+          "id": "track_005",
+          "question": "Can I modify my order after placing it?",
+          "answer": "Modifications are possible within 2 minutes of ordering. After that, contact your server immediately - they may be able to help if the kitchen hasn't started preparing.",
+          "keywords": ["modify order", "change order", "edit order"]
+        },
+        {
+          "id": "track_006",
+          "question": "Will I get notifications?",
+          "answer": "Yes! You'll receive push notifications and SMS updates when: Order is confirmed, Preparation starts, Food is ready, and Order is served. Enable notifications for best experience.",
+          "keywords": ["notifications", "alerts", "updates"]
+        },
+        {
+          "id": "track_007",
+          "question": "What does 'Preparing' mean?",
+          "answer": "'Preparing' means the kitchen has started cooking your order. You can expect your food soon! The status will update to 'Ready' when it's done.",
+          "keywords": ["preparing", "cooking", "status"]
+        },
+        {
+          "id": "track_008",
+          "question": "Can I reorder the same items?",
+          "answer": "Yes! Go to 'My Orders', find your previous order, and tap 'Reorder'. All items will be added to your cart instantly. You can modify before placing.",
+          "keywords": ["reorder", "order again", "repeat order"]
+        },
+        {
+          "id": "track_009",
+          "question": "Where can I see my order history?",
+          "answer": "Tap on your profile icon and select 'My Orders'. You'll see all your past orders with dates, items, and amounts. You can also download receipts.",
+          "keywords": ["order history", "past orders", "previous orders"]
+        },
+        {
+          "id": "track_010",
+          "question": "My order status is not updating",
+          "answer": "Try refreshing the page or checking your internet connection. If the issue persists, the restaurant may be experiencing technical difficulties. Contact your server.",
+          "keywords": ["status not updating", "stuck", "not changing"]
+        }
+      ]
+    },
+    "account": {
+      "name": "Account & Profile",
+      "icon": "👤",
+      "questions": [
+        {
+          "id": "acc_001",
+          "question": "Do I need to create an account?",
+          "answer": "No! You can order as a guest. However, creating an account lets you save favorites, track orders, earn rewards, and get personalized recommendations.",
+          "keywords": ["account", "sign up", "register"]
+        },
+        {
+          "id": "acc_002",
+          "question": "How do I create an account?",
+          "answer": "Tap 'Sign Up' on the homepage. Enter your phone number, verify with OTP, and add your name and email. That's it! You can also sign up with Google.",
+          "keywords": ["create account", "sign up", "register"]
+        },
+        {
+          "id": "acc_003",
+          "question": "I forgot my password",
+          "answer": "Tap 'Forgot Password' on the login page. Enter your registered phone number or email. You'll receive an OTP to reset your password.",
+          "keywords": ["forgot password", "reset password", "can't login"]
+        },
+        {
+          "id": "acc_004",
+          "question": "How do I change my phone number?",
+          "answer": "Go to Profile → Settings → Phone Number. Enter your new number and verify with OTP. Your account data will be transferred to the new number.",
+          "keywords": ["change number", "update phone", "new number"]
+        },
+        {
+          "id": "acc_005",
+          "question": "Can I delete my account?",
+          "answer": "Yes. Go to Profile → Settings → Account → Delete Account. Note: This permanently deletes all your data, order history, and rewards. This action cannot be undone.",
+          "keywords": ["delete account", "remove account", "close account"]
+        },
+        {
+          "id": "acc_006",
+          "question": "How do I update my email?",
+          "answer": "Go to Profile → Settings → Email Address. Enter your new email and verify it with the OTP sent to that email.",
+          "keywords": ["change email", "update email"]
+        },
+        {
+          "id": "acc_007",
+          "question": "Is my data safe?",
+          "answer": "Absolutely! We use bank-grade encryption to protect your data. We never share your personal information with third parties without consent. Read our Privacy Policy for details.",
+          "keywords": ["data safety", "privacy", "security"]
+        },
+        {
+          "id": "acc_008",
+          "question": "Can I have multiple accounts?",
+          "answer": "Each phone number can have one account. If you need to switch accounts, log out and log in with a different number. We recommend using one account for better rewards tracking.",
+          "keywords": ["multiple accounts", "two accounts"]
+        },
+        {
+          "id": "acc_009",
+          "question": "How do I log out?",
+          "answer": "Go to Profile → Settings → Log Out. You'll be signed out from this device. Your data is saved and you can log back in anytime.",
+          "keywords": ["log out", "sign out", "logout"]
+        },
+        {
+          "id": "acc_010",
+          "question": "Can I use the same account on multiple devices?",
+          "answer": "Yes! Log in with your phone number on any device. Your favorites, orders, and rewards sync across all devices automatically.",
+          "keywords": ["multiple devices", "sync", "different phone"]
+        }
+      ]
+    },
+    "technical": {
+      "name": "Technical Issues",
+      "icon": "⚙️",
+      "questions": [
+        {
+          "id": "tech_001",
+          "question": "The app is not loading",
+          "answer": "Try these steps: 1) Check your internet connection 2) Clear browser cache 3) Try a different browser 4) Restart your phone. If issues persist, contact support.",
+          "keywords": ["not loading", "app not working", "won't load"]
+        },
+        {
+          "id": "tech_002",
+          "question": "I'm getting an error message",
+          "answer": "Please note the error code/message and contact support. Common fixes: Refresh the page, clear cache, check internet connection, or try again in a few minutes.",
+          "keywords": ["error", "error message", "something went wrong"]
+        },
+        {
+          "id": "tech_003",
+          "question": "The menu is not displaying properly",
+          "answer": "This might be a browser compatibility issue. Try: 1) Update your browser 2) Use Chrome/Safari 3) Clear cache and cookies 4) Disable ad blockers.",
+          "keywords": ["menu not showing", "display issue", "broken layout"]
+        },
+        {
+          "id": "tech_004",
+          "question": "I can't add items to cart",
+          "answer": "Ensure: 1) Item is available (not out of stock) 2) You have internet connection 3) Browser cookies are enabled. Try refreshing the page or clearing cache.",
+          "keywords": ["can't add to cart", "cart not working", "add button not working"]
+        },
+        {
+          "id": "tech_005",
+          "question": "My location is not being detected",
+          "answer": "Enable location permissions in your browser settings. On mobile: Settings → Browser → Permissions → Location → Allow. Then refresh the page.",
+          "keywords": ["location not working", "gps", "location permission"]
+        },
+        {
+          "id": "tech_006",
+          "question": "I'm not receiving OTP",
+          "answer": "Check: 1) Phone number is correct 2) SMS inbox (not spam) 3) Network signal. Wait 2-3 minutes. If still not received, tap 'Resend OTP' or try email OTP.",
+          "keywords": ["otp not received", "no otp", "verification code"]
+        },
+        {
+          "id": "tech_007",
+          "question": "The page keeps refreshing",
+          "answer": "This might be a browser issue. Try: 1) Clear cache and cookies 2) Disable browser extensions 3) Use incognito/private mode 4) Try a different browser.",
+          "keywords": ["page refreshing", "auto refresh", "keeps reloading"]
+        },
+        {
+          "id": "tech_008",
+          "question": "Images are not loading",
+          "answer": "Check your internet speed. On slow connections, images may take time. Try: 1) Refresh page 2) Switch to WiFi 3) Clear cache. Images are optimized but need stable connection.",
+          "keywords": ["images not loading", "pictures not showing", "no images"]
+        },
+        {
+          "id": "tech_009",
+          "question": "I can't log in",
+          "answer": "Verify: 1) Phone number/email is correct 2) Password is correct (case-sensitive) 3) Account exists. Use 'Forgot Password' if needed. Contact support if locked out.",
+          "keywords": ["can't login", "login failed", "login not working"]
+        },
+        {
+          "id": "tech_010",
+          "question": "The app is very slow",
+          "answer": "Slow performance can be due to: 1) Weak internet 2) Old device 3) Too many browser tabs. Try: Close other apps, clear cache, use WiFi, or update your browser.",
+          "keywords": ["slow", "laggy", "performance issue"]
+        }
+      ]
+    },
+    "rewards": {
+      "name": "Rewards & Offers",
+      "icon": "🎁",
+      "questions": [
+        {
+          "id": "rew_001",
+          "question": "How do I earn rewards?",
+          "answer": "Earn points on every order! Points = Order Value ÷ 10. Example: ₹500 order = 50 points. Redeem points for discounts. Also earn bonus points on special occasions!",
+          "keywords": ["earn rewards", "points", "loyalty"]
+        },
+        {
+          "id": "rew_002",
+          "question": "How do I redeem my points?",
+          "answer": "At checkout, you'll see 'Use Rewards Points' option. 100 points = ₹10 discount. Select how many points to redeem. Discount applies instantly to your total.",
+          "keywords": ["redeem points", "use points", "rewards redemption"]
+        },
+        {
+          "id": "rew_003",
+          "question": "Do my points expire?",
+          "answer": "Points are valid for 1 year from the date earned. You'll receive reminders before expiry. Keep ordering to keep earning and extending validity!",
+          "keywords": ["points expire", "validity", "expiration"]
+        },
+        {
+          "id": "rew_004",
+          "question": "Where can I see my rewards balance?",
+          "answer": "Go to Profile → Rewards. You'll see total points, points history, expiry dates, and available offers. Track your progress towards next reward tier!",
+          "keywords": ["check points", "rewards balance", "points balance"]
+        },
+        {
+          "id": "rew_005",
+          "question": "Are there any current offers?",
+          "answer": "Check 'Offers' section on homepage or in your profile. We have restaurant-specific offers, first-order discounts, festival specials, and referral bonuses!",
+          "keywords": ["offers", "discounts", "deals", "promotions"]
+        },
+        {
+          "id": "rew_006",
+          "question": "How does the referral program work?",
+          "answer": "Share your referral code with friends. When they place their first order, you both get ₹100 credit! Find your code in Profile → Refer & Earn. No limit on referrals!",
+          "keywords": ["referral", "refer friend", "invite"]
+        },
+        {
+          "id": "rew_007",
+          "question": "Can I combine multiple offers?",
+          "answer": "Usually, only one offer/coupon can be used per order. However, you can combine offers with rewards points redemption. Check offer terms for specific details.",
+          "keywords": ["combine offers", "multiple coupons", "stack discounts"]
+        },
+        {
+          "id": "rew_008",
+          "question": "My coupon code is not working",
+          "answer": "Check: 1) Code is typed correctly 2) Not expired 3) Minimum order value met 4) Applicable to your restaurant/items. Some codes are restaurant-specific or user-specific.",
+          "keywords": ["coupon not working", "promo code invalid", "code failed"]
+        },
+        {
+          "id": "rew_009",
+          "question": "Do I get birthday rewards?",
+          "answer": "Yes! Add your birthday in Profile → Settings. You'll receive a special birthday offer valid for the entire birthday month. Enjoy your special day with us! 🎂",
+          "keywords": ["birthday", "birthday offer", "special occasion"]
+        },
+        {
+          "id": "rew_010",
+          "question": "What are reward tiers?",
+          "answer": "We have 3 tiers: Silver (0-999 points), Gold (1000-4999), Platinum (5000+). Higher tiers get better rewards, exclusive offers, and priority support!",
+          "keywords": ["tiers", "levels", "membership"]
+        }
+      ]
+    },
+    "restaurant": {
+      "name": "Restaurant Info",
+      "icon": "🏪",
+      "questions": [
+        {
+          "id": "rest_001",
+          "question": "How do I find restaurants near me?",
+          "answer": "Tap 'Find Food' on homepage. Allow location access or enter your area manually. You'll see all nearby restaurants with ratings, cuisines, and distance.",
+          "keywords": ["find restaurant", "nearby", "search restaurant"]
+        },
+        {
+          "id": "rest_002",
+          "question": "Can I see restaurant ratings?",
+          "answer": "Yes! Each restaurant shows star rating (1-5), total reviews, and popular dishes. Tap on restaurant to see detailed reviews from other customers.",
+          "keywords": ["ratings", "reviews", "restaurant rating"]
+        },
+        {
+          "id": "rest_003",
+          "question": "What are restaurant timings?",
+          "answer": "Restaurant hours are shown on their profile page. Most restaurants update their availability in real-time. Closed restaurants won't accept orders.",
+          "keywords": ["timings", "hours", "open time", "closing time"]
+        },
+        {
+          "id": "rest_004",
+          "question": "Can I call the restaurant?",
+          "answer": "Yes! Restaurant phone number is available on their profile page. Tap the phone icon to call directly. Use this for special requests or queries.",
+          "keywords": ["call restaurant", "phone number", "contact restaurant"]
+        },
+        {
+          "id": "rest_005",
+          "question": "How do I know if a restaurant is open?",
+          "answer": "Open restaurants show 'Open Now' badge in green. Closed ones show 'Closed' in red with opening time. You can only order from open restaurants.",
+          "keywords": ["restaurant open", "is open", "opening hours"]
+        },
+        {
+          "id": "rest_006",
+          "question": "Can I see restaurant photos?",
+          "answer": "Yes! Restaurant profile has photos of ambiance, dishes, and menu. Many photos are uploaded by customers. Tap to view full gallery.",
+          "keywords": ["restaurant photos", "pictures", "images"]
+        },
+        {
+          "id": "rest_007",
+          "question": "What cuisines are available?",
+          "answer": "Filter restaurants by cuisine: Indian, Chinese, Italian, Mexican, Continental, Fast Food, Desserts, and more! Use cuisine filters in restaurant search.",
+          "keywords": ["cuisine", "food type", "category"]
+        },
+        {
+          "id": "rest_008",
+          "question": "Can I save favorite restaurants?",
+          "answer": "Yes! Tap the heart icon on any restaurant to add to favorites. Access them quickly from Profile → Favorite Restaurants for easy reordering.",
+          "keywords": ["favorite restaurant", "save restaurant", "bookmark"]
+        },
+        {
+          "id": "rest_009",
+          "question": "How is delivery time calculated?",
+          "answer": "For dine-in, preparation time is shown (15-30 min usually). For delivery, it includes prep time + distance. Actual time may vary based on kitchen load.",
+          "keywords": ["delivery time", "prep time", "how long"]
+        },
+        {
+          "id": "rest_010",
+          "question": "Can I see restaurant menu without scanning QR?",
+          "answer": "Yes! Browse restaurants via 'Find Food', tap any restaurant, and view their full menu. You can order for delivery or save for later dine-in.",
+          "keywords": ["view menu", "see menu without qr", "browse menu"]
+        }
+      ]
+    },
+    "feedback": {
+      "name": "Feedback & Support",
+      "icon": "💬",
+      "questions": [
+        {
+          "id": "feed_001",
+          "question": "How do I rate my order?",
+          "answer": "After your order is delivered/served, you'll get a rating prompt. Rate food quality, service, and overall experience (1-5 stars). Add comments if you wish!",
+          "keywords": ["rate order", "review", "feedback"]
+        },
+        {
+          "id": "feed_002",
+          "question": "Can I report an issue with my order?",
+          "answer": "Yes! Go to My Orders → Select order → Report Issue. Choose issue type (wrong item, quality, missing item, etc.). Support will contact you within 24 hours.",
+          "keywords": ["report issue", "complaint", "problem"]
+        },
+        {
+          "id": "feed_003",
+          "question": "How do I contact customer support?",
+          "answer": "Multiple ways: 1) Live Chat (this!) 2) Email: support@ordyrr.com 3) Phone: +91-XXXX-XXXXXX 4) In-app support ticket. We're here 24/7!",
+          "keywords": ["contact support", "customer service", "help"]
+        },
+        {
+          "id": "feed_004",
+          "question": "What if I received wrong order?",
+          "answer": "Immediately contact your server or tap 'Report Issue' in My Orders. Provide order ID and photo if possible. We'll resolve it ASAP - replacement or refund.",
+          "keywords": ["wrong order", "incorrect order", "wrong item"]
+        },
+        {
+          "id": "feed_005",
+          "question": "Can I get a refund?",
+          "answer": "Refunds are processed for: Cancelled orders (within 2 min), wrong items, quality issues, or non-delivery. Refund takes 5-7 business days to reflect in your account.",
+          "keywords": ["refund", "money back", "return"]
+        },
+        {
+          "id": "feed_006",
+          "question": "How long does support take to respond?",
+          "answer": "Live chat: Instant! Email: Within 24 hours. Phone: Immediate. Support tickets: 24-48 hours. For urgent issues, use live chat or phone.",
+          "keywords": ["response time", "how long", "support time"]
+        },
+        {
+          "id": "feed_007",
+          "question": "Can I edit my review?",
+          "answer": "Yes! Go to My Orders → Select order → View Review → Edit. You can update rating and comments within 30 days of posting. Be fair and honest!",
+          "keywords": ["edit review", "change rating", "update review"]
+        },
+        {
+          "id": "feed_008",
+          "question": "What happens to my feedback?",
+          "answer": "Your feedback helps us improve! Restaurant owners see ratings and work on issues. We analyze feedback to enhance app features. Your voice matters!",
+          "keywords": ["feedback impact", "what happens", "does it help"]
+        },
+        {
+          "id": "feed_009",
+          "question": "Can I suggest new features?",
+          "answer": "Absolutely! We love user suggestions. Email us at feedback@ordyrr.com or use 'Suggest Feature' in app settings. Best suggestions get implemented!",
+          "keywords": ["suggest feature", "new feature", "idea"]
+        },
+        {
+          "id": "feed_010",
+          "question": "How do I report a bug?",
+          "answer": "Found a bug? Help us fix it! Go to Settings → Report Bug. Describe the issue, add screenshots if possible. Our tech team will investigate immediately.",
+          "keywords": ["bug", "report bug", "technical issue"]
+        }
+      ]
+    },
+    "safety": {
+      "name": "Safety & Hygiene",
+      "icon": "🛡️",
+      "questions": [
+        {
+          "id": "safe_001",
+          "question": "Is contactless ordering safe?",
+          "answer": "Yes! QR ordering minimizes physical contact. No need to touch physical menus or wait for servers. Order, pay, and track - all from your phone. Completely safe!",
+          "keywords": ["contactless", "safe", "covid safe"]
+        },
+        {
+          "id": "safe_002",
+          "question": "How do you ensure food hygiene?",
+          "answer": "Partner restaurants follow strict hygiene protocols: Regular sanitization, health certificates, quality checks, and hygiene ratings. We audit restaurants regularly.",
+          "keywords": ["hygiene", "food safety", "cleanliness"]
+        },
+        {
+          "id": "safe_003",
+          "question": "Can I see restaurant hygiene ratings?",
+          "answer": "Yes! Restaurant profiles show hygiene rating (A+, A, B, C). Based on: Kitchen cleanliness, food handling, staff hygiene, and regular inspections.",
+          "keywords": ["hygiene rating", "cleanliness rating", "safety score"]
+        },
+        {
+          "id": "safe_004",
+          "question": "What if I have food allergies?",
+          "answer": "IMPORTANT: Always inform restaurant staff about allergies! Check item ingredients in menu. Add allergy info in special instructions. We take allergies seriously.",
+          "keywords": ["allergies", "food allergy", "allergen"]
+        },
+        {
+          "id": "safe_005",
+          "question": "Is my payment information secure?",
+          "answer": "100% secure! We use PCI-DSS compliant payment gateways with 256-bit encryption. Card details are never stored. All transactions are monitored for fraud.",
+          "keywords": ["payment security", "card safety", "secure payment"]
+        },
+        {
+          "id": "safe_006",
+          "question": "How is my personal data protected?",
+          "answer": "We follow strict data protection laws (GDPR compliant). Your data is encrypted, never sold to third parties, and used only for service improvement. Read our Privacy Policy.",
+          "keywords": ["data protection", "privacy", "personal information"]
+        },
+        {
+          "id": "safe_007",
+          "question": "Can I report food quality issues?",
+          "answer": "Yes, please do! Go to My Orders → Report Issue → Food Quality. Describe the problem with photos if possible. We'll investigate and take appropriate action.",
+          "keywords": ["food quality", "bad food", "quality issue"]
+        },
+        {
+          "id": "safe_008",
+          "question": "What if I get food poisoning?",
+          "answer": "We're sorry to hear that! Seek medical attention immediately. Then contact support with order details and medical report. We'll investigate with the restaurant urgently.",
+          "keywords": ["food poisoning", "sick", "illness"]
+        },
+        {
+          "id": "safe_009",
+          "question": "Are restaurants verified?",
+          "answer": "Yes! All restaurants are verified with: FSSAI license, business registration, hygiene inspection, and background checks. Only certified restaurants partner with us.",
+          "keywords": ["verified", "certified", "licensed"]
+        },
+        {
+          "id": "safe_010",
+          "question": "How do I know food is freshly prepared?",
+          "answer": "Orders go directly to kitchen in real-time. Track preparation status live. Most restaurants prepare food only after receiving your order. No pre-cooked meals!",
+          "keywords": ["fresh food", "freshly prepared", "not pre-cooked"]
+        }
+      ]
+    },
+    "general": {
+      "name": "General Questions",
+      "icon": "ℹ️",
+      "questions": [
+        {
+          "id": "gen_001",
+          "question": "What is Ordyrr?",
+          "answer": "Ordyrr is India's fastest dine-in ordering platform! Scan QR codes at restaurant tables, browse menus, order food, and pay - all from your phone. No app download needed!",
+          "keywords": ["what is ordyrr", "about", "ordyrr"]
+        },
+        {
+          "id": "gen_002",
+          "question": "Which cities are you available in?",
+          "answer": "We're expanding rapidly! Currently in 50+ cities across India. Check 'Find Food' to see restaurants in your area. New cities added every week!",
+          "keywords": ["cities", "locations", "where available"]
+        },
+        {
+          "id": "gen_003",
+          "question": "Is Ordyrr free to use?",
+          "answer": "Yes! Ordyrr is completely free for customers. No subscription, no hidden charges. You only pay for your food. We don't add any platform fees!",
+          "keywords": ["free", "cost", "charges"]
+        },
+        {
+          "id": "gen_004",
+          "question": "Do I need internet to use Ordyrr?",
+          "answer": "Yes, you need an active internet connection (WiFi or mobile data) to browse menus and place orders. Most restaurants offer free WiFi for customers.",
+          "keywords": ["internet", "wifi", "data"]
+        },
+        {
+          "id": "gen_005",
+          "question": "Can I use Ordyrr for takeaway?",
+          "answer": "Yes! Many restaurants support takeaway orders. Select 'Takeaway' option when ordering. You'll get notification when order is ready for pickup.",
+          "keywords": ["takeaway", "pickup", "take out"]
+        },
+        {
+          "id": "gen_006",
+          "question": "Is Ordyrr available for home delivery?",
+          "answer": "Currently, Ordyrr focuses on dine-in and takeaway. Home delivery is coming soon! Meanwhile, use our partner delivery services for home orders.",
+          "keywords": ["delivery", "home delivery", "deliver"]
+        },
+        {
+          "id": "gen_007",
+          "question": "How does Ordyrr make money?",
+          "answer": "We charge a small commission to restaurants (not customers!). This helps us maintain the platform, add features, and provide support. Win-win for everyone!",
+          "keywords": ["business model", "revenue", "how make money"]
+        },
+        {
+          "id": "gen_008",
+          "question": "Can restaurants join Ordyrr?",
+          "answer": "Yes! We're always onboarding new restaurants. Visit ordyrr.com/partner or email partners@ordyrr.com. Benefits: Increase orders, reduce wait time, digital payments!",
+          "keywords": ["restaurant partner", "join ordyrr", "become partner"]
+        },
+        {
+          "id": "gen_009",
+          "question": "What languages is Ordyrr available in?",
+          "answer": "Currently: English and Hindi. Coming soon: Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, and more! Change language in Settings → Language.",
+          "keywords": ["language", "hindi", "regional language"]
+        },
+        {
+          "id": "gen_010",
+          "question": "How can I stay updated with Ordyrr?",
+          "answer": "Follow us on social media! Instagram: @ordyrr, Twitter: @ordyrr_official, Facebook: Ordyrr. Also enable push notifications for offers and updates!",
+          "keywords": ["social media", "updates", "news", "follow"]
+        }
+      ]
+    }
+  },
+  "quickReplies": [
+    "How do I scan QR?",
+    "Track my order",
+    "Payment methods",
+    "Cancel order",
+    "Contact support",
+    "View offers",
+    "Report issue",
+    "Account help"
+  ],
+  "greetings": [
+    "👋 Hi! How can I help you today?",
+    "Hello! Welcome to Ordyrr Support! 🍽️",
+    "Hey there! Need help with something?",
+    "Hi! I'm here to assist you with any questions! 💚"
+  ],
+  "fallback": [
+    "I'm not sure I understand. Could you rephrase that?",
+    "Hmm, I didn't quite get that. Can you try asking differently?",
+    "I'm still learning! Could you be more specific?",
+    "Let me connect you with a human agent for better assistance."
+  ]
+}

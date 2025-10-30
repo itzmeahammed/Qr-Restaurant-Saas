@@ -12,6 +12,7 @@ import CustomerAuth from './pages/CustomerAuth'
 import RestaurantDiscovery from './pages/RestaurantDiscovery'
 import Auth from './pages/Auth'
 import CustomerMenu from './pages/CustomerMenu'
+import ItemDetail from './pages/ItemDetail'
 import StaffDashboard from './pages/StaffDashboard'
 import OwnerDashboard from './pages/OwnerDashboard'
 import SuperAdminPanel from './pages/SuperAdminPanel'
@@ -22,6 +23,7 @@ import CustomerProfile from './pages/CustomerProfile'
 import CustomerOrders from './pages/CustomerOrders'
 import CustomerFavorites from './pages/CustomerFavorites'
 import CustomerSettings from './pages/CustomerSettings'
+import RestaurantDetailsPage from './pages/RestaurantDetailsPage'
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -208,6 +210,13 @@ function App() {
             </CustomerNavigationProvider>
           } />
           
+          {/* Item Detail Page */}
+          <Route path="/menu/:restaurantId/item/:itemId" element={
+            <CustomerNavigationProvider>
+              <ItemDetail />
+            </CustomerNavigationProvider>
+          } />
+          
           {/* Protected Routes */}
           <Route path="/staff" element={
             <ProtectedRoute allowedRoles={['staff']}>
@@ -233,6 +242,14 @@ function App() {
             <ProtectedRoute allowedRoles={['super_admin']}>
               <ConfirmationProvider>
                 <SuperAdminPanel />
+              </ConfirmationProvider>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/admin/restaurant/:restaurantId" element={
+            <ProtectedRoute allowedRoles={['super_admin']}>
+              <ConfirmationProvider>
+                <RestaurantDetailsPage />
               </ConfirmationProvider>
             </ProtectedRoute>
           } />
