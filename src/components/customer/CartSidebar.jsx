@@ -22,8 +22,48 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
   const [hasUsedFirstOrderDiscount, setHasUsedFirstOrderDiscount] = useState(false)
   const [showDiscountPopup, setShowDiscountPopup] = useState(false)
   const [currentOffer, setCurrentOffer] = useState(null)
+  const [useOrdyrrCoins, setUseOrdyrrCoins] = useState(false)
+  const [availableCoins, setAvailableCoins] = useState(0)
+  const [tipAmount, setTipAmount] = useState(0)
+  const [customTip, setCustomTip] = useState('')
+  const [showCustomTip, setShowCustomTip] = useState(false)
   const hasShownPopup = useRef(false)
   const popupTimeout = useRef(null)
+
+  // Fetch customer's Ordyrr Coins balance
+  useEffect(() => {
+    const fetchCoinsBalance = async () => {
+      if (currentCustomer?.id && restaurantId) {
+        try {
+          console.log('💰 [CartSidebar] Fetching coins for customer:', currentCustomer.id, 'restaurant:', restaurantId)
+          const { data, error } = await supabase
+            .from('loyalty_points')
+            .select('points_earned, points_redeemed')
+            .eq('customer_id', currentCustomer.id)
+            .eq('restaurant_id', restaurantId)
+          
+          if (error) {
+            console.error('❌ Error fetching coins:', error)
+            return
+          }
+          
+          if (data) {
+            // Calculate total points: sum of all earned points minus redeemed points
+            const totalCoins = (data || []).reduce((total, transaction) => {
+              const earned = transaction.points_earned || 0
+              const redeemed = transaction.points_redeemed || 0
+              return total + earned - redeemed
+            }, 0)
+            setAvailableCoins(totalCoins)
+            console.log('✅ [CartSidebar] Available Ordyrr Coins:', totalCoins, 'from', data.length, 'transactions')
+          }
+        } catch (error) {
+          console.error('❌ Exception fetching coins balance:', error)
+        }
+      }
+    }
+    fetchCoinsBalance()
+  }, [currentCustomer, restaurantId])
 
   // Check if customer has used the first order offer
   useEffect(() => {
@@ -96,6 +136,26 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
     }
   }
   
+  // Calculate Ordyrr Coins discount
+  let coinsDiscount = 0
+  let coinsUsed = 0
+  if (useOrdyrrCoins && isAuthenticated && availableCoins > 0 && subtotal >= 100) {
+    // Max discount is 5% of subtotal
+    const maxCoinsDiscount = subtotal * 0.05
+    // Max 500 coins per order (₹50)
+    const maxCoinsAllowed = 500
+    // Convert available coins to rupees (100 coins = ₹10)
+    const maxCoinsValue = Math.min(availableCoins, maxCoinsAllowed) / 10
+    // Take the minimum of available coins value and max allowed discount
+    coinsDiscount = Math.min(maxCoinsValue, maxCoinsDiscount)
+    // Calculate coins used (₹1 = 10 coins)
+    coinsUsed = Math.floor(coinsDiscount * 10)
+  }
+  
+  // Calculate platform fee and total with tip
+  const platformFee = subtotal * 0.015
+  const total = subtotal + platformFee - discount - coinsDiscount + tipAmount
+  
   // Reset popup flag when cart sidebar opens
   useEffect(() => {
     if (isOpen) {
@@ -123,9 +183,6 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
       }
     }
   }, [])
-  
-  const platformFee = subtotal * 0.015 // 1.5% platform fee
-  const total = subtotal + platformFee - discount + selectedTip
 
   // Get suggested items (items not in cart)
   const cartItemIds = cart.map(item => item.id)
@@ -274,6 +331,74 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
                     >
                       + Add more items
                     </button>
+
+                    {/* Tip Section */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <h4 className="text-xs font-bold mb-2" style={{ color: DARK_TEXT }}>
+                        Add Tip for Delivery Partner
+                      </h4>
+                      <div className="flex gap-2 mb-2">
+                        {[10, 20, 50].map((amount) => (
+                          <button
+                            key={amount}
+                            onClick={() => {
+                              setTipAmount(amount)
+                              setShowCustomTip(false)
+                              setCustomTip('')
+                            }}
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                              tipAmount === amount && !showCustomTip
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            ₹{amount}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setShowCustomTip(true)
+                            setTipAmount(0)
+                          }}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                            showCustomTip
+                              ? 'bg-green-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Custom
+                        </button>
+                      </div>
+                      
+                      {showCustomTip && (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={customTip}
+                            onChange={(e) => setCustomTip(e.target.value)}
+                            placeholder="Enter amount"
+                            className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
+                          />
+                          <button
+                            onClick={() => {
+                              const amount = parseInt(customTip)
+                              if (amount > 0) {
+                                setTipAmount(amount)
+                              }
+                            }}
+                            className="px-4 py-2 text-xs font-bold bg-green-600 text-white rounded-lg"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      )}
+                      
+                      {tipAmount > 0 && !showCustomTip && (
+                        <p className="text-[9px] text-green-700 font-medium mt-1">
+                          ✓ Tip of ₹{tipAmount} will be added to your bill
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* You Might Also Like - Horizontal Scrolling */}
@@ -337,6 +462,50 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
             {/* Checkout Section */}
             {cart.length > 0 && (
               <div className="bg-white border-t p-4">
+                {/* Ordyrr Coins - Only for logged in users */}
+                {isAuthenticated && availableCoins > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">🪙</span>
+                        <div>
+                          <p className="text-[11px] font-semibold text-gray-800">
+                            Use Ordyrr Coins
+                          </p>
+                          <p className="text-[9px] text-gray-600">
+                            {availableCoins} coins (₹{(availableCoins / 10).toFixed(2)})
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setUseOrdyrrCoins(!useOrdyrrCoins)}
+                        className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${
+                          useOrdyrrCoins ? 'bg-green-600' : 'bg-gray-300'
+                        }`}
+                        disabled={subtotal < 100}
+                      >
+                        <span
+                          className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+                            useOrdyrrCoins ? 'translate-x-4' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    {subtotal < 100 && (
+                      <p className="text-[9px] text-red-600 font-medium mt-1">
+                        ⚠️ Min ₹100 order required
+                      </p>
+                    )}
+                    
+                    {useOrdyrrCoins && subtotal >= 100 && (
+                      <p className="text-[9px] text-green-700 font-medium mt-1">
+                        ✓ Saving ₹{coinsDiscount.toFixed(2)} ({coinsUsed} coins)
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Bill Summary */}
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
@@ -348,15 +517,21 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
                     <span style={{ color: DARK_TEXT }}>₹{platformFee.toFixed(0)}</span>
                   </div>
                   {discount > 0 && (
-                    <div className="flex justify-between text-xs font-semibold" style={{ color: ACTION_GREEN }}>
-                      <span>🎉 First Order Discount (10%)</span>
-                      <span>-₹{discount.toFixed(0)}</span>
-                    </div>
-                  )}
-                  {selectedTip > 0 && (
+                  <div className="flex justify-between text-xs font-semibold" style={{ color: ACTION_GREEN }}>
+                    <span>🎉 First Order Discount (10%)</span>
+                    <span>-₹{discount.toFixed(0)}</span>
+                  </div>
+                )}
+                {coinsDiscount > 0 && (
+                  <div className="flex justify-between text-xs font-semibold text-yellow-600">
+                    <span>🪙 Ordyrr Coins ({coinsUsed})</span>
+                    <span>-₹{coinsDiscount.toFixed(0)}</span>
+                  </div>
+                )}
+                {tipAmount > 0 && (
                     <div className="flex justify-between text-xs" style={{ color: MEDIUM_GRAY }}>
-                      <span>Tip</span>
-                      <span style={{ color: DARK_TEXT }}>₹{selectedTip}</span>
+                      <span>💝 Tip for Staff</span>
+                      <span style={{ color: DARK_TEXT }}>₹{tipAmount}</span>
                     </div>
                   )}
                   <div className="border-t pt-2 mt-2">
@@ -370,7 +545,7 @@ const CartSidebar = ({ isOpen, onClose, onCheckout, selectedTip = 0, currentCust
                 {/* Checkout Button */}
                 <motion.button
                   whileTap={{ scale: 0.98 }}
-                  onClick={onCheckout}
+                  onClick={() => onCheckout(tipAmount)}
                   className="w-full text-black py-3.5 font-bold text-sm uppercase flex items-center justify-center gap-2"
                   style={{ 
                     backgroundColor: '#00C853',

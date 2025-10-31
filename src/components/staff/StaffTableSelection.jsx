@@ -142,32 +142,32 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Professional Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Table Management</h2>
-            <p className="text-orange-100 text-sm">Reserve tables and manage customer seating</p>
+            <h2 className="text-xl font-semibold text-gray-900">Table Management</h2>
+            <p className="text-gray-600 text-sm">Reserve tables and manage customer seating</p>
           </div>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
           )}
         </div>
         
-        {/* Tab Navigation */}
+        {/* Professional Tab Navigation */}
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => setActiveTab('available')}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               activeTab === 'available'
-                ? 'bg-white text-orange-600'
-                : 'bg-white/20 text-white hover:bg-white/30'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
             }`}
           >
             Available ({availableTables.length})
@@ -176,8 +176,8 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
             onClick={() => setActiveTab('reserved')}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               activeTab === 'reserved'
-                ? 'bg-white text-orange-600'
-                : 'bg-white/20 text-white hover:bg-white/30'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
             }`}
           >
             Reserved ({reservedTables.length})
@@ -188,8 +188,8 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
       <div className="p-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-            <span className="ml-3 text-neutral-600">Loading available tables...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+            <span className="ml-3 text-gray-600">Loading tables...</span>
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -202,12 +202,12 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                 className="space-y-4"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-neutral-900">
+                  <h3 className="text-lg font-semibold text-gray-900">
                     {activeTab === 'available' ? 'Available Tables' : 'Reserved Tables'}
                   </h3>
                   <button
                     onClick={loadAllTables}
-                    className="text-sm text-orange-600 hover:text-orange-800 font-medium"
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
                     Refresh
                   </button>
@@ -218,30 +218,32 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                   <>
                     {availableTables.length === 0 ? (
                       <div className="text-center py-12">
-                        <TableCellsIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-neutral-900 mb-2">No Available Tables</h3>
-                        <p className="text-neutral-600">All tables are currently reserved. Please check back later.</p>
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                          <TableCellsIcon className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Available Tables</h3>
+                        <p className="text-gray-600">All tables are currently reserved.</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {availableTables.map((table) => (
                           <motion.button
                             key={table.id}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             onClick={() => handleTableSelect(table)}
-                            className="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-left hover:bg-green-100 hover:border-green-300 transition-all"
+                            className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md hover:border-green-300 transition-all"
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-neutral-900">Table {table.table_number}</h4>
-                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                              <h4 className="font-semibold text-gray-900">Table {table.table_number}</h4>
+                              <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">
                                 {table.capacity} seats
                               </span>
                             </div>
-                            <p className="text-sm text-neutral-700">{table.location}</p>
+                            <p className="text-sm text-gray-600">{table.location}</p>
                             <div className="mt-2 flex items-center gap-1">
                               <CheckIcon className="h-4 w-4 text-green-600" />
-                              <span className="text-xs font-medium text-green-700">Available</span>
+                              <span className="text-xs font-medium text-green-600">Available</span>
                             </div>
                           </motion.button>
                         ))}
@@ -255,9 +257,11 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                   <>
                     {reservedTables.length === 0 ? (
                       <div className="text-center py-12">
-                        <TableCellsIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-neutral-900 mb-2">No Reserved Tables</h3>
-                        <p className="text-neutral-600">All tables are currently available for reservation.</p>
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                          <TableCellsIcon className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reserved Tables</h3>
+                        <p className="text-gray-600">All tables are currently available.</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -266,15 +270,15 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                             key={table.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4"
+                            className="bg-amber-50 border border-amber-200 rounded-lg p-4"
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-neutral-900">Table {table.table_number}</h4>
-                              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
+                              <h4 className="font-semibold text-gray-900">Table {table.table_number}</h4>
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">
                                 {table.capacity} seats
                               </span>
                             </div>
-                            <p className="text-sm text-neutral-700 mb-2">{table.location}</p>
+                            <p className="text-sm text-gray-600 mb-2">{table.location}</p>
                             
                             {/* Customer Info */}
                             {table.current_session && (
@@ -303,15 +307,13 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                                 <span className="text-xs font-medium text-orange-700">Reserved</span>
                               </div>
                               
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                              <button
                                 onClick={() => handleUnreserveTable(table)}
                                 disabled={submitting}
-                                className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                                className="w-full mt-3 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50"
                               >
-                                {submitting ? 'Releasing...' : 'Release Table'}
-                              </motion.button>
+                                Release Table
+                              </button>
                             </div>
                           </motion.div>
                         ))}
@@ -329,58 +331,58 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                 className="space-y-6"
               >
                 {/* Selected Table Info */}
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <TableCellsIcon className="h-5 w-5 text-orange-600" />
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <TableCellsIcon className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-neutral-900">Table {selectedTable.table_number}</h4>
-                      <p className="text-sm text-neutral-600">{selectedTable.capacity} seats • {selectedTable.location}</p>
+                      <h4 className="font-semibold text-gray-900">Table {selectedTable.table_number}</h4>
+                      <p className="text-sm text-gray-600">{selectedTable.capacity} seats • {selectedTable.location}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Customer Information Form */}
                 <div>
-                  <h3 className="text-lg font-semibold text-neutral-900 mb-4">Customer Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Customer Name *
                       </label>
                       <input
                         type="text"
                         value={customerInfo.name}
                         onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter customer name"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Phone Number (Optional)
                       </label>
                       <input
                         type="tel"
                         value={customerInfo.phone}
                         onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter phone number"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email (Optional)
                       </label>
                       <input
                         type="email"
                         value={customerInfo.email}
                         onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter email address"
                       />
                     </div>
@@ -391,14 +393,14 @@ const StaffTableSelection = ({ restaurantId, staffId, onTableReserved, onClose }
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleCancel}
-                    className="flex-1 px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleReserveTable}
                     disabled={submitting || !customerInfo.name.trim()}
-                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? 'Reserving...' : 'Reserve Table'}
                   </button>

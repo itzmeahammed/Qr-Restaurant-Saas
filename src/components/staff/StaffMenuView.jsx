@@ -131,150 +131,105 @@ const StaffMenuView = ({ restaurantId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        {/* Mobile-First Header */}
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Professional Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
+          className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
         >
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 sm:p-6 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <motion.div 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring" }}
-                className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/30"
-              >
-                <BookOpenIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-              </motion.div>
-              <div className="flex-1">
-                <motion.h1 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-xl sm:text-2xl font-bold mb-1"
-                >
-                  📖 Restaurant Menu
-                </motion.h1>
-                <motion.p 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-sm sm:text-base text-white/90"
-                >
-                  Browse all menu items and categories
-                </motion.p>
+          <div className="bg-white border-b border-gray-200 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <BookOpenIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    Restaurant Menu
+                  </h1>
+                  <p className="text-sm text-gray-600">
+                    Browse all menu items and categories
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <motion.p 
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-xs sm:text-sm text-white/80 mb-1"
-                >
-                  Total Items
-                </motion.p>
-                <motion.p 
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="text-2xl sm:text-3xl font-bold"
-                >
-                  {menuItems.length}
-                </motion.p>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Total Items</p>
+                <p className="text-2xl font-semibold text-gray-900">{menuItems.length}</p>
               </div>
             </div>
 
-            {/* Mobile-First Search Bar */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 }}
-              className="relative"
-            >
-              <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/70" />
+            {/* Professional Search Bar */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search menu items..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 sm:py-4 bg-white/20 backdrop-blur-sm border-2 border-white/30 rounded-xl placeholder-white/70 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
-            </motion.div>
+            </div>
           </div>
 
-          {/* Mobile-First Category Tabs */}
+          {/* Professional Category Tabs */}
           <div className="p-4 sm:p-6 bg-white">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-              <motion.button
-                key="all"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={() => setSelectedCategory('all')}
-                className={`flex items-center gap-2 px-4 py-2 sm:py-3 rounded-xl font-bold whitespace-nowrap transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
                   selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                 }`}
               >
                 <FunnelIcon className="h-4 w-4" />
-                <span className="text-sm sm:text-base">All Items</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'
+                <span className="text-sm">All Items</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
                 }`}>
                   {menuItems.length}
                 </span>
-              </motion.button>
+              </button>
               
-              {categories.map((category, index) => (
-                <motion.button
+              {categories.map((category) => (
+                <button
                   key={category.id}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7 + index * 0.05 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`flex items-center gap-2 px-4 py-2 sm:py-3 rounded-xl font-bold whitespace-nowrap transition-all duration-200 ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
                     selectedCategory === category.id
-                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
-                  <span className="text-sm sm:text-base">{category.name}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    selectedCategory === category.id ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'
+                  <span className="text-sm">{category.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    selectedCategory === category.id ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
                   }`}>
                     {menuItems.filter(item => item.category_id === category.id).length}
                   </span>
-                </motion.button>
+                </button>
               ))}
           </div>
         </div>
       </motion.div>
 
-      {/* Mobile-First Menu Items Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      {/* Professional Menu Items Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredItems.map((item, index) => (
           <motion.div
             key={item.id}
-            layout
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            whileHover={{ y: -4, scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer"
             onClick={() => handleItemClick(item)}
           >
-            {/* Enhanced Item Image */}
-            <div className="relative w-full h-40 sm:h-48 bg-gradient-to-br from-orange-100 to-orange-200 overflow-hidden">
+            {/* Professional Item Image */}
+            <div className="relative w-full h-40 sm:h-48 bg-gray-100 overflow-hidden">
               {item.image_url ? (
                 <img
                   src={item.image_url}
@@ -322,56 +277,44 @@ const StaffMenuView = ({ restaurantId }) => {
                 </motion.span>
               </div>
             </div>    
-              {/* Item Details */}
-              <div className="p-4 sm:p-5 space-y-3">
+              {/* Professional Item Details */}
+              <div className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-gray-900 text-base sm:text-lg line-clamp-2 group-hover:text-orange-600 transition-colors">
+                  <h3 className="font-semibold text-gray-900 text-base line-clamp-2">
                     {item.name}
                   </h3>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="p-2 bg-orange-100 text-orange-600 rounded-full hover:bg-orange-200 transition-colors flex-shrink-0"
-                  >
+                  <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0">
                     <EyeIcon className="h-4 w-4" />
-                  </motion.button>
+                  </button>
                 </div>
                 
-                <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">
+                <p className="text-gray-600 text-sm line-clamp-2">
                   {item.description || 'No description available'}
                 </p>
                 
                 {item.preparation_time && (
                   <div className="flex items-center gap-2 text-gray-500">
                     <ClockIcon className="h-4 w-4" />
-                    <span className="text-sm font-medium">{item.preparation_time} minutes</span>
+                    <span className="text-sm">{item.preparation_time} min</span>
                   </div>
                 )}
                 
-                {/* Enhanced Tags */}
+                {/* Professional Tags */}
                 <div className="flex flex-wrap gap-2">
-                  <span className="bg-gradient-to-r from-orange-100 to-orange-200 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-300">
+                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
                     {item.categories?.name || 'Uncategorized'}
                   </span>
                   
                   {item.is_vegetarian && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="bg-gradient-to-r from-green-100 to-green-200 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-300"
-                    >
-                      🌱 Vegetarian
-                    </motion.span>
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+                      Vegetarian
+                    </span>
                   )}
                   
                   {item.is_spicy && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="bg-gradient-to-r from-red-100 to-red-200 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-300"
-                    >
-                      🌶️ Spicy
-                    </motion.span>
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">
+                      Spicy
+                    </span>
                   )}
                 </div>
               </div>
@@ -379,51 +322,27 @@ const StaffMenuView = ({ restaurantId }) => {
           ))}
         </div>
 
-        {/* Enhanced Empty State */}
+        {/* Professional Empty State */}
         {filteredItems.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="col-span-full text-center py-12 sm:py-16"
-          >
-            <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring" }}
-              className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-orange-100 to-orange-200 rounded-2xl flex items-center justify-center mx-auto mb-6 border-2 border-orange-300"
-            >
-              <BookOpenIcon className="h-10 w-10 sm:h-12 sm:w-12 text-orange-600" />
-            </motion.div>
-            <motion.h3 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-xl sm:text-2xl font-bold text-gray-900 mb-3"
-            >
+          <div className="col-span-full text-center py-16">
+            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <BookOpenIcon className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               No menu items found
-            </motion.h3>
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="text-gray-600 text-sm sm:text-base max-w-md mx-auto"
-            >
+            </h3>
+            <p className="text-gray-600 text-sm max-w-md mx-auto mb-4">
               {searchTerm ? `No items match "${searchTerm}"` : 'No items available in this category'}
-            </motion.p>
+            </p>
             {searchTerm && (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={() => setSearchTerm('')}
-                className="mt-4 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-200"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
                 Clear Search
-              </motion.button>
+              </button>
             )}
-          </motion.div>
+          </div>
         )}
 
         {/* Item Detail Modal */}

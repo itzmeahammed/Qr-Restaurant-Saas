@@ -21,7 +21,8 @@ import {
   Cog6ToothIcon,
   HomeIcon,
   BookOpenIcon,
-  TableCellsIcon
+  TableCellsIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../config/supabase'
 import useAuthStore from '../stores/useAuthStore'
@@ -941,57 +942,57 @@ switch (activeTab) {
 
   // Full Staff Dashboard - Only shown for approved staff
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-      {/* Fixed Top Header Bar */}
-      <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3 z-40 shadow-lg">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50">
+      {/* Fixed Top Header Bar - Professional Design */}
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 z-40 shadow-sm">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">QR</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-sm">
+              <span className="text-white font-bold text-sm">QR</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold">{restaurantInfo?.name || 'Staff Portal'}</h1>
-              <p className="text-xs text-white/80">{staffSession?.position}</p>
+              <h1 className="text-base font-semibold text-gray-900">{restaurantInfo?.name || 'Staff Portal'}</h1>
+              <p className="text-xs text-gray-500">{staffSession?.position}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Enhanced Notifications */}
+            {/* Professional Notifications */}
             <div className="relative">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 hover:bg-white/30 transition-all duration-200"
+                className="relative w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
               >
-                <BellIcon className="h-5 w-5 text-white" />
+                <BellIcon className="h-5 w-5 text-gray-600" />
                 {unreadNotifications > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg"
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center shadow-sm"
                   >
                     {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </motion.span>
                 )}
               </motion.button>
 
-              {/* Notifications Dropdown */}
+              {/* Professional Notifications Dropdown */}
               <AnimatePresence>
                 {showNotifications && (
                   <motion.div
                     ref={notificationsDropdownRef}
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    className="fixed top-20 left-4 right-4 sm:absolute sm:top-12 sm:left-auto sm:right-0 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 py-2 z-[9999] max-h-96 overflow-y-auto"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="fixed top-20 left-4 right-4 sm:absolute sm:top-14 sm:left-auto sm:right-0 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] max-h-96 overflow-y-auto"
                     style={{ zIndex: 9999 }}
                   >
-                    <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="px-4 py-3 border-b border-gray-200">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-gray-900">🔔 Notifications</h3>
+                        <h3 className="font-semibold text-gray-900 text-sm">Notifications</h3>
                         {unreadNotifications > 0 && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium">
                             {unreadNotifications} new
                           </span>
                         )}
@@ -1006,8 +1007,8 @@ switch (activeTab) {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.05 }}
-                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
-                              notification.isRead ? 'border-gray-200' : 'border-orange-400 bg-orange-50/30'
+                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-200 ${
+                              notification.isRead ? '' : 'bg-[#C6FF3D]/10'
                             }`}
                             onClick={() => {
                               // Mark as read
@@ -1019,29 +1020,25 @@ switch (activeTab) {
                             }}
                           >
                             <div className="flex items-start gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                notification.status === 'pending' ? 'bg-yellow-100' :
-                                notification.status === 'preparing' ? 'bg-blue-100' :
-                                notification.status === 'ready' ? 'bg-green-100' : 'bg-gray-100'
-                              }`}>
+                              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-sm">
                                 {notification.status === 'pending' ? '⏳' :
                                  notification.status === 'preparing' ? '👨‍🍳' :
                                  notification.status === 'ready' ? '✅' : '📋'}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 text-sm">{notification.title}</p>
+                                <p className="font-semibold text-gray-900 text-sm">{notification.title}</p>
                                 <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
                                 <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
                               </div>
                               {!notification.isRead && (
-                                <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-2"></div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                               )}
                             </div>
                           </motion.div>
                         ))
                       ) : (
                         <div className="px-4 py-8 text-center">
-                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                             <BellIcon className="h-6 w-6 text-gray-400" />
                           </div>
                           <p className="text-gray-500 text-sm">No notifications yet</p>
@@ -1050,14 +1047,14 @@ switch (activeTab) {
                     </div>
                     
                     {notifications.length > 0 && (
-                      <div className="px-4 py-2 border-t border-gray-100">
+                      <div className="px-4 py-2 border-t border-gray-200">
                         <button
                           onClick={() => {
                             const updatedNotifications = notifications.map(n => ({ ...n, isRead: true }))
                             setNotifications(updatedNotifications)
                             setUnreadNotifications(0)
                           }}
-                          className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                         >
                           Mark all as read
                         </button>
@@ -1068,66 +1065,66 @@ switch (activeTab) {
               </AnimatePresence>
             </div>
             
-            {/* Enhanced Profile */}
+            {/* Professional Profile */}
             <div className="relative">
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/30 hover:bg-white/30 transition-all duration-200"
+                className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 hover:bg-gray-200 transition-colors"
               >
                 <div className="relative">
-                  <div className="w-8 h-8 bg-gradient-to-br from-white to-gray-100 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-orange-500 text-sm font-bold">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-semibold">
                       {staffSession?.full_name?.charAt(0) || 'S'}
                     </span>
                   </div>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white rounded-full ${
                     isOnline ? 'bg-green-500' : 'bg-gray-400'
                   }`}></div>
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-white text-sm font-medium">{staffSession?.full_name || 'Staff Member'}</p>
-                  <p className="text-white/80 text-xs">{staffSession?.position || 'Staff'}</p>
+                  <p className="text-gray-900 text-sm font-medium">{staffSession?.full_name || 'Staff Member'}</p>
+                  <p className="text-gray-500 text-xs">{staffSession?.position || 'Staff'}</p>
                 </div>
-                <ChevronDownIcon className="h-4 w-4 text-white" />
+                <ChevronDownIcon className="h-4 w-4 text-gray-600" />
               </motion.button>
 
-              {/* Enhanced Profile Dropdown */}
+              {/* Professional Profile Dropdown */}
               <AnimatePresence>
                 {showProfileDropdown && (
                   <motion.div
                     ref={profileDropdownRef}
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    className="absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-[9999]"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-14 right-0 w-72 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-[9999]"
                     style={{ zIndex: 9999 }}
                   >
                     {/* Profile Header */}
-                    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-4 text-white">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 px-4 py-4 border-b border-gray-200">
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
-                            <span className="text-white text-lg font-bold">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-md">
+                            <span className="text-white text-lg font-semibold">
                               {staffSession?.full_name?.charAt(0) || 'S'}
                             </span>
                           </div>
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${
                             isOnline ? 'bg-green-500' : 'bg-gray-400'
                           }`}></div>
                         </div>
                         <div className="flex-1">
-                          <p className="font-bold text-white">{staffSession?.full_name || 'Staff Member'}</p>
-                          <p className="text-white/90 text-sm">{staffSession?.email}</p>
+                          <p className="font-semibold text-gray-900 text-sm">{staffSession?.full_name || 'Staff Member'}</p>
+                          <p className="text-gray-600 text-xs">{staffSession?.email}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                            <span className="bg-white text-gray-700 px-2 py-0.5 rounded text-xs font-medium">
                               {staffSession?.position || 'Staff'}
                             </span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              isOnline ? 'bg-green-500/20 text-green-100' : 'bg-gray-500/20 text-gray-200'
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                             }`}>
-                              {isOnline ? '🟢 Online' : '⚫ Offline'}
+                              {isOnline ? '● Online' : '● Offline'}
                             </span>
                           </div>
                         </div>
@@ -1135,33 +1132,70 @@ switch (activeTab) {
                     </div>
                     
                     {/* Quick Stats */}
-                    <div className="px-4 py-3 bg-gray-50">
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-lg font-bold text-orange-600">{stats.todayOrders}</p>
-                          <p className="text-xs text-gray-600">Orders</p>
+                    <div className="px-4 py-3 bg-white border-b border-gray-200">
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-blue-50 rounded-lg p-2">
+                          <p className="text-lg font-semibold text-gray-900">{stats.todayOrders}</p>
+                          <p className="text-xs text-gray-500">Orders</p>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold text-green-600">₹{stats.todayEarnings}</p>
-                          <p className="text-xs text-gray-600">Earnings</p>
+                        <div className="bg-green-50 rounded-lg p-2">
+                          <p className="text-lg font-semibold text-gray-900">₹{stats.todayEarnings}</p>
+                          <p className="text-xs text-gray-500">Earned</p>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold text-yellow-600">{stats.rating}★</p>
-                          <p className="text-xs text-gray-600">Rating</p>
+                        <div className="bg-purple-50 rounded-lg p-2">
+                          <p className="text-lg font-semibold text-gray-900">{stats.rating}★</p>
+                          <p className="text-xs text-gray-500">Rating</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Profile Information */}
+                    <div className="px-4 py-3 bg-white border-b border-gray-200">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <BuildingStorefrontIcon className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500">Restaurant</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">{restaurantInfo?.name || 'Loading...'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <UserCircleIcon className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-gray-500">Position</p>
+                            <p className="text-sm font-medium text-gray-900">{staffSession?.position || 'Staff'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <ClockIcon className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-gray-500">Shift Time</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                     
                     {/* Actions */}
-                    <div className="px-4 py-3">
+                    <div className="px-4 py-3 bg-white">
                       <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
                         onClick={toggleOnlineStatus}
-                        className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 mb-3 ${
+                        className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-2 ${
                           isOnline
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-lg'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200 hover:shadow-lg'
+                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                            : 'bg-green-500 hover:bg-green-600 text-white'
                         }`}
                       >
                         {isOnline ? (
@@ -1179,18 +1213,18 @@ switch (activeTab) {
                       
                       <div className="grid grid-cols-2 gap-2">
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
                         >
                           <Cog6ToothIcon className="h-4 w-4" />
                           Settings
                         </motion.button>
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
                           onClick={handleLogout}
-                          className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
                         >
                           <ArrowRightOnRectangleIcon className="h-4 w-4" />
                           Sign Out
@@ -1206,23 +1240,23 @@ switch (activeTab) {
       </div>
 
       {/* Main Content Area with top padding for fixed header */}
-      <div className="px-4 py-6 pt-20">
-        {/* Page Header */}
+      <div className="px-4 py-6 pt-20 pb-24 max-w-7xl mx-auto">
+        {/* Professional Page Header */}
         <div className="mb-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center"
+            className="text-left"
           >
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-1">
               {tabs.find(tab => tab.id === activeTab)?.name || 'Overview'}
             </h1>
-            <p className="text-gray-600">
-              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}! Use "Assist Order" to help customers without mobile phones.`}
-              {activeTab === 'orders' && 'Manage your assigned orders and track their progress'}
-              {activeTab === 'tables' && 'Reserve tables and start staff-assisted ordering for customers without mobile phones'}
-              {activeTab === 'menu' && 'View restaurant menu items and help customers with selections'}
-              {activeTab === 'restaurant' && 'Restaurant information and details'}
+            <p className="text-sm text-gray-600">
+              {activeTab === 'overview' && `Welcome back, ${staffSession?.full_name || 'Staff Member'}!`}
+              {activeTab === 'orders' && 'Manage your assigned orders'}
+              {activeTab === 'tables' && 'Reserve tables and assist customers'}
+              {activeTab === 'menu' && 'View restaurant menu items'}
+              {activeTab === 'restaurant' && 'Restaurant information'}
             </p>
           </motion.div>
         </div>
@@ -1238,45 +1272,47 @@ switch (activeTab) {
         </motion.div>
       </div>
 
-      {/* Global Floating Action Button for Staff-Assisted Ordering */}
+      {/* Professional Floating Action Button for Staff-Assisted Ordering */}
       <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setShowOrderingFlow(true)}
-        className="fixed bottom-20 right-4 z-50 bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 border-4 border-white"
+        className="fixed bottom-20 right-4 z-50 bg-gradient-to-br from-blue-600 to-blue-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        transition={{ delay: 1, type: "spring", bounce: 0.5 }}
+        transition={{ delay: 0.5, type: "spring", bounce: 0.3 }}
       >
-        <div className="relative">
-          <UserIcon className="h-6 w-6" />
-          <motion.div
-            className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          />
-        </div>
+        <UserIcon className="h-6 w-6" />
       </motion.button>
 
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="grid grid-cols-5 h-16">
+      {/* Professional Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
+        <div className="grid grid-cols-5 h-16 max-w-7xl mx-auto">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 px-1 transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center gap-1 px-1 transition-all duration-200 ${
                 activeTab === tab.id
-                  ? 'text-orange-500 bg-orange-50'
-                  : 'text-gray-500 hover:text-orange-400 hover:bg-gray-50'
+                  ? 'text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <tab.icon className={`h-4 w-4 ${
-                activeTab === tab.id ? 'text-orange-500' : 'text-gray-400'
+              <tab.icon className={`h-5 w-5 ${
+                activeTab === tab.id ? 'text-blue-600' : 'text-gray-500'
               }`} />
-              <span className="text-[10px] font-medium leading-tight">{tab.name}</span>
+              <span className={`text-[10px] leading-tight ${
+                activeTab === tab.id ? 'font-semibold' : 'font-medium'
+              }`}>{tab.name}</span>
+              {activeTab === tab.id && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
             </motion.button>
           ))}
         </div>

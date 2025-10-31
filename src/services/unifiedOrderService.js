@@ -107,6 +107,7 @@ class UnifiedOrderService {
     paymentMethod = 'cash',
     tipAmount = 0,
     discountAmount = 0,
+    coinsRedeemed = 0, // Ordyrr Coins redeemed for this order
     firstOrderDiscountApplied = false
   }) {
     const operationId = `order_create_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -255,6 +256,7 @@ class UnifiedOrderService {
         tax_amount: platformFee, // Store platform fee in tax_amount field for backward compatibility
         tip_amount: tipAmount,
         discount_amount: discountAmount,
+        coins_redeemed: coinsRedeemed, // Track Ordyrr Coins used for this order
         total_amount: totalAmount,
         payment_method: paymentMethod,
         payment_status: 'pending',

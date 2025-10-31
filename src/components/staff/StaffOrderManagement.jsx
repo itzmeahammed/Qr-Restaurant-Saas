@@ -13,7 +13,8 @@ import {
   UserIcon,
   MapPinIcon,
   PhoneIcon,
-  ChatBubbleLeftIcon
+  ChatBubbleLeftIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { supabase } from '../../config/supabase'
 import UnifiedOrderService from '../../services/unifiedOrderService'
@@ -299,35 +300,34 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
   }, [filter, staffId, restaurantId])
 
   return (
-    <div className="h-full bg-gradient-to-br from-orange-50 via-white to-purple-50 flex flex-col">
-      {/* Fixed Header - removed sticky positioning to prevent overlap */}
+    <div className="h-full bg-gray-50 flex flex-col">
+      {/* Professional Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
+        <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">
-                📋 Order Management
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
+                Order Management
               </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-                <p className="text-xs sm:text-sm text-gray-600">
-                  {isOnline ? 'Online - Ready for orders' : 'Offline - Not receiving orders'}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                <p className="text-sm text-gray-600">
+                  {isOnline ? 'Online - Ready for orders' : 'Offline'}
                 </p>
               </div>
             </div>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm font-medium"
             >
               <motion.div
                 animate={{ rotate: refreshing ? 360 : 0 }}
                 transition={{ duration: 1, repeat: refreshing ? Infinity : 0 }}
-                className="text-sm sm:text-base"
               >
-                🔄
+                <ArrowPathIcon className="h-4 w-4" />
               </motion.div>
               <span className="hidden sm:inline">Refresh</span>
             </motion.button>
@@ -335,30 +335,30 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="px-4 sm:px-6 py-4 bg-white border-b border-gray-100 flex-shrink-0">
-        <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
+      {/* Professional Filter Tabs */}
+      <div className="px-4 sm:px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {[
-            { key: 'pending', label: 'Pending', icon: '🔔', count: orders.filter(o => ['pending', 'assigned'].includes(o.status)).length },
-            { key: 'assigned', label: 'My Orders', icon: '👨‍🍳', count: orders.filter(o => ['assigned', 'preparing', 'ready'].includes(o.status)).length },
-            { key: 'completed', label: 'Completed', icon: '✅', count: orders.filter(o => ['delivered', 'cancelled', 'completed'].includes(o.status)).length }
+            { key: 'pending', label: 'Pending', icon: BellIcon, count: orders.filter(o => ['pending', 'assigned'].includes(o.status)).length },
+            { key: 'assigned', label: 'My Orders', icon: UserIcon, count: orders.filter(o => ['assigned', 'preparing', 'ready'].includes(o.status)).length },
+            { key: 'completed', label: 'Completed', icon: CheckCircleIcon, count: orders.filter(o => ['delivered', 'cancelled', 'completed'].includes(o.status)).length }
           ].map((tab) => (
             <motion.button
               key={tab.key}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               onClick={() => setFilter(tab.key)}
-              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-medium transition-all duration-200 whitespace-nowrap min-w-0 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
                 filter === tab.key
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
               }`}
             >
-              <span className="text-sm sm:text-lg">{tab.icon}</span>
-              <span className="font-bold text-xs sm:text-sm">{tab.label}</span>
+              <tab.icon className="h-4 w-4" />
+              <span className="text-sm">{tab.label}</span>
               {tab.count > 0 && (
-                <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-bold ${
-                  filter === tab.key ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  filter === tab.key ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
                 }`}>
                   {tab.count}
                 </span>
@@ -375,10 +375,10 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
             <div className="text-center">
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity }}
-                className="w-8 sm:w-12 h-8 sm:h-12 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"
               />
-              <p className="text-gray-600 font-medium text-sm sm:text-base">Loading orders...</p>
+              <p className="text-gray-600 text-sm">Loading orders...</p>
             </div>
           </div>
         ) : error ? (
@@ -387,14 +387,16 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <div className="text-4xl sm:text-6xl mb-4">😞</div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Something went wrong</h3>
-            <p className="text-gray-600 mb-6 text-sm sm:text-base px-4">{error}</p>
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
+            <p className="text-gray-600 mb-6 text-sm px-4">{error}</p>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleRefresh}
-              className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
             >
               Try Again
             </motion.button>
@@ -405,28 +407,30 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <div className="text-4xl sm:text-6xl mb-4">
-              {filter === 'pending' ? '🔔' : filter === 'assigned' ? '👨‍🍳' : '✅'}
+            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              {filter === 'pending' ? <BellIcon className="h-8 w-8 text-gray-400" /> : 
+               filter === 'assigned' ? <UserIcon className="h-8 w-8 text-gray-400" /> : 
+               <CheckCircleIcon className="h-8 w-8 text-gray-400" />}
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {filter === 'pending' ? 'No pending orders' : filter === 'assigned' ? 'No assigned orders' : 'No completed orders'}
             </h3>
-            <p className="text-gray-600 mb-6 text-sm sm:text-base px-4">
+            <p className="text-gray-600 mb-6 text-sm px-4">
               {filter === 'pending' ? 'All caught up! New orders will appear here.' : 
                filter === 'assigned' ? 'Accept some pending orders to get started.' : 
                'Completed orders will show up here.'}
             </p>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleRefresh}
-              className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
             >
               Refresh Orders
             </motion.button>
           </motion.div>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-4">
             {orders.map((order, index) => {
               const priority = getOrderPriority(order)
               const isProcessing = processingOrders.has(order.id)
@@ -437,35 +441,30 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`bg-white rounded-2xl border-2 p-4 sm:p-6 hover:shadow-xl transition-all duration-300 touch-manipulation ${
-                    priority === 'high' ? 'border-red-200 bg-red-50/30' :
-                    priority === 'medium' ? 'border-yellow-200 bg-yellow-50/30' :
+                  className={`bg-white rounded-lg border p-5 hover:shadow-md transition-all duration-200 ${
+                    priority === 'high' ? 'border-red-300 bg-red-50' :
+                    priority === 'medium' ? 'border-amber-300 bg-amber-50' :
                     'border-gray-200'
                   } ${isProcessing ? 'opacity-75 pointer-events-none' : ''}`}
                 >
-                  {/* Enhanced Order Header */}
+                  {/* Professional Order Header */}
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4">
                     <div className="flex-1 mb-3 sm:mb-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
                           #{order.order_number || order.id.slice(-6)}
                         </h3>
                         
                         {/* Priority Badge */}
                         {priority === 'high' && (
-                          <motion.span 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ repeat: Infinity, duration: 2 }}
-                            className="px-3 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-lg"
-                          >
-                            🚨 URGENT
-                          </motion.span>
+                          <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded">
+                            URGENT
+                          </span>
                         )}
                         
                         {priority === 'medium' && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
-                            ⚡ PRIORITY
+                          <span className="px-2 py-1 bg-amber-500 text-white text-xs font-semibold rounded">
+                            PRIORITY
                           </span>
                         )}
                       </div>
@@ -494,9 +493,9 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                         )}
                         
                         {order.special_instructions && (
-                          <div className="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                            <p className="text-xs text-blue-600 font-medium mb-1">SPECIAL INSTRUCTIONS</p>
-                            <p className="text-sm text-blue-800">{order.special_instructions}</p>
+                          <div className="mt-2 p-3 bg-blue-50 rounded-lg border-l-2 border-blue-500">
+                            <p className="text-xs text-blue-600 font-semibold mb-1">Special Instructions</p>
+                            <p className="text-sm text-gray-700">{order.special_instructions}</p>
                           </div>
                         )}
                       </div>
@@ -504,13 +503,13 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                     
                     {/* Status and Amount */}
                     <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 sm:gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
-                        {order.status.toUpperCase()}
+                      <span className={`px-2.5 py-1 rounded text-xs font-semibold ${getStatusColor(order.status)}`}>
+                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </span>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-900">₹{Math.round(order.total_amount)}</p>
+                        <p className="text-xl font-semibold text-gray-900">₹{Math.round(order.total_amount)}</p>
                         <p className="text-xs text-gray-500">
-                          {order.payment_method === 'cash' ? '💵 Cash' : '💳 Online'}
+                          {order.payment_method === 'cash' ? 'Cash' : 'Online'}
                         </p>
                       </div>
                     </div>
@@ -522,9 +521,9 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-700">Items ({order.order_items.length})</span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {order.order_items.slice(0, 4).map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <div className="space-y-2">
+                        {order.order_items.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
                             <span className="text-sm font-medium text-gray-900 truncate">
                               {item.menu_items?.name || item.item_name}
                             </span>
@@ -533,9 +532,9 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                             </span>
                           </div>
                         ))}
-                        {order.order_items.length > 4 && (
+                        {order.order_items.length > 3 && (
                           <div className="flex items-center justify-center p-2 bg-gray-100 rounded-lg text-sm text-gray-600">
-                            +{order.order_items.length - 4} more items
+                            +{order.order_items.length - 3} more items
                           </div>
                         )}
                       </div>
@@ -543,13 +542,13 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                   )}
                   
                   {/* Action Buttons */}
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     {/* View Details Button */}
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                       onClick={() => setSelectedOrder(order)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-200 text-sm"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors text-sm"
                     >
                       <EyeIcon className="h-4 w-4" />
                       <span>View Details</span>
@@ -559,11 +558,11 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                     {order.status === 'pending' && (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
                           onClick={() => acceptOrder(order.id)}
                           disabled={isProcessing}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
                         >
                           {isProcessing ? (
                             <motion.div
@@ -580,11 +579,11 @@ const StaffOrderManagement = ({ staffId, restaurantId, isOnline }) => {
                         </motion.button>
                         
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
                           onClick={() => rejectOrder(order.id)}
                           disabled={isProcessing}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-200 text-sm shadow-lg disabled:opacity-50"
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
                         >
                           {isProcessing ? (
                             <motion.div

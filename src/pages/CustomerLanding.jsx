@@ -32,6 +32,7 @@ const CustomerLanding = () => {
   const [showLocationSearch, setShowLocationSearch] = useState(false)
   const [location, setLocation] = useState('')
   const scannerRef = useRef(null)
+  const fileInputRef = useRef(null)
   const [isScanning, setIsScanning] = useState(false)
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false)
   const lastErrorTimeRef = useRef(0)
@@ -334,6 +335,106 @@ const CustomerLanding = () => {
       setIsScanning(false)
       setShowQRScanner(false)
     }
+  }
+
+  const handleScanImageFile = () => {
+    // Trigger the hidden file input
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleFileSelect = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file', {
+        icon: '❌',
+        duration: 3000
+      })
+      return
+    }
+
+    // Show loading toast
+    const loadingToast = toast.loading('Scanning QR code from image...', {
+      icon: '🔍'
+    })
+
+    try {
+      // Create a temporary Html5Qrcode instance for file scanning
+      const html5QrCode = new Html5Qrcode("qr-reader-file")
+      
+      // Scan the image file with showImage=false (set to false for better compatibility)
+      // The library will try to decode the QR code from the file
+      const decodedText = await html5QrCode.scanFile(file, false)
+      
+      console.log('✅ QR Code scanned from file:', decodedText)
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast)
+      
+      // Validate QR code URL
+      const isValidOrdyrrQR = validateOrdyrrQR(decodedText)
+      
+      if (isValidOrdyrrQR) {
+        // Valid Ordyrr QR - redirect immediately
+        toast.success('QR code detected! Redirecting...', {
+          icon: '✅',
+          duration: 2000
+        })
+        stopQRScanner()
+        setTimeout(() => {
+          window.location.href = decodedText
+        }, 500)
+      } else {
+        // Invalid QR
+        toast.error('This is not an Ordyrr QR code. Please scan a valid table QR code.', {
+          duration: 4000,
+          icon: '❌',
+          style: {
+            background: '#2D2D2D',
+            color: '#C6FF3D',
+            fontWeight: 'bold'
+          }
+        })
+      }
+      
+      // Clear the Html5Qrcode instance
+      html5QrCode.clear()
+    } catch (error) {
+      console.error('❌ Error scanning image file:', error)
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast)
+      
+      // Provide specific error messages based on error type
+      if (error.message?.includes('No MultiFormat Readers')) {
+        toast.error('No QR code found in this image. Please make sure the image contains a clear QR code.', {
+          duration: 4000,
+          icon: '❌',
+          style: {
+            background: '#2D2D2D',
+            color: '#C6FF3D',
+            fontWeight: 'bold'
+          }
+        })
+      } else {
+        toast.error('Could not scan QR code. Please try a clearer image or use camera scanning.', {
+          duration: 4000,
+          icon: '❌',
+          style: {
+            background: '#2D2D2D',
+            color: '#C6FF3D',
+            fontWeight: 'bold'
+          }
+        })
+      }
+    }
+    
+    // Reset file input
+    event.target.value = ''
   }
 
   const searchByLocation = () => {
@@ -922,10 +1023,25 @@ const CustomerLanding = () => {
 
                   <p className="text-center text-sm font-bold text-black/60">
                     Or{' '}
-                    <button className="underline font-black text-black">
+                    <button 
+                      onClick={handleScanImageFile}
+                      className="underline font-black text-black hover:text-black/80 transition-colors"
+                    >
                       Scan an Image File
                     </button>
                   </p>
+                  
+                  {/* Hidden file input for image scanning */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  
+                  {/* Hidden div for file scanning (Html5Qrcode needs a DOM element) */}
+                  <div id="qr-reader-file" className="hidden"></div>
                 </div>
               ) : (
                 <div className="space-y-6">
