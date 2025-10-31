@@ -16,7 +16,9 @@ import {
   FireIcon,
   UserCircleIcon,
   XMarkIcon,
-  MapPinIcon
+  MapPinIcon,
+  ArrowUpIcon,
+  ArrowDownIcon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import bcrypt from 'bcryptjs'
@@ -195,6 +197,14 @@ const CustomerMenu = () => {
   const [showOrderHistory, setShowOrderHistory] = useState(false)
   const [orderHistory, setOrderHistory] = useState([])
   const [loadingOrderHistory, setLoadingOrderHistory] = useState(false)
+  
+  // Coins history states
+  const [showCoinsHistory, setShowCoinsHistory] = useState(false)
+  const [coinsTransactions, setCoinsTransactions] = useState([])
+  const [loadingCoinsHistory, setLoadingCoinsHistory] = useState(false)
+  
+  // Tip state - shared between CartSidebar and CheckoutModal
+  const [selectedTip, setSelectedTip] = useState(0)
   
   // Sync itemQuantities with cart whenever cart changes
   useEffect(() => {
@@ -422,6 +432,17 @@ const CustomerMenu = () => {
     // Called when CheckoutModal successfully creates an order
     console.log('✅ Order completed successfully:', orderData)
     
+    // Update guest customer session with customer_id if available
+    if (orderData.customer_id && currentCustomer && !currentCustomer.id) {
+      const updatedCustomer = {
+        ...currentCustomer,
+        id: orderData.customer_id
+      }
+      setCurrentCustomer(updatedCustomer)
+      saveSession(updatedCustomer)
+      console.log('✅ Guest customer ID saved to session:', orderData.customer_id)
+    }
+    
     // Close checkout modal
     setShowCheckout(false)
     setShowCart(false)
@@ -514,15 +535,24 @@ const CustomerMenu = () => {
 
   // Fetch order history for a customer
   const fetchOrderHistory = async () => {
-    if (!currentCustomer?.id) {
-      toast.error('Please log in to view order history')
+    // For guest users, check if they have a phone number or ID to fetch orders
+    if (!currentCustomer?.id && !currentCustomer?.phone) {
+      console.log('❌ No customer ID or phone available:', currentCustomer)
+      toast.error('No order history available')
       return
     }
 
+    console.log('🔍 Fetching order history for:', {
+      id: currentCustomer?.id,
+      phone: currentCustomer?.phone,
+      name: currentCustomer?.name
+    })
+
     setLoadingOrderHistory(true)
+    setShowMobileMenu(false)
     try {
-      // Fetch orders with order items and related data
-      const { data: orders, error } = await supabase
+      // Build query based on user type
+      let query = supabase
         .from('orders')
         .select(`
           *,
@@ -541,9 +571,20 @@ const CustomerMenu = () => {
             location
           )
         `)
-        .eq('customer_id', currentCustomer.id)
         .order('created_at', { ascending: false })
         .limit(50)
+
+      // For authenticated users or guests with ID, query by customer_id
+      // For guests without ID, query by customer_phone
+      if (currentCustomer.id) {
+        console.log('📋 Querying by customer_id:', currentCustomer.id)
+        query = query.eq('customer_id', currentCustomer.id)
+      } else if (currentCustomer.phone) {
+        console.log('📋 Querying by customer_phone:', currentCustomer.phone)
+        query = query.eq('customer_phone', currentCustomer.phone)
+      }
+
+      const { data: orders, error } = await query
 
       if (error) {
         console.error('Supabase error:', error)
@@ -579,6 +620,30 @@ const CustomerMenu = () => {
       toast.error('Failed to load order history')
     } finally {
       setLoadingOrderHistory(false)
+    }
+  }
+
+  // Fetch coins transaction history
+  const fetchCoinsHistory = async () => {
+    if (!currentCustomer?.id) return
+    
+    setLoadingCoinsHistory(true)
+    try {
+      const { data, error } = await supabase
+        .from('loyalty_points')
+        .select('*')
+        .eq('customer_id', currentCustomer.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      
+      if (error) throw error
+      setCoinsTransactions(data || [])
+      setShowCoinsHistory(true)
+    } catch (error) {
+      console.error('Error fetching coins history:', error)
+      toast.error('Failed to load coins history')
+    } finally {
+      setLoadingCoinsHistory(false)
     }
   }
 
@@ -1720,7 +1785,8 @@ const CustomerMenu = () => {
             key="cart-sidebar"
             isOpen={showCart}
             onClose={() => setShowCart(false)}
-            onCheckout={() => {
+            onCheckout={(tipAmount) => {
+              setSelectedTip(tipAmount)
               setShowCart(false)
               setShowCheckout(true)
             }}
@@ -1742,6 +1808,7 @@ const CustomerMenu = () => {
             tableId={finalTableId}
             sessionId={sessionId}
             currentCustomer={currentCustomer}
+            initialTip={selectedTip}
           />
         )}
 
@@ -1787,36 +1854,126 @@ const CustomerMenu = () => {
               {/* Menu Content */}
               <div className="p-4 pt-2">
                 {!isAuthenticated ? (
-                  /* Guest User - Show Login/Signup Options */
-                  <div className="space-y-3">
-                    <motion.button
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setAuthMode('login')
-                        setShowAuthModal(true)
-                      }}
-                      className="w-full py-3 rounded-xl font-bold text-white"
-                      style={{ backgroundColor: ACTION_GREEN }}
-                    >
-                      Login to Your Account
-                    </motion.button>
-                    
-                    <motion.button
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setAuthMode('signup')
-                        setShowAuthModal(true)
-                      }}
-                      className="w-full py-3 rounded-xl font-bold border-2"
-                      style={{ borderColor: ACTION_GREEN, color: ACTION_GREEN }}
-                    >
-                      Create New Account
-                    </motion.button>
-
-                    <div className="mt-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
-                      <p className="text-center text-sm font-semibold text-green-800">
-                        🎁 Sign up and get 100 Ordyrr Coins!
+                  /* Guest User - Show Minimal Profile with Signup Promotion */
+                  <div className="space-y-6">
+                    {/* Guest Account Section */}
+                    <div>
+                      <h2 className="text-xl font-bold mb-1" style={{ color: '#212121' }}>Your account</h2>
+                      <p className="text-sm mb-0.5" style={{ color: '#666666' }}>
+                        {currentCustomer?.name || 'Guest User'}
                       </p>
+                      {currentCustomer?.phone && (
+                        <div className="flex items-center gap-2 mb-3">
+                          <svg className="w-4 h-4" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          <p className="text-sm" style={{ color: '#666666' }}>{currentCustomer.phone}</p>
+                        </div>
+                      )}
+
+                      {/* Signup Promotion Card - Minimal Design */}
+                      <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200">
+                        <div className="flex items-center gap-3 mb-3">
+                          <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-10 h-10 object-contain" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold" style={{ color: '#666666' }}>Sign up and get</p>
+                            <p className="text-2xl font-black" style={{ color: '#F59E0B' }}>100 Coins!</p>
+                          </div>
+                        </div>
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setAuthMode('signup')
+                            setShowAuthModal(true)
+                            setShowMobileMenu(false)
+                          }}
+                          className="w-full py-2.5 text-black font-bold text-sm rounded-xl"
+                          style={{ 
+                            backgroundColor: '#F59E0B',
+                            boxShadow: '0 3px 0 0 #000000'
+                          }}
+                        >
+                          CREATE ACCOUNT
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {/* Your Information Section */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase mb-3" style={{ color: '#999999' }}>Your Information</h3>
+                      <div className="space-y-2">
+                        {/* Track Live Orders */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setShowMobileMenu(false)
+                            setShowOrderTracking(true)
+                          }}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <MapPinIcon className="w-5 h-5" style={{ color: ACTION_GREEN }} />
+                            <span className="text-sm font-semibold" style={{ color: ACTION_GREEN }}>
+                              Track Live Orders
+                            </span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: ACTION_GREEN }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {/* Other Information Section */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase mb-3" style={{ color: '#999999' }}>Other Information</h3>
+                      <div className="space-y-2">
+                        {/* Help and Support */}
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => toast.info('Help & Support - Coming soon!')}
+                          className="w-full flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-200 hover:border-green-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5" style={{ color: '#666666' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-sm font-normal" style={{ color: '#212121' }}>Help and support</span>
+                          </div>
+                          <svg className="w-5 h-5" style={{ color: '#CCCCCC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-2">
+                      {/* Login Button */}
+                      <motion.button
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setAuthMode('login')
+                          setShowAuthModal(true)
+                          setShowMobileMenu(false)
+                        }}
+                        className="w-full py-3 text-black font-bold text-sm rounded-xl"
+                        style={{ 
+                          backgroundColor: ACTION_GREEN,
+                          boxShadow: '0 4px 0 0 #000000'
+                        }}
+                      >
+                        LOGIN TO YOUR ACCOUNT
+                      </motion.button>
+                    </div>
+
+                    {/* Brand Logo at Bottom */}
+                    <div className="mt-8 mb-6 flex justify-center">
+                      <img 
+                        src={logoBg} 
+                        alt="Ordyrr" 
+                        className="h-24 opacity-60"
+                      />
                     </div>
                   </div>
                 ) : (
@@ -1834,13 +1991,22 @@ const CustomerMenu = () => {
                       </div>
 
                       {/* Ordyrr Coins Card */}
-                      <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-10 h-10 object-contain" />
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: '#666666' }}>Ordyrr Coins</p>
-                            <p className="text-2xl font-black" style={{ color: '#F59E0B' }}>{loyaltyPoints}</p>
+                      <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-8 h-8 object-contain" />
+                            <div>
+                              <p className="text-xs font-medium" style={{ color: '#666666' }}>Ordyrr Coins</p>
+                              <p className="text-lg font-bold" style={{ color: '#F59E0B' }}>{loyaltyPoints}</p>
+                            </div>
                           </div>
+                          <button
+                            onClick={fetchCoinsHistory}
+                            className="text-xs font-medium underline hover:no-underline transition-all"
+                            style={{ color: '#92400E' }}
+                          >
+                            View History
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2317,8 +2483,13 @@ const CustomerMenu = () => {
                           )}
                           {order.discount_amount > 0 && (
                             <div className="flex justify-between">
-                              <span style={{ color: ACTION_GREEN }}>🎉 First Order Discount (10%):</span>
-                              <span className="font-semibold" style={{ color: ACTION_GREEN }}>
+                              <span style={{ color: order.coins_redeemed > 0 ? '#F59E0B' : ACTION_GREEN }}>
+                                {order.coins_redeemed > 0 
+                                  ? `🪙 Ordyrr Coins (${order.coins_redeemed}):`
+                                  : '🎉 First Order Discount (10%):'
+                                }
+                              </span>
+                              <span className="font-semibold" style={{ color: order.coins_redeemed > 0 ? '#F59E0B' : ACTION_GREEN }}>
                                 -₹{order.discount_amount.toFixed(2)}
                               </span>
                             </div>
@@ -2356,6 +2527,114 @@ const CustomerMenu = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Coins History Modal */}
+      <AnimatePresence>
+        {showCoinsHistory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowCoinsHistory(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <img src={ordyrrCoin} alt="Ordyrr Coin" className="w-6 h-6" />
+                  <h3 className="text-lg font-bold" style={{ color: DARK_TEXT }}>Coins History</h3>
+                </div>
+                <button onClick={() => setShowCoinsHistory(false)} className="p-2">
+                  <XMarkIcon className="w-5 h-5" style={{ color: DARK_TEXT }} />
+                </button>
+              </div>
+
+              {/* Current Balance */}
+              <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold" style={{ color: MEDIUM_GRAY }}>Current Balance</span>
+                  <span className="text-2xl font-black" style={{ color: '#F59E0B' }}>{loyaltyPoints || 0} coins</span>
+                </div>
+              </div>
+
+              {/* Transaction List */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {loadingCoinsHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+                  </div>
+                ) : coinsTransactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm" style={{ color: MEDIUM_GRAY }}>No transactions yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {coinsTransactions.map((transaction) => {
+                      const isEarned = transaction.points_earned > 0
+                      const isRedeemed = transaction.points_redeemed > 0
+                      const amount = isEarned ? transaction.points_earned : transaction.points_redeemed
+                      
+                      return (
+                        <motion.div
+                          key={transaction.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                isEarned ? 'bg-green-100' : 'bg-red-100'
+                              }`}>
+                                {isEarned ? (
+                                  <ArrowDownIcon className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <ArrowUpIcon className="w-4 h-4 text-red-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold" style={{ color: DARK_TEXT }}>
+                                  {isEarned ? 'Earned' : 'Redeemed'}
+                                </p>
+                                <p className="text-xs" style={{ color: MEDIUM_GRAY }}>
+                                  {new Date(transaction.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                            <span className={`text-lg font-black ${
+                              isEarned ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {isEarned ? '+' : '-'}{amount}
+                            </span>
+                          </div>
+                          {transaction.description && (
+                            <p className="text-xs mt-2 pl-10" style={{ color: MEDIUM_GRAY }}>
+                              {transaction.description}
+                            </p>
+                          )}
+                        </motion.div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

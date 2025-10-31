@@ -20,9 +20,9 @@ const ACTION_GREEN = '#00C853'
 const DARK_TEXT = '#212121'
 const MEDIUM_GRAY = '#666666'
 
-const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sessionId, currentCustomer }) => {
+const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sessionId, currentCustomer, initialTip = 0 }) => {
   const [loading, setLoading] = useState(false)
-  const [selectedTip, setSelectedTip] = useState(0)
+  const [selectedTip, setSelectedTip] = useState(initialTip)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderData, setOrderData] = useState(null)
   const [selectedPayment, setSelectedPayment] = useState('cash')
@@ -30,6 +30,8 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   const [discountAmount, setDiscountAmount] = useState(0)
   const [hasUsedFirstOrderDiscount, setHasUsedFirstOrderDiscount] = useState(false)
   const [currentOffer, setCurrentOffer] = useState(null)
+  const [useOrdyrrCoins, setUseOrdyrrCoins] = useState(true) // Default to true so coins are applied
+  const [availableCoins, setAvailableCoins] = useState(0)
   const hasShownPopup = useRef(false)
   const popupTimeout = useRef(null)
   
@@ -43,6 +45,11 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
     paymentMethod: 'cash',
     specialInstructions: ''
   })
+
+  // Update selectedTip when initialTip changes
+  React.useEffect(() => {
+    setSelectedTip(initialTip)
+  }, [initialTip])
 
   // Update customer info when currentCustomer changes
   React.useEffect(() => {
@@ -60,6 +67,41 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   
   // Check if user is logged in
   const isLoggedIn = !!currentCustomer
+
+  // Fetch customer's Ordyrr Coins balance
+  React.useEffect(() => {
+    const fetchCoinsBalance = async () => {
+      if (currentCustomer?.id && restaurantId) {
+        try {
+          console.log('💰 [CheckoutModal] Fetching coins for customer:', currentCustomer.id, 'restaurant:', restaurantId)
+          const { data, error } = await supabase
+            .from('loyalty_points')
+            .select('points_earned, points_redeemed')
+            .eq('customer_id', currentCustomer.id)
+            .eq('restaurant_id', restaurantId)
+          
+          if (error) {
+            console.error('❌ Error fetching coins:', error)
+            return
+          }
+          
+          if (data) {
+            // Calculate total points: sum of all earned points minus redeemed points
+            const totalCoins = (data || []).reduce((total, transaction) => {
+              const earned = transaction.points_earned || 0
+              const redeemed = transaction.points_redeemed || 0
+              return total + earned - redeemed
+            }, 0)
+            setAvailableCoins(totalCoins)
+            console.log('✅ [CheckoutModal] Available Ordyrr Coins:', totalCoins, 'from', data.length, 'transactions')
+          }
+        } catch (error) {
+          console.error('❌ Exception fetching coins balance:', error)
+        }
+      }
+    }
+    fetchCoinsBalance()
+  }, [currentCustomer, restaurantId])
 
   // Check if customer has used the first order offer
   React.useEffect(() => {
@@ -134,7 +176,7 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
   // Cart summary with automatic discount calculation
   const cartSummary = React.useMemo(() => {
     if (!cart || cart.length === 0) {
-      return { isEmpty: true, subtotal: 0, platformFee: 0, total: 0, discount: 0 }
+      return { isEmpty: true, subtotal: 0, platformFee: 0, total: 0, discount: 0, coinsDiscount: 0, coinsUsed: 0 }
     }
     
     const subtotal = getCartTotal()
@@ -155,17 +197,35 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
       }
     }
     
-    const total = subtotal + platformFee - discount
+    // Calculate Ordyrr Coins discount
+    let coinsDiscount = 0
+    let coinsUsed = 0
+    if (useOrdyrrCoins && isLoggedIn && availableCoins > 0 && subtotal >= 100) {
+      // Max discount is 5% of subtotal
+      const maxCoinsDiscount = subtotal * 0.05
+      // Max 500 coins per order (₹50)
+      const maxCoinsAllowed = 500
+      // Convert available coins to rupees (100 coins = ₹10)
+      const maxCoinsValue = Math.min(availableCoins, maxCoinsAllowed) / 10
+      // Take the minimum of available coins value and max allowed discount
+      coinsDiscount = Math.min(maxCoinsValue, maxCoinsDiscount)
+      // Calculate coins used (₹1 = 10 coins)
+      coinsUsed = Math.floor(coinsDiscount * 10)
+    }
+    
+    const total = subtotal + platformFee - discount - coinsDiscount
     
     return {
       isEmpty: false,
       subtotal,
       platformFee,
       discount,
+      coinsDiscount,
+      coinsUsed,
       total,
       items: cart
     }
-  }, [cart, getCartTotal, isLoggedIn, hasUsedFirstOrderDiscount, currentOffer])
+  }, [cart, getCartTotal, isLoggedIn, hasUsedFirstOrderDiscount, currentOffer, useOrdyrrCoins, availableCoins])
 
   // Show celebratory popup when discount is applied
   React.useEffect(() => {
@@ -209,6 +269,11 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
       console.log('🛒 Starting complete checkout workflow...')
       console.log('Customer info:', finalCustomerInfo)
 
+      // Extract discount and coins values from cartSummary
+      const discount = cartSummary?.discount || 0
+      const coinsDiscount = cartSummary?.coinsDiscount || 0
+      const coinsUsed = cartSummary?.coinsUsed || 0
+
       // Step 1: Update customer session with customer info
       await customerService.updateCustomerSession(sessionId, {
         customer_name: finalCustomerInfo.name,
@@ -231,7 +296,8 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
         specialInstructions: finalCustomerInfo.specialInstructions,
         paymentMethod: finalCustomerInfo.paymentMethod,
         tipAmount: selectedTip,
-        discountAmount: discount,
+        discountAmount: discount + coinsDiscount, // Include both offer discount and coins discount
+        coinsRedeemed: coinsUsed, // Track coins redeemed for order history
         firstOrderDiscountApplied: discount > 0
       })
 
@@ -240,6 +306,41 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
       }
 
       console.log('✅ Order created successfully:', orderResult.order_number)
+      
+      // Step 2.5: Deduct Ordyrr Coins if used
+      if (useOrdyrrCoins && coinsUsed > 0 && isLoggedIn && currentCustomer?.id) {
+        try {
+          console.log(`🪙 Redeeming ${coinsUsed} Ordyrr Coins (₹${coinsDiscount.toFixed(2)} discount)...`)
+          
+          // Record the redemption in loyalty_points table
+          const { error: coinsError } = await supabase
+            .from('loyalty_points')
+            .insert({
+              customer_id: currentCustomer.id,
+              restaurant_id: restaurantId,
+              order_id: orderResult.id,
+              points_earned: 0,
+              points_redeemed: coinsUsed, // Record redeemed coins
+              transaction_type: 'redemption',
+              description: `Redeemed ${coinsUsed} coins for ₹${coinsDiscount.toFixed(2)} discount on order #${orderResult.order_number}`
+            })
+          
+          if (coinsError) {
+            console.error('❌ Error recording coin redemption:', coinsError)
+            // Don't fail the order, just log the error
+            toast.error('Coins could not be redeemed. Please contact support.', {
+              duration: 5000
+            })
+          } else {
+            console.log(`✅ Successfully redeemed ${coinsUsed} Ordyrr Coins`)
+            toast.success(`🪙 ${coinsUsed} coins redeemed! You saved ₹${coinsDiscount.toFixed(2)}`, {
+              duration: 3000
+            })
+          }
+        } catch (coinsError) {
+          console.error('❌ Exception redeeming coins:', coinsError)
+        }
+      }
       
       // Clear cart only after successful order creation
       clearCart()
@@ -619,19 +720,6 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
                     required
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1">
-                    Email (for loyalty points)
-                  </label>
-                  <input
-                    type="email"
-                    value={customerInfo.email}
-                    onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                    placeholder="Your email address"
-                  />
-                </div>
               </div>
             </div>
 
@@ -710,13 +798,19 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess, restaurantId, tableId, sess
                   <span>₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-black">
-                  <span>Tax (18%)</span>
-                  <span>₹{tax.toFixed(2)}</span>
+                  <span>Platform Fee (1.5%)</span>
+                  <span>₹{platformFee.toFixed(2)}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-sm font-semibold" style={{ color: ACTION_GREEN }}>
                     <span>🎉 First Order Discount (10%)</span>
                     <span>-₹{discount.toFixed(2)}</span>
+                  </div>
+                )}
+                {coinsDiscount > 0 && (
+                  <div className="flex justify-between text-sm font-semibold text-yellow-600">
+                    <span>🪙 Ordyrr Coins ({coinsUsed} coins)</span>
+                    <span>-₹{coinsDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 {selectedTip > 0 && (
